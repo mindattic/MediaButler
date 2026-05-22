@@ -30,6 +30,7 @@ public sealed class SettingsEditor
             new() { Label = "Movies Destination",  Description = s.MoviesDestination, OnSelect = () => EditString("Movies destination",  v => v.MoviesDestination, (v, x) => v.MoviesDestination = x) },
             new() { Label = "FileBot Path",        Description = s.FileBotPath,       OnSelect = () => EditString("FileBot path",        v => v.FileBotPath,       (v, x) => v.FileBotPath = x) },
             new() { Label = "Subtitle Language",   Description = s.SubtitleLanguage,  OnSelect = () => EditString("Subtitle language",   v => v.SubtitleLanguage,  (v, x) => v.SubtitleLanguage = x) },
+            new() { Label = "Dry Run",             Description = Bool(s.DryRun) + " (no disk mutations when on)", OnSelect = () => Toggle(v => v.DryRun, (v, x) => v.DryRun = x) },
             new() { Label = "Enable Subtitles",    Description = Bool(s.EnableSubtitles), OnSelect = () => Toggle(v => v.EnableSubtitles, (v, x) => v.EnableSubtitles = x) },
             new() { Label = "Rename TV Episodes",  Description = Bool(s.RenameEpisodes),  OnSelect = () => Toggle(v => v.RenameEpisodes,  (v, x) => v.RenameEpisodes = x) },
             new() { Label = "Rename Movies",       Description = Bool(s.RenameMovies),    OnSelect = () => Toggle(v => v.RenameMovies,    (v, x) => v.RenameMovies = x) },

@@ -52,9 +52,15 @@ public static class NameParser
         @"^(?:Season|S)\s*0*(\d{1,2})$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    // Anywhere in name: parenthesised or bare 19xx/20xx
-    private static readonly Regex YearAnywhere = new(
-        @"(?:\(((?:19|20)\d{2})\)|\b((?:19|20)\d{2})\b)",
+    // Two distinct year regexes so we can prefer a parenthesised year over a
+    // bare leading one — without this, "1917 (2019)" loses the title and parses
+    // year=1917.
+    private static readonly Regex ParenYear = new(
+        @"\(((?:19|20)\d{2})\)",
+        RegexOptions.Compiled);
+
+    private static readonly Regex BareYear = new(
+        @"\b((?:19|20)\d{2})\b",
         RegexOptions.Compiled);
 
     // Tail tags FileBot/Plex shouldn't see in a clean title
@@ -62,12 +68,40 @@ public static class NameParser
         @"\s+(?:Complete|COMPLETE|1080p|720p|2160p|4K|BluRay|BRrip|BDRip|WEBRip|WEB-DL|HDTV|x264|x265|HEVC|H\.?264|H\.?265|AAC|AC3|DTS(?:-?HDMA)?|DD\+?5\.1|DDP5\.1|Atmos|MULTi|REMASTERED|PROPER|REPACK|NF|AMZN|HDR|DV|HMAX|MAX).*$",
         RegexOptions.Compiled);
 
+    // Index/release-group prefix like "www.UIndex.org    -    " or "[YTS.MX] - ".
+    // Always at the very start, ends with a dash + whitespace.
+    private static readonly Regex IndexPrefix = new(
+        @"^(?:www\.[\w-]+\.\w+|\[[^\]]+\])\s*-\s*",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    // Top-level folders that are companion content to a show, not a season.
+    // Matched against the trailing portion after the last " - " separator.
+    private static readonly Regex ExtrasFolder = new(
+        @"^(?:Extras|Specials|Bonus|Bonus\s+Disc|Featurettes|Deleted\s+Scenes)$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     /// <summary>Replace dot/underscore separators with spaces and collapse whitespace.</summary>
     public static string Normalize(string name)
     {
-        var n = name.Replace('.', ' ').Replace('_', ' ');
+        var n = IndexPrefix.Replace(name, "");
+        n = n.Replace('.', ' ').Replace('_', ' ');
         n = Regex.Replace(n, @"\s+", " ");
         return n.Trim();
+    }
+
+    /// <summary>
+    /// True if the folder name is "Extras", "Specials", "Bonus" (etc.) — these
+    /// are companion content to a show and must not be classified as a movie.
+    /// </summary>
+    public static bool LooksLikeExtras(string folderName)
+    {
+        var n = Normalize(folderName);
+        // Match either the whole thing ("Extras") or the trailing segment after
+        // " - " ("The Venture Bros. - Extras").
+        var tail = n;
+        var dashIdx = n.LastIndexOf(" - ", StringComparison.Ordinal);
+        if (dashIdx >= 0) tail = n[(dashIdx + 3)..].Trim();
+        return ExtrasFolder.IsMatch(tail);
     }
 
     /// <summary>True if the folder name itself signals a multi-season dump (range markers, "Complete Series").</summary>
@@ -145,22 +179,50 @@ public static class NameParser
     /// <summary>
     /// Parse a movie folder name into Title + optional Year. Year is what
     /// disambiguates "Heat (1995)" from a TV show called "Heat".
+    /// <para>Pass <paramref name="titleYearOverrides"/> to keep titles like
+    /// <c>Blade Runner 2049</c> intact instead of having 2049 parsed as the
+    /// release year. The override wins when the normalized folder name starts
+    /// with one of the overrides (case-insensitive); any trailing
+    /// parenthesised year is still extracted as the release year.</para>
     /// </summary>
-    public static (string Title, int? Year) ParseMovie(string folderName)
+    public static (string Title, int? Year) ParseMovie(string folderName, IReadOnlyList<string>? titleYearOverrides = null)
     {
         var n = Normalize(folderName);
         // Strip bracket-tags first ("[YTS.MX]", "[i_c]") — they often follow the title.
         n = Regex.Replace(n, @"\[[^\]]*\]", " ").Trim();
         n = Regex.Replace(n, @"\s+", " ");
 
-        var yearMatch = YearAnywhere.Match(n);
+        // Title-year overrides: the title itself contains a year-shaped number.
+        // Check before generic year parsing so we don't strip the override's
+        // suffix as a release year.
+        if (titleYearOverrides is not null)
+        {
+            foreach (var ov in titleYearOverrides)
+            {
+                if (string.IsNullOrWhiteSpace(ov)) continue;
+                if (TryMatchOverride(n, ov, out var ovTitle, out var ovYear))
+                    return (ovTitle, ovYear);
+            }
+        }
+
+        // Prefer a parenthesised year — that's an explicit disambiguation by the
+        // user. Only fall back to a bare year if no parens are present.
         int? year = null;
         var titleEnd = n.Length;
-        if (yearMatch.Success)
+        var paren = ParenYear.Match(n);
+        if (paren.Success)
         {
-            var yv = yearMatch.Groups[1].Success ? yearMatch.Groups[1].Value : yearMatch.Groups[2].Value;
-            year = int.Parse(yv);
-            titleEnd = yearMatch.Index;
+            year = int.Parse(paren.Groups[1].Value);
+            titleEnd = paren.Index;
+        }
+        else
+        {
+            var bare = BareYear.Match(n);
+            if (bare.Success)
+            {
+                year = int.Parse(bare.Groups[1].Value);
+                titleEnd = bare.Index;
+            }
         }
 
         var title = n[..titleEnd];
@@ -181,6 +243,11 @@ public static class NameParser
         // Strip dangling bracket tags
         n = Regex.Replace(n, @"\[[^\]]*\]", " ");
         n = Regex.Replace(n, @"\s+", " ").Trim();
+        // Strip the canonical " - " separator MediaButler itself inserts before
+        // "Season XX". Critical for idempotency: without this, re-running the
+        // rename on "The Mentalist - Season 04" would yield
+        // "The Mentalist - - Season 04" and so on indefinitely.
+        n = Regex.Replace(n, @"\s*-+\s*$", "");
         return n;
     }
 
@@ -197,4 +264,29 @@ public static class NameParser
 
     /// <summary>True if the file name contains an SxxEyy pattern.</summary>
     public static bool LooksLikeEpisodeFile(string fileName) => EpisodeMarker.IsMatch(fileName);
+
+    /// <summary>
+    /// True when <paramref name="normalized"/> begins with <paramref name="override_"/>
+    /// (followed by end-of-string, space, or open-paren). Returns the override as
+    /// the title and any parenthesised year that follows as the release year.
+    /// </summary>
+    private static bool TryMatchOverride(string normalized, string override_, out string title, out int? year)
+    {
+        title = override_;
+        year  = null;
+        if (!normalized.StartsWith(override_, StringComparison.OrdinalIgnoreCase)) return false;
+
+        // Reject "Blade Runner 2049 Extra" matching override "Blade Runner" —
+        // require word boundary after the override.
+        if (normalized.Length > override_.Length)
+        {
+            var next = normalized[override_.Length];
+            if (next != ' ' && next != '(' && next != '[') return false;
+        }
+
+        var rest = normalized[override_.Length..];
+        var paren = ParenYear.Match(rest);
+        if (paren.Success) year = int.Parse(paren.Groups[1].Value);
+        return true;
+    }
 }

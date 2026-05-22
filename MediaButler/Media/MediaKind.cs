@@ -17,4 +17,11 @@ public enum MediaKind
 
     /// <summary>Has no video files at all — MediaButler deletes these.</summary>
     Empty,
+
+    /// <summary>
+    /// "Extras", "Specials", "Bonus", etc. — companion content to a show that
+    /// must not be classified as a movie. MediaButler leaves it in place and
+    /// flags it in the final report so the user can decide what to do.
+    /// </summary>
+    Extras,
 }

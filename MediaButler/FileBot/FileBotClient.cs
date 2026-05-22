@@ -62,29 +62,25 @@ public sealed class FileBotClient
 
     /// <summary>Fetch TV artwork for a season folder. Returns true on exit code 0.</summary>
     public FileBotResult FetchTvArtwork(string seasonFolder) =>
-        Run("-script", "fn:artwork.tvdb", seasonFolder);
+        Run(BuildFetchTvArtworkArgs(seasonFolder));
 
     /// <summary>
     /// Rename TV episodes inside a season folder using TheTVDB. Format produces
     /// <c>Show - S01E01 - Title.ext</c> which Plex parses cleanly.
+    /// When <paramref name="dryRun"/> is true, runs with <c>--action TEST</c> so
+    /// FileBot prints its plan but doesn't touch files.
     /// </summary>
-    public FileBotResult RenameTvEpisodes(string seasonFolder) =>
-        Run("-rename", seasonFolder,
-            "--db", "TheTVDB",
-            "--format", "{n} - {s00e00} - {t}",
-            "--action", "MOVE",
-            "-non-strict");
+    public FileBotResult RenameTvEpisodes(string seasonFolder, bool dryRun = false) =>
+        Run(BuildRenameTvArgs(seasonFolder, dryRun));
 
     /// <summary>
     /// Rename a movie folder's contents to <c>Title (YYYY).ext</c>. Side effect:
     /// writes xattr metadata that <see cref="FetchMovieArtwork"/> relies on.
+    /// When <paramref name="dryRun"/> is true, runs with <c>--action TEST</c> so
+    /// FileBot prints its plan but doesn't touch files.
     /// </summary>
-    public FileBotResult RenameMovie(string movieFolder) =>
-        Run("-rename", movieFolder,
-            "--db", "TheMovieDB",
-            "--format", "{n} ({y})",
-            "--action", "MOVE",
-            "-non-strict");
+    public FileBotResult RenameMovie(string movieFolder, bool dryRun = false) =>
+        Run(BuildRenameMovieArgs(movieFolder, dryRun));
 
     /// <summary>
     /// Fetch movie artwork via the generic <c>fn:artwork</c> script. Requires
@@ -92,15 +88,53 @@ public sealed class FileBotClient
     /// it, the script silently does nothing.
     /// </summary>
     public FileBotResult FetchMovieArtwork(string movieFolder) =>
-        Run("-script", "fn:artwork", movieFolder);
+        Run(BuildFetchMovieArtworkArgs(movieFolder));
 
     /// <summary>
-    /// Try to download subtitles in <paramref name="languageCode"/>. Returns the
-    /// result; callers should inspect <see cref="FileBotResult.LooksLikeAuthFailure"/>
-    /// to detect the OpenSubtitles 401 case.
+    /// Try to download subtitles in <paramref name="languageCode"/>. When
+    /// <paramref name="credentials"/> is supplied and complete, passes the
+    /// OpenSubtitles login through FileBot's <c>--def osdb.user/osdb.pwd</c>
+    /// definitions so FileBot Preferences need not be pre-configured. Callers
+    /// should inspect <see cref="FileBotResult.LooksLikeAuthFailure"/> to detect
+    /// the 401 case.
     /// </summary>
-    public FileBotResult GetSubtitles(string folder, string languageCode) =>
-        Run("-get-subtitles", folder, "--lang", languageCode, "-non-strict");
+    public FileBotResult GetSubtitles(string folder, string languageCode, Settings.SubtitleCredentials? credentials = null) =>
+        Run(BuildGetSubtitlesArgs(folder, languageCode, credentials));
+
+    // ----- Pure argument builders (testable without spawning processes) -----
+
+    internal static string[] BuildRenameTvArgs(string seasonFolder, bool dryRun) =>
+        ["-rename", seasonFolder,
+         "--db", "TheTVDB",
+         "--format", "{n} - {s00e00} - {t}",
+         "--action", dryRun ? "TEST" : "MOVE",
+         "-non-strict"];
+
+    internal static string[] BuildRenameMovieArgs(string movieFolder, bool dryRun) =>
+        ["-rename", movieFolder,
+         "--db", "TheMovieDB",
+         "--format", "{n} ({y})",
+         "--action", dryRun ? "TEST" : "MOVE",
+         "-non-strict"];
+
+    internal static string[] BuildFetchTvArtworkArgs(string seasonFolder) =>
+        ["-script", "fn:artwork.tvdb", seasonFolder];
+
+    internal static string[] BuildFetchMovieArtworkArgs(string movieFolder) =>
+        ["-script", "fn:artwork", movieFolder];
+
+    internal static string[] BuildGetSubtitlesArgs(string folder, string languageCode, Settings.SubtitleCredentials? credentials)
+    {
+        var args = new List<string> { "-get-subtitles", folder, "--lang", languageCode, "-non-strict" };
+        if (credentials is { IsComplete: true })
+        {
+            args.Add("--def");
+            args.Add("osdb.user=" + credentials.User);
+            args.Add("--def");
+            args.Add("osdb.pwd=" + credentials.Password);
+        }
+        return args.ToArray();
+    }
 
     /// <summary>Run filebot with the given arguments and capture stdout/stderr.</summary>
     public FileBotResult Run(params string[] args)
@@ -151,10 +185,22 @@ public sealed class FileBotResult
         StdErr.Contains("401 Unauthorized", StringComparison.OrdinalIgnoreCase) ||
         StdOut.Contains("invalid username/password", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Last meaningful stdout line — used for compact status output.</summary>
+    /// <summary>
+    /// Last meaningful line emitted by FileBot. Prefers stderr on failure
+    /// (where FileBot writes its diagnostic) and falls back to stdout. Used
+    /// to give the user the actual reason behind a non-zero exit instead of
+    /// just the exit code.
+    /// </summary>
     public string LastInterestingLine()
     {
-        var lines = StdOut.Split('\n')
+        var fromErr = LastLine(StdErr);
+        if (!string.IsNullOrWhiteSpace(fromErr)) return fromErr;
+        return LastLine(StdOut);
+    }
+
+    private static string LastLine(string text)
+    {
+        var lines = text.Split('\n')
             .Select(l => l.TrimEnd('\r'))
             .Where(l => !string.IsNullOrWhiteSpace(l))
             .ToArray();

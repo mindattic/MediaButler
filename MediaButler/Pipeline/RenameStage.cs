@@ -15,26 +15,33 @@ namespace MediaButler.Pipeline;
 ///         then delete the (now-empty) parent.</item>
 ///   <item><see cref="MediaKind.TvSeason"/>: rename in place to <c>{Show} - Season XX</c>.</item>
 ///   <item><see cref="MediaKind.Movie"/>: rename in place to <c>{Title} (YYYY)</c>.</item>
-///   <item><see cref="MediaKind.Unknown"/>: leave alone, log skip.</item>
+///   <item><see cref="MediaKind.Extras"/>: leave in place, surface in the manual report.</item>
+///   <item><see cref="MediaKind.Unknown"/>: leave in place, surface in the manual report.</item>
 /// </list>
+///
+/// <para>When <see cref="MediaButlerSettings.DryRun"/> is true, no filesystem
+/// mutations occur — every action prints as <c>[dry]</c> with the target name
+/// that <em>would</em> have been written.</para>
 /// </summary>
 public sealed class RenameStage
 {
     private readonly MediaButlerSettings settings;
     private readonly MediaScanner scanner;
+    private readonly PipelineReport report;
 
-    public RenameStage(MediaButlerSettings settings)
+    public RenameStage(MediaButlerSettings settings, PipelineReport report)
     {
         this.settings = settings;
-        scanner = new MediaScanner(settings);
+        this.report   = report;
+        scanner       = new MediaScanner(settings);
     }
 
     public void Run()
     {
         ConsoleMenu.Status("Source: " + settings.SourcePath, ConsoleMenu.Normal);
+        if (settings.DryRun)
+            ConsoleMenu.Status("DRY RUN — no files will be renamed, moved, or deleted.", ConsoleMenu.Active);
         Console.WriteLine();
-
-        var counts = new Counts();
 
         // Snapshot first — we mutate the directory tree as we go.
         var items = scanner.Scan().ToList();
@@ -42,59 +49,56 @@ public sealed class RenameStage
         {
             try
             {
-                ProcessItem(item, counts);
+                ProcessItem(item);
             }
             catch (Exception ex)
             {
                 ConsoleMenu.Status($"  ! {item.OriginalName}: {ex.Message}", ConsoleMenu.Err);
-                counts.Errors++;
+                report.RecordError(item.FullPath, ex.Message);
             }
         }
-
-        Console.WriteLine();
-        ConsoleMenu.Status(
-            $"Renamed: {counts.Renamed}  Hoisted: {counts.Hoisted}  " +
-            $"Deleted empty: {counts.Empty}  Skipped: {counts.Skipped}  Errors: {counts.Errors}",
-            ConsoleMenu.Ok);
     }
 
-    private void ProcessItem(MediaItem item, Counts counts)
+    private void ProcessItem(MediaItem item)
     {
         Console.Write("  " + item.OriginalName);
 
         switch (item.Kind)
         {
             case MediaKind.Empty:
-                Directory.Delete(item.FullPath, recursive: true);
-                ConsoleMenu.WriteColor("  [empty - deleted]", ConsoleMenu.Dim, newline: true);
-                counts.Empty++;
+                DeleteEmptySafely(item);
                 break;
 
             case MediaKind.MultiSeasonParent:
-                HoistParent(item, counts);
+                HoistParent(item);
                 break;
 
             case MediaKind.TvSeason:
-                RenameSeason(item, counts);
+                RenameSeason(item);
                 break;
 
             case MediaKind.Movie:
-                RenameMovie(item, counts);
+                RenameMovie(item);
+                break;
+
+            case MediaKind.Extras:
+                ConsoleMenu.WriteColor("  [extras - left in place]", ConsoleMenu.Dim, newline: true);
+                report.RecordManual(item.FullPath, item.Kind, "extras/specials folder — Plex prefers these inside the show root");
                 break;
 
             default:
                 ConsoleMenu.WriteColor("  [skip - unknown]", ConsoleMenu.Dim, newline: true);
-                counts.Skipped++;
+                report.RecordManual(item.FullPath, item.Kind, "parser could not classify (try EnableLlmFallback)");
                 break;
         }
     }
 
-    private void RenameSeason(MediaItem item, Counts counts)
+    private void RenameSeason(MediaItem item)
     {
         if (string.IsNullOrWhiteSpace(item.ShowName) || item.SeasonNumber is null)
         {
             ConsoleMenu.WriteColor("  [skip - missing show/season]", ConsoleMenu.Dim, newline: true);
-            counts.Skipped++;
+            report.RecordManual(item.FullPath, item.Kind, "parsed as TvSeason but show/season missing");
             return;
         }
 
@@ -109,21 +113,29 @@ public sealed class RenameStage
         if (Directory.Exists(target))
         {
             ConsoleMenu.WriteColor($"  [skip - target exists: {newName}]", ConsoleMenu.Dim, newline: true);
-            counts.Skipped++;
+            report.RecordManual(item.FullPath, item.Kind, $"target {newName} already exists");
             return;
         }
 
-        Directory.Move(item.FullPath, target);
-        ConsoleMenu.WriteColor($"  -> {newName}", ConsoleMenu.Ok, newline: true);
-        counts.Renamed++;
+        if (settings.DryRun)
+        {
+            ConsoleMenu.WriteColor($"  [dry: -> {newName}]", ConsoleMenu.Active, newline: true);
+        }
+        else
+        {
+            Directory.Move(item.FullPath, target);
+            ConsoleMenu.WriteColor($"  -> {newName}", ConsoleMenu.Ok, newline: true);
+        }
+        AuditLog.Record(settings, settings.DryRun, "rename", item.FullPath, target, item.Kind);
+        report.Renamed++;
     }
 
-    private void RenameMovie(MediaItem item, Counts counts)
+    private void RenameMovie(MediaItem item)
     {
         if (string.IsNullOrWhiteSpace(item.MovieTitle))
         {
             ConsoleMenu.WriteColor("  [skip - no title]", ConsoleMenu.Dim, newline: true);
-            counts.Skipped++;
+            report.RecordManual(item.FullPath, item.Kind, "parsed as Movie but title missing");
             return;
         }
 
@@ -138,22 +150,30 @@ public sealed class RenameStage
         if (Directory.Exists(target))
         {
             ConsoleMenu.WriteColor($"  [skip - target exists: {newName}]", ConsoleMenu.Dim, newline: true);
-            counts.Skipped++;
+            report.RecordManual(item.FullPath, item.Kind, $"target {newName} already exists");
             return;
         }
 
-        Directory.Move(item.FullPath, target);
-        ConsoleMenu.WriteColor($"  -> {newName} (movie)", ConsoleMenu.Ok, newline: true);
-        counts.Renamed++;
+        if (settings.DryRun)
+        {
+            ConsoleMenu.WriteColor($"  [dry: -> {newName} (movie)]", ConsoleMenu.Active, newline: true);
+        }
+        else
+        {
+            Directory.Move(item.FullPath, target);
+            ConsoleMenu.WriteColor($"  -> {newName} (movie)", ConsoleMenu.Ok, newline: true);
+        }
+        AuditLog.Record(settings, settings.DryRun, "rename", item.FullPath, target, item.Kind);
+        report.Renamed++;
     }
 
-    private void HoistParent(MediaItem item, Counts counts)
+    private void HoistParent(MediaItem item)
     {
         var show = item.ShowName;
         if (string.IsNullOrWhiteSpace(show))
         {
             ConsoleMenu.WriteColor("  [skip - could not parse show name]", ConsoleMenu.Err, newline: true);
-            counts.Skipped++;
+            report.RecordManual(item.FullPath, item.Kind, "multi-season parent: could not parse show name");
             return;
         }
 
@@ -163,23 +183,31 @@ public sealed class RenameStage
         foreach (var season in item.Seasons.OrderBy(s => s.SeasonNumber))
         {
             var newName = NameParser.FormatSeasonFolder(show!, season.SeasonNumber);
-            var target = Path.Combine(settings.SourcePath, newName);
+            var target  = Path.Combine(settings.SourcePath, newName);
             if (Directory.Exists(target))
             {
                 ConsoleMenu.WriteColor($"    [skip - exists: {newName}]", ConsoleMenu.Dim, newline: true);
-                counts.Skipped++;
+                report.RecordManual(season.FullPath, MediaKind.TvSeason, $"hoist target {newName} already exists");
                 continue;
             }
-            Directory.Move(season.FullPath, target);
+            if (settings.DryRun)
+            {
+                ConsoleMenu.WriteColor($"    [dry: -> {newName}]", ConsoleMenu.Active, newline: true);
+            }
+            else
+            {
+                Directory.Move(season.FullPath, target);
+                ConsoleMenu.WriteColor($"    -> {newName}", ConsoleMenu.Ok, newline: true);
+            }
+            AuditLog.Record(settings, settings.DryRun, "hoist", season.FullPath, target, MediaKind.TvSeason);
             hoisted.Add(target);
-            ConsoleMenu.WriteColor($"    -> {newName}", ConsoleMenu.Ok, newline: true);
-            counts.Hoisted++;
+            report.Hoisted++;
         }
 
         // Orphan show-level files at the parent (e.g. Bones_Large.jpg, Info.txt)
         // get tucked into the first new season folder so they aren't lost when
         // we delete the parent. Plex doesn't read them but they're cheap to keep.
-        if (item.OrphanFilesAtParent.Count > 0 && hoisted.Count > 0)
+        if (!settings.DryRun && item.OrphanFilesAtParent.Count > 0 && hoisted.Count > 0)
         {
             var firstSeason = hoisted[0];
             foreach (var file in item.OrphanFilesAtParent)
@@ -194,11 +222,53 @@ public sealed class RenameStage
         }
 
         // Delete the parent if no video files remain. We do NOT delete a parent
-        // that still has hidden video content the scanner missed.
-        if (!HasAnyVideoLeft(item.FullPath))
+        // that still has hidden video content the scanner missed (e.g. Extras).
+        if (!settings.DryRun && !HasAnyVideoLeft(item.FullPath))
         {
             try { Directory.Delete(item.FullPath, recursive: true); } catch { /* best effort */ }
         }
+    }
+
+    /// <summary>
+    /// Delete an Empty-classified folder, but only after a size sanity check:
+    /// if it holds more than <see cref="MediaButlerSettings.EmptyDeleteSafetyBytes"/>
+    /// the folder is almost certainly real media in an unrecognised container
+    /// — refuse to delete and surface to the manual list so the user can
+    /// extend <see cref="MediaButlerSettings.VideoExtensions"/>.
+    /// </summary>
+    private void DeleteEmptySafely(MediaItem item)
+    {
+        long size = 0;
+        try
+        {
+            foreach (var f in Directory.EnumerateFiles(item.FullPath, "*", SearchOption.AllDirectories))
+            {
+                try { size += new FileInfo(f).Length; } catch { /* ignore unreadable file */ }
+                if (size > settings.EmptyDeleteSafetyBytes) break; // short-circuit; we already know we're over
+            }
+        }
+        catch (Exception ex)
+        {
+            ConsoleMenu.WriteColor($"  [skip - could not measure: {ex.Message}]", ConsoleMenu.Err, newline: true);
+            report.RecordError(item.FullPath, "measure failed: " + ex.Message);
+            return;
+        }
+
+        if (size > settings.EmptyDeleteSafetyBytes)
+        {
+            var mb = size / (1024.0 * 1024.0);
+            ConsoleMenu.WriteColor($"  [refuse - {mb:F1} MB of non-video content; extend VideoExtensions?]",
+                ConsoleMenu.Active, newline: true);
+            report.RecordManual(item.FullPath, item.Kind,
+                $"marked Empty but holds {mb:F1} MB — likely an unrecognised video container");
+            return;
+        }
+
+        if (!settings.DryRun) Directory.Delete(item.FullPath, recursive: true);
+        ConsoleMenu.WriteColor(settings.DryRun ? "  [dry: would delete empty]" : "  [empty - deleted]",
+            ConsoleMenu.Dim, newline: true);
+        AuditLog.Record(settings, settings.DryRun, "delete-empty", item.FullPath, null, item.Kind);
+        report.EmptyDeleted++;
     }
 
     private bool HasAnyVideoLeft(string path)
@@ -210,10 +280,5 @@ public sealed class RenameStage
             if (exts.Contains(Path.GetExtension(f))) return true;
         }
         return false;
-    }
-
-    private sealed class Counts
-    {
-        public int Renamed, Hoisted, Empty, Skipped, Errors;
     }
 }

@@ -24,25 +24,82 @@ public sealed class MediaScanner
         llmFallback = settings.EnableLlmFallback ? new LegionFallbackParser(settings) : null;
     }
 
+    /// <summary>
+    /// Synchronous scan — the fast path used by every stage. Items the regex
+    /// parser can't classify are returned as <see cref="MediaKind.Unknown"/>
+    /// without consulting the LLM. Callers that want LLM-based fallback should
+    /// use <see cref="ScanAsync"/> instead.
+    /// </summary>
     public IEnumerable<MediaItem> Scan()
     {
-        if (!Directory.Exists(settings.SourcePath)) yield break;
+        foreach (var dir in TopLevelDirs())
+            yield return ClassifyByRegex(dir);
+    }
 
-        foreach (var dir in Directory.EnumerateDirectories(settings.SourcePath))
+    /// <summary>
+    /// Async scan. Same regex pipeline as <see cref="Scan"/> but with a real
+    /// <c>await</c> on the LLM fallback so we don't deadlock on
+    /// <c>.GetAwaiter().GetResult()</c> inside an iterator. Yields items in
+    /// directory-enumeration order.
+    /// </summary>
+    public async IAsyncEnumerable<MediaItem> ScanAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
+    {
+        foreach (var dir in TopLevelDirs())
         {
-            var name = Path.GetFileName(dir);
-            if (excluded.Contains(name)) continue;
-            yield return Classify(dir);
+            ct.ThrowIfCancellationRequested();
+            var item = ClassifyByRegex(dir);
+            if (item.Kind == MediaKind.Unknown && llmFallback is not null)
+            {
+                var refined = await TryLlmClassifyAsync(dir, ct).ConfigureAwait(false);
+                if (refined is not null) item = refined;
+            }
+            yield return item;
         }
     }
 
-    public MediaItem Classify(string fullPath)
+    private IEnumerable<string> TopLevelDirs()
+    {
+        if (!Directory.Exists(settings.SourcePath)) yield break;
+        foreach (var dir in Directory.EnumerateDirectories(settings.SourcePath))
+        {
+            var name = Path.GetFileName(dir);
+            // Top-level dotfile directories (.claude, .tmp, .stversions, …) are
+            // never user media — skip unconditionally so the empty-folder pass
+            // can't delete them.
+            if (name.StartsWith('.')) continue;
+            if (excluded.Contains(name)) continue;
+            yield return dir;
+        }
+    }
+
+    /// <summary>
+    /// Public single-folder classification. Sync — does not consult the LLM
+    /// (use <see cref="ClassifyAsync"/> for the LLM-aware variant). Preserved
+    /// for callers that want to classify one folder directly.
+    /// </summary>
+    public MediaItem Classify(string fullPath) => ClassifyByRegex(fullPath);
+
+    /// <summary>Single-folder classification with LLM fallback for Unknown items.</summary>
+    public async Task<MediaItem> ClassifyAsync(string fullPath, CancellationToken ct = default)
+    {
+        var item = ClassifyByRegex(fullPath);
+        if (item.Kind != MediaKind.Unknown || llmFallback is null) return item;
+        var refined = await TryLlmClassifyAsync(fullPath, ct).ConfigureAwait(false);
+        return refined ?? item;
+    }
+
+    private MediaItem ClassifyByRegex(string fullPath)
     {
         var name = Path.GetFileName(fullPath);
 
         // Empty? (no video files anywhere underneath)
         if (!HasAnyVideo(fullPath))
             return new MediaItem { FullPath = fullPath, OriginalName = name, Kind = MediaKind.Empty };
+
+        // Extras / Specials / Bonus folders — sit next to a show but aren't a season.
+        // Check before the season-marker tests so "Show - Extras" isn't misread.
+        if (NameParser.LooksLikeExtras(name))
+            return new MediaItem { FullPath = fullPath, OriginalName = name, Kind = MediaKind.Extras };
 
         // Multi-season? Look at name first, then structure.
         if (NameParser.LooksLikeMultiSeason(name) || HasMultipleSeasonSubfolders(fullPath))
@@ -65,7 +122,7 @@ public sealed class MediaScanner
         // Movie? (video file present + no season marker)
         if (!NameParser.HasAnySeasonMarker(name))
         {
-            var movie = NameParser.ParseMovie(name);
+            var movie = NameParser.ParseMovie(name, settings.TitleYearOverrides);
             return new MediaItem
             {
                 FullPath = fullPath,
@@ -76,37 +133,43 @@ public sealed class MediaScanner
             };
         }
 
-        // Regex couldn't classify. Try the LLM fallback as a last resort.
-        if (llmFallback is not null)
-        {
-            var sampleFiles = Directory.EnumerateFiles(fullPath).Take(6).Select(Path.GetFileName).Where(s => s is not null).Cast<string>().ToList();
-            var guess = llmFallback.ClassifyAsync(name, sampleFiles).GetAwaiter().GetResult();
-            if (guess is not null)
-            {
-                return guess.Kind switch
-                {
-                    LlmKind.Movie => new MediaItem
-                    {
-                        FullPath = fullPath,
-                        OriginalName = name,
-                        Kind = MediaKind.Movie,
-                        MovieTitle = guess.Title,
-                        MovieYear = guess.Year,
-                    },
-                    LlmKind.TvSeason when guess.Season.HasValue => new MediaItem
-                    {
-                        FullPath = fullPath,
-                        OriginalName = name,
-                        Kind = MediaKind.TvSeason,
-                        ShowName = guess.Title,
-                        SeasonNumber = guess.Season,
-                    },
-                    _ => new MediaItem { FullPath = fullPath, OriginalName = name, Kind = MediaKind.Unknown },
-                };
-            }
-        }
-
         return new MediaItem { FullPath = fullPath, OriginalName = name, Kind = MediaKind.Unknown };
+    }
+
+    /// <summary>Best-effort LLM classification of a folder; returns null on any failure.</summary>
+    private async Task<MediaItem?> TryLlmClassifyAsync(string fullPath, CancellationToken ct)
+    {
+        if (llmFallback is null) return null;
+        var name = Path.GetFileName(fullPath);
+        var sampleFiles = Directory.EnumerateFiles(fullPath)
+            .Take(6)
+            .Select(Path.GetFileName)
+            .Where(s => s is not null)
+            .Cast<string>()
+            .ToList();
+        var guess = await llmFallback.ClassifyAsync(name, sampleFiles, ct).ConfigureAwait(false);
+        if (guess is null) return null;
+
+        return guess.Kind switch
+        {
+            LlmKind.Movie => new MediaItem
+            {
+                FullPath = fullPath,
+                OriginalName = name,
+                Kind = MediaKind.Movie,
+                MovieTitle = guess.Title,
+                MovieYear = guess.Year,
+            },
+            LlmKind.TvSeason when guess.Season.HasValue => new MediaItem
+            {
+                FullPath = fullPath,
+                OriginalName = name,
+                Kind = MediaKind.TvSeason,
+                ShowName = guess.Title,
+                SeasonNumber = guess.Season,
+            },
+            _ => null,
+        };
     }
 
     private MediaItem BuildMultiSeasonParent(string fullPath, string name)
@@ -131,10 +194,7 @@ public sealed class MediaScanner
         {
             foreach (var sub in seasons)
             {
-                var subName = Path.GetFileName(sub.FullPath);
-                // Try to recover show from a child like "Sherlock.Season.1.S01..."
-                var parts = subName.Split('.', '_', ' ');
-                var subShow = NameParser.ParseSingleSeason(subName)?.Show;
+                var subShow = NameParser.ParseSingleSeason(Path.GetFileName(sub.FullPath))?.Show;
                 if (!string.IsNullOrWhiteSpace(subShow)) { show = subShow; break; }
             }
         }

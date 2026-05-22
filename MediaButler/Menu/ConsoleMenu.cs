@@ -7,6 +7,14 @@ namespace MediaButler.Menu;
 /// </summary>
 public static class ConsoleMenu
 {
+    /// <summary>
+    /// Verbosity floor for <see cref="Status"/> output. Quiet runs suppress
+    /// Normal/Dim lines and only print Err and Active (warnings) plus whatever
+    /// the caller writes via <see cref="WriteColor"/> directly. Verbose has no
+    /// suppression — every level prints.
+    /// </summary>
+    public static App.Verbosity Verbosity { get; set; } = App.Verbosity.Normal;
+
     public static readonly ConsoleColor Header = ConsoleColor.Cyan;
     public static readonly ConsoleColor Active = ConsoleColor.Yellow;
     public static readonly ConsoleColor Accent = ConsoleColor.DarkCyan;
@@ -22,7 +30,10 @@ public static class ConsoleMenu
     /// <summary>Top-of-screen breadcrumb. Pass the chain leading to the current view.</summary>
     public static void WriteHeader(params string[] breadcrumbs)
     {
-        Console.Clear();
+        // Console.Clear throws "handle is invalid" when stdout is redirected
+        // (e.g. headless --run piped through tee). Tolerate that so the menu
+        // helpers stay usable from non-interactive entry points.
+        try { Console.Clear(); } catch (IOException) { /* redirected */ }
         Console.WriteLine();
         var trail = string.Join(" > ", new[] { "MediaButler" }.Concat(breadcrumbs));
         WriteColor("  " + trail, Header, newline: true);
@@ -146,8 +157,24 @@ public static class ConsoleMenu
         Console.ForegroundColor = prev;
     }
 
-    /// <summary>Convenience for indented status lines during pipeline runs.</summary>
+    /// <summary>
+    /// Convenience for indented status lines during pipeline runs. In quiet
+    /// mode, only errors (<see cref="Err"/>) and warnings (<see cref="Active"/>)
+    /// print — all other levels are suppressed so cron-driven runs land just
+    /// the final summary + anything that went wrong.
+    /// </summary>
     public static void Status(string text, ConsoleColor color)
+    {
+        if (Verbosity == App.Verbosity.Quiet && color != Err && color != Active) return;
+        WriteColor("  " + text, color, newline: true);
+    }
+
+    /// <summary>
+    /// Final-report lines that must print at every verbosity, including quiet.
+    /// Use for end-of-pipeline summaries and totals so cron-driven runs still
+    /// land the bottom-line numbers.
+    /// </summary>
+    public static void Summary(string text, ConsoleColor color)
     {
         WriteColor("  " + text, color, newline: true);
     }
