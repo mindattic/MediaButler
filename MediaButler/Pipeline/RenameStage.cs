@@ -1,8 +1,8 @@
-using Tagsmith.Media;
-using Tagsmith.Menu;
-using Tagsmith.Settings;
+using MediaButler.Media;
+using MediaButler.Menu;
+using MediaButler.Settings;
 
-namespace Tagsmith.Pipeline;
+namespace MediaButler.Pipeline;
 
 /// <summary>
 /// Stage 1. Pure local-rename pass — gives FileBot a clean stem to work with.
@@ -20,10 +20,10 @@ namespace Tagsmith.Pipeline;
 /// </summary>
 public sealed class RenameStage
 {
-    private readonly TagsmithSettings settings;
+    private readonly MediaButlerSettings settings;
     private readonly MediaScanner scanner;
 
-    public RenameStage(TagsmithSettings settings)
+    public RenameStage(MediaButlerSettings settings)
     {
         this.settings = settings;
         scanner = new MediaScanner(settings);

@@ -1,11 +1,11 @@
-using Tagsmith.Menu;
+using MediaButler.Menu;
 
-namespace Tagsmith.Settings;
+namespace MediaButler.Settings;
 
 /// <summary>
 /// Settings sub-menu. Each row reads the current value, lets the user edit it
 /// (free-form string, toggle, or list edit), and writes the change back to
-/// <c>%APPDATA%\MindAttic\Tagsmith\settings.json</c>.
+/// <c>%APPDATA%\MindAttic\MediaButler\settings.json</c>.
 /// </summary>
 public sealed class SettingsEditor
 {
@@ -43,7 +43,7 @@ public sealed class SettingsEditor
         };
     }
 
-    private bool EditString(string label, Func<TagsmithSettings, string> getter, Action<TagsmithSettings, string> setter)
+    private bool EditString(string label, Func<MediaButlerSettings, string> getter, Action<MediaButlerSettings, string> setter)
     {
         var current = getter(settings.Load());
         var next = ConsoleMenu.Prompt(label, current);
@@ -54,14 +54,14 @@ public sealed class SettingsEditor
         return true;
     }
 
-    private bool Toggle(Func<TagsmithSettings, bool> getter, Action<TagsmithSettings, bool> setter)
+    private bool Toggle(Func<MediaButlerSettings, bool> getter, Action<MediaButlerSettings, bool> setter)
     {
         var current = getter(settings.Load());
         settings.Update(s => setter(s, !current));
         return true;
     }
 
-    private bool EditList(string label, Func<TagsmithSettings, string[]> getter, Action<TagsmithSettings, string[]> setter)
+    private bool EditList(string label, Func<MediaButlerSettings, string[]> getter, Action<MediaButlerSettings, string[]> setter)
     {
         var current = string.Join(", ", getter(settings.Load()));
         var next = ConsoleMenu.Prompt(label, current);
@@ -81,7 +81,7 @@ public sealed class SettingsEditor
         var key = Console.ReadKey(intercept: true);
         if (char.ToUpperInvariant(key.KeyChar) == 'Y')
         {
-            settings.Save(new TagsmithSettings());
+            settings.Save(new MediaButlerSettings());
             ConsoleMenu.Status("Reset.", ConsoleMenu.Ok);
         }
         else
@@ -97,7 +97,7 @@ public sealed class SettingsEditor
         var path = settings.FilePath;
         if (!File.Exists(path))
         {
-            settings.Save(new TagsmithSettings());
+            settings.Save(new MediaButlerSettings());
         }
         try
         {

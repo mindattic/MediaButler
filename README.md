@@ -1,11 +1,11 @@
-# Tagsmith
+# MediaButler
 
 Automated media renamer and reorganizer. Takes a folder full of messy
 torrent dumps, cleans the names locally, runs FileBot to grab episode titles
 and artwork (and optionally subtitles), then moves everything into a
 Plex-ready library layout.
 
-Built on `MindAttic.Vault` for settings (`%APPDATA%\MindAttic\Tagsmith\settings.json`)
+Built on `MindAttic.Vault` for settings (`%APPDATA%\MindAttic\MediaButler\settings.json`)
 and secret resolution (User Secrets / env vars for OpenSubtitles credentials).
 
 ## What it does
@@ -26,7 +26,7 @@ and secret resolution (User Secrets / env vars for OpenSubtitles credentials).
 
 ## Configuration
 
-Settings live at `%APPDATA%\MindAttic\Tagsmith\settings.json` and are managed
+Settings live at `%APPDATA%\MindAttic\MediaButler\settings.json` and are managed
 through the in-app Settings menu. Defaults:
 
 | Setting             | Default                                       |
@@ -41,7 +41,7 @@ through the in-app Settings menu. Defaults:
 
 ## Why a console app and not PowerShell
 
-Earlier prototyping happened in PowerShell. Switched to .NET because Tagsmith
+Earlier prototyping happened in PowerShell. Switched to .NET because MediaButler
 needs `MindAttic.Vault` for shared credential resolution (OpenSubtitles, plus
 future cloud storage). The Vault chain (vault files → settings.json → user
 secrets → env vars) is the same one every other MindAttic app uses.
@@ -49,11 +49,11 @@ secrets → env vars) is the same one every other MindAttic app uses.
 ## Build and run
 
 ```powershell
-dotnet build Tagsmith.slnx
-dotnet run --project Tagsmith
+dotnet build MediaButler.slnx
+dotnet run --project MediaButler
 ```
 
-## Pitfalls Tagsmith already defends against
+## Pitfalls MediaButler already defends against
 
 These came from a manual run on a 50-folder library; the code now handles
 them automatically:
@@ -62,10 +62,10 @@ them automatically:
   wildcards in PowerShell — every file operation here uses `LiteralPath`
   semantics via `System.IO` (no shell expansion).
 - **Empty disguised folders.** `Breaking Bad (2008) Season 1-5 ...` was an
-  empty shell. Tagsmith deletes folders that contain zero video files.
+  empty shell. MediaButler deletes folders that contain zero video files.
 - **Multi-season parents with mixed nesting.** Bones used `Season N`,
   Sherlock used `Show.Season.N.S0N...`, The Following used `Season N`.
-  Tagsmith detects all three patterns.
+  MediaButler detects all three patterns.
 - **Orphan show-level files.** Bones had `Bones_Large.jpg`, `Info.txt`.
   These get relocated into the first hoisted season folder so they aren't
   lost when the parent is deleted.
@@ -73,7 +73,7 @@ them automatically:
   via `--db TheMovieDB --action MOVE` first (which writes xattr), then run
   the generic `fn:artwork` script.
 - **Subtitle flag.** It's `-get-subtitles`, not `-get-missing-subtitles`.
-  Auth failures return a 401 and Tagsmith reports it gracefully instead of
+  Auth failures return a 401 and MediaButler reports it gracefully instead of
   crashing the pipeline.
 - **`--action xattr` doesn't exist** in 5.2.1; valid values are MOVE / COPY /
   KEEPLINK / SYMLINK / HARDLINK / CLONE / DUPLICATE / TEST.

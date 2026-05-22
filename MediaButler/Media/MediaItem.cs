@@ -1,4 +1,4 @@
-namespace Tagsmith.Media;
+namespace MediaButler.Media;
 
 /// <summary>One top-level folder under SourcePath, after the scanner has classified it.</summary>
 public sealed record MediaItem

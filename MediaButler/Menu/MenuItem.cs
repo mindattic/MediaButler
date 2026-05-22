@@ -1,4 +1,4 @@
-namespace Tagsmith.Menu;
+namespace MediaButler.Menu;
 
 /// <summary>
 /// One row in a <see cref="ConsoleMenu"/>. <see cref="OnSelect"/> returns true

@@ -20,6 +20,6 @@ out/
 Thumbs.db
 .DS_Store
 
-# Tagsmith runtime caches (settings live in %APPDATA%\MindAttic\Tagsmith)
+# MediaButler runtime caches (settings live in %APPDATA%\MindAttic\MediaButler)
 *.log
 *.trx

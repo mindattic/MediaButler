@@ -1,9 +1,9 @@
-using Tagsmith.FileBot;
-using Tagsmith.Media;
-using Tagsmith.Menu;
-using Tagsmith.Settings;
+using MediaButler.FileBot;
+using MediaButler.Media;
+using MediaButler.Menu;
+using MediaButler.Settings;
 
-namespace Tagsmith.Pipeline;
+namespace MediaButler.Pipeline;
 
 /// <summary>
 /// Stage 2/3/4: Invoke FileBot for episode/movie rename, artwork, and (optionally)
@@ -12,10 +12,10 @@ namespace Tagsmith.Pipeline;
 /// </summary>
 public sealed class FileBotStage
 {
-    private readonly TagsmithSettings settings;
+    private readonly MediaButlerSettings settings;
     private readonly FileBotClient fileBot;
 
-    public FileBotStage(TagsmithSettings settings, FileBotClient fileBot)
+    public FileBotStage(MediaButlerSettings settings, FileBotClient fileBot)
     {
         this.settings = settings;
         this.fileBot = fileBot;

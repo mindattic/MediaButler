@@ -1,4 +1,4 @@
-namespace Tagsmith.Menu;
+namespace MediaButler.Menu;
 
 /// <summary>
 /// Arrow-key console menu. Modeled after the MindAttic.Console PowerShell
@@ -24,7 +24,7 @@ public static class ConsoleMenu
     {
         Console.Clear();
         Console.WriteLine();
-        var trail = string.Join(" > ", new[] { "Tagsmith" }.Concat(breadcrumbs));
+        var trail = string.Join(" > ", new[] { "MediaButler" }.Concat(breadcrumbs));
         WriteColor("  " + trail, Header, newline: true);
         WriteColor("  " + HR, Accent, newline: true);
         Console.WriteLine();

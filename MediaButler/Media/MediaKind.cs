@@ -1,9 +1,9 @@
-namespace Tagsmith.Media;
+namespace MediaButler.Media;
 
 /// <summary>How a top-level folder under SourcePath is classified by the scanner.</summary>
 public enum MediaKind
 {
-    /// <summary>Couldn't classify — Tagsmith leaves it alone.</summary>
+    /// <summary>Couldn't classify — MediaButler leaves it alone.</summary>
     Unknown,
 
     /// <summary>Movie folder (year + video file, no season markers).</summary>
@@ -15,6 +15,6 @@ public enum MediaKind
     /// <summary>Parent folder containing multiple Season subfolders that must be hoisted.</summary>
     MultiSeasonParent,
 
-    /// <summary>Has no video files at all — Tagsmith deletes these.</summary>
+    /// <summary>Has no video files at all — MediaButler deletes these.</summary>
     Empty,
 }

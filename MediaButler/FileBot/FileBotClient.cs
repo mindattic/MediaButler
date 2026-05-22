@@ -1,7 +1,7 @@
 using System.Diagnostics;
-using Tagsmith.Settings;
+using MediaButler.Settings;
 
-namespace Tagsmith.FileBot;
+namespace MediaButler.FileBot;
 
 /// <summary>
 /// Thin wrapper around the <c>filebot.exe</c> command line. Encodes the
@@ -25,7 +25,7 @@ public sealed class FileBotClient
     private FileBotClient(string exePath) => ExePath = exePath;
 
     /// <summary>Return a usable client or null if FileBot can't be located.</summary>
-    public static FileBotClient? TryCreate(TagsmithSettings settings)
+    public static FileBotClient? TryCreate(MediaButlerSettings settings)
     {
         var path = TryLocate(settings.FileBotPath);
         return path is null ? null : new FileBotClient(path);

@@ -1,22 +1,22 @@
-using Tagsmith.Llm;
-using Tagsmith.Settings;
+using MediaButler.Llm;
+using MediaButler.Settings;
 
-namespace Tagsmith.Media;
+namespace MediaButler.Media;
 
 /// <summary>
-/// Walks the top level of <see cref="TagsmithSettings.SourcePath"/> and
+/// Walks the top level of <see cref="MediaButlerSettings.SourcePath"/> and
 /// classifies each folder into a <see cref="MediaItem"/>. The classifier is
 /// deliberately ordered: empty first, then multi-season (structure trumps
 /// name), then single season, then movie. Anything left is Unknown.
 /// </summary>
 public sealed class MediaScanner
 {
-    private readonly TagsmithSettings settings;
+    private readonly MediaButlerSettings settings;
     private readonly HashSet<string> excluded;
     private readonly HashSet<string> videoExts;
     private readonly LegionFallbackParser? llmFallback;
 
-    public MediaScanner(TagsmithSettings settings)
+    public MediaScanner(MediaButlerSettings settings)
     {
         this.settings = settings;
         excluded   = new HashSet<string>(settings.ExcludedFolders, StringComparer.OrdinalIgnoreCase);

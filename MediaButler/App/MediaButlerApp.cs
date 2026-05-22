@@ -1,18 +1,18 @@
-using Tagsmith.FileBot;
-using Tagsmith.Media;
-using Tagsmith.Menu;
-using Tagsmith.Pipeline;
-using Tagsmith.Settings;
+using MediaButler.FileBot;
+using MediaButler.Media;
+using MediaButler.Menu;
+using MediaButler.Pipeline;
+using MediaButler.Settings;
 
-namespace Tagsmith.App;
+namespace MediaButler.App;
 
 /// <summary>
-/// Top-level Tagsmith application: owns the settings service, builds the main
+/// Top-level MediaButler application: owns the settings service, builds the main
 /// menu, and dispatches to each pipeline stage. Always re-reads settings
 /// inside menu callbacks so the user can change Source/Destination/FileBot
 /// path mid-session without restarting.
 /// </summary>
-public sealed class TagsmithApp
+public sealed class MediaButlerApp
 {
     private readonly SettingsService settings = new();
 
@@ -93,7 +93,7 @@ public sealed class TagsmithApp
             new()
             {
                 Label = "Exit",
-                Description = "quit Tagsmith",
+                Description = "quit MediaButler",
                 OnSelect = () => false,
             },
         };
@@ -204,7 +204,7 @@ public sealed class TagsmithApp
         ConsoleMenu.WaitForKey();
     }
 
-    private static bool ValidateSource(TagsmithSettings s)
+    private static bool ValidateSource(MediaButlerSettings s)
     {
         if (!Directory.Exists(s.SourcePath))
         {

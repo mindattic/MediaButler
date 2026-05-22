@@ -1,24 +1,24 @@
 using System.Text.Json;
 using MindAttic.Legion;
-using Tagsmith.Settings;
+using MediaButler.Settings;
 
-namespace Tagsmith.Llm;
+namespace MediaButler.Llm;
 
 /// <summary>
 /// LLM-backed fallback for folder names the regex parser in
 /// <see cref="Media.NameParser"/> can't classify. Asks the configured Legion
 /// provider for a strict JSON answer, then maps it back into the same shape
 /// the regex parser would have returned. Off unless
-/// <see cref="TagsmithSettings.EnableLlmFallback"/> is true.
+/// <see cref="MediaButlerSettings.EnableLlmFallback"/> is true.
 /// </summary>
 public sealed class LegionFallbackParser
 {
     private static readonly HttpClient SharedHttp = new() { Timeout = TimeSpan.FromSeconds(30) };
 
-    private readonly TagsmithSettings settings;
+    private readonly MediaButlerSettings settings;
     private readonly LegionClient client;
 
-    public LegionFallbackParser(TagsmithSettings settings)
+    public LegionFallbackParser(MediaButlerSettings settings)
     {
         this.settings = settings;
         client = new LegionClient(SharedHttp);
@@ -90,7 +90,7 @@ public sealed class LegionFallbackParser
         }
         catch
         {
-            // LLM failures are non-fatal — Tagsmith just skips the folder.
+            // LLM failures are non-fatal — MediaButler just skips the folder.
             return null;
         }
     }

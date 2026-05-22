@@ -1,11 +1,11 @@
-using Tagsmith.Media;
-using Tagsmith.Menu;
-using Tagsmith.Settings;
+using MediaButler.Media;
+using MediaButler.Menu;
+using MediaButler.Settings;
 
-namespace Tagsmith.Pipeline;
+namespace MediaButler.Pipeline;
 
 /// <summary>
-/// Final stage: relocate everything from <see cref="TagsmithSettings.SourcePath"/>
+/// Final stage: relocate everything from <see cref="MediaButlerSettings.SourcePath"/>
 /// into Plex-shaped destinations:
 ///
 /// <list type="bullet">
@@ -18,14 +18,14 @@ namespace Tagsmith.Pipeline;
 /// </list>
 ///
 /// Cross-drive scenarios use copy-then-delete via <see cref="Directory.Move"/>; if that fails because
-/// the destination is on a different volume, Tagsmith falls back to recursive file copy + delete.
+/// the destination is on a different volume, MediaButler falls back to recursive file copy + delete.
 /// </summary>
 public sealed class MoveStage
 {
-    private readonly TagsmithSettings settings;
+    private readonly MediaButlerSettings settings;
     private readonly HashSet<string> showArt;
 
-    public MoveStage(TagsmithSettings settings)
+    public MoveStage(MediaButlerSettings settings)
     {
         this.settings = settings;
         showArt = new HashSet<string>(settings.ShowLevelArtFiles, StringComparer.OrdinalIgnoreCase);

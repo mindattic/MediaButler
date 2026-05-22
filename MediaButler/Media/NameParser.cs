@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace Tagsmith.Media;
+namespace MediaButler.Media;
 
 /// <summary>
 /// Pattern recognition for messy torrent folder names. Each helper has been
@@ -185,13 +185,13 @@ public static class NameParser
     }
 
     /// <summary>
-    /// Tagsmith's canonical pre-FileBot TV folder name: <c>{Show} - Season 01</c>.
+    /// MediaButler's canonical pre-FileBot TV folder name: <c>{Show} - Season 01</c>.
     /// Always two-digit padded.
     /// </summary>
     public static string FormatSeasonFolder(string show, int season) =>
         $"{show} - Season {season:D2}";
 
-    /// <summary>Tagsmith's canonical pre-FileBot movie folder name: <c>{Title} (YYYY)</c>.</summary>
+    /// <summary>MediaButler's canonical pre-FileBot movie folder name: <c>{Title} (YYYY)</c>.</summary>
     public static string FormatMovieFolder(string title, int? year) =>
         year.HasValue ? $"{title} ({year.Value})" : title;
 

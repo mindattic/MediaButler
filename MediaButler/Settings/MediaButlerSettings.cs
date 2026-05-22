@@ -1,13 +1,13 @@
-namespace Tagsmith.Settings;
+namespace MediaButler.Settings;
 
 /// <summary>
-/// User-editable Tagsmith configuration. Lives at
-/// <c>%APPDATA%\MindAttic\Tagsmith\settings.json</c> via
+/// User-editable MediaButler configuration. Lives at
+/// <c>%APPDATA%\MindAttic\MediaButler\settings.json</c> via
 /// <see cref="MindAttic.Vault.Settings.JsonSettingsStore{T}"/>.
 /// </summary>
-public sealed class TagsmithSettings
+public sealed class MediaButlerSettings
 {
-    /// <summary>Root folder Tagsmith scans for messy torrent dumps.</summary>
+    /// <summary>Root folder MediaButler scans for messy torrent dumps.</summary>
     public string SourcePath { get; set; } = @"M:\Torrents";
 
     /// <summary>Where renamed TV shows are moved at the end of the pipeline.</summary>
@@ -25,7 +25,7 @@ public sealed class TagsmithSettings
     /// <summary>
     /// When true, the pipeline asks FileBot for subtitles. Requires OpenSubtitles
     /// credentials configured in FileBot (Preferences) or environment, otherwise
-    /// the API returns 401 and Tagsmith logs the failure and continues.
+    /// the API returns 401 and MediaButler logs the failure and continues.
     /// </summary>
     public bool EnableSubtitles { get; set; } = false;
 
@@ -49,10 +49,10 @@ public sealed class TagsmithSettings
     /// <summary>Legion provider id used for fallback parsing (claude, openai, gemini, ...).</summary>
     public string LlmProvider { get; set; } = "claude";
 
-    /// <summary>Top-level folder names under <see cref="SourcePath"/> Tagsmith should skip.</summary>
+    /// <summary>Top-level folder names under <see cref="SourcePath"/> MediaButler should skip.</summary>
     public string[] ExcludedFolders { get; set; } = ["temp", ".temp", "incomplete", "complete", "_unsorted"];
 
-    /// <summary>Extensions Tagsmith treats as video files (used for empty-folder detection and movie classification).</summary>
+    /// <summary>Extensions MediaButler treats as video files (used for empty-folder detection and movie classification).</summary>
     public string[] VideoExtensions { get; set; } =
         [".mkv", ".mp4", ".avi", ".m4v", ".wmv", ".mov", ".ts", ".m2ts", ".mpg", ".mpeg"];
 
