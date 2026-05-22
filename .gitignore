@@ -1,0 +1,25 @@
+# Build output
+bin/
+obj/
+out/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# NuGet
+*.nupkg
+*.snupkg
+*.lock.json
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Tagsmith runtime caches (settings live in %APPDATA%\MindAttic\Tagsmith)
+*.log
+*.trx
