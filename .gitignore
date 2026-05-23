@@ -23,3 +23,8 @@ Thumbs.db
 # MediaButler runtime caches (settings live in %APPDATA%\MindAttic\MediaButler)
 *.log
 *.trx
+
+# Landing-page renderer (README -> index.htm) -- credentials and Node deps
+scripts/cli/deploy.settings.json
+node_modules/
+package-lock.json
