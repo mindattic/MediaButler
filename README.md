@@ -1,12 +1,36 @@
 # MediaButler
 
-Automated media renamer and reorganizer. Takes a folder full of messy
-torrent dumps, cleans the names locally, runs FileBot to grab episode titles
-and artwork (and optionally subtitles), then moves everything into a
-Plex-ready library layout.
+**Stop hand-renaming torrent dumps. Drop them in, get a Plex-ready library out.**
 
-Built on `MindAttic.Vault` for settings (`%APPDATA%\MindAttic\MediaButler\settings.json`)
-and credential resolution (User Secrets / environment variables for OpenSubtitles).
+MediaButler watches a folder of messy downloads (`Better.Call.Saul.S05.Complete.1080p.WEB-DL.x265-RELEASE_GROUP`), cleans the names locally, hands the survivors to FileBot for episode titles and artwork, optionally fetches subtitles, and moves everything into a canonical Plex layout. Multi-season torrents get split into per-season folders. Show artwork gets hoisted from each season into a single show root. Folder names you've already seen — `[YTS.MX]`, `Bones - Season 1-12`, year-in-title oddballs like `Blade Runner 2049 (2017)` — survive the parser without manual intervention.
+
+Built on `MindAttic.Vault` for settings (`%APPDATA%\MindAttic\MediaButler\settings.json`) and credential resolution (User Secrets / environment variables for OpenSubtitles). Optional LLM fallback via `MindAttic.Legion` picks up the long tail of folders the regex parser can't classify.
+
+**Why MediaButler:**
+
+- **Dry-run first.** Toggle `--dry-run` and the entire pipeline prints `[dry: → target]` lines without touching disk. FileBot runs in `--action TEST` mode so its decisions are visible without commits.
+- **Idempotent by design.** Canonical names (`Better Call Saul - Season 05`, `Heat (1995)`) round-trip through the parser; re-running on an already-clean library is a no-op.
+- **Self-defending.** Source-vs-destination guard refuses to run when `SourcePath` overlaps `TvDestination` or `MoviesDestination`. Empty disguised folders are deleted only after a byte-size sanity check. Extras / Specials / Bonus folders are surfaced for manual review, never reorganised silently.
+- **One library re-organizer.** `mediabutler relocate --source M:\Movies` evicts any TV folders that drifted into the movies library (and vice versa) — the only stage that legally operates on the destination.
+- **LLM-assisted long tail.** Turn on `EnableLlmFallback` and unclassifiable folders get sent through `MindAttic.Legion` to a configurable provider (`claude` by default) for a best-guess classification. Off by default to avoid surprise API calls.
+- **Plex-ready output.** TV becomes `M:\TV\<Show>\Season XX\episodes`, movies become `M:\Movies\<Title> (YYYY)\`. Per-season artwork hoists up to the show root and deduplicates.
+
+---
+
+## Table of Contents
+
+- [What it does](#what-it-does)
+- [Library cleanup: `relocate`](#library-cleanup-relocate)
+- [Safety](#safety)
+- [Configuration](#configuration)
+- [OpenSubtitles credentials](#opensubtitles-credentials)
+- [LLM fallback parsing](#llm-fallback-parsing)
+- [Why a console app and not PowerShell](#why-a-console-app-and-not-powershell)
+- [Build and run](#build-and-run)
+- [Tests](#tests)
+- [Pitfalls MediaButler already defends against](#pitfalls-mediabutler-already-defends-against)
+
+---
 
 ## What it does
 
@@ -111,6 +135,25 @@ When both values resolve, MediaButler passes them to FileBot per call as
 `--def osdb.user=… osdb.pwd=…`. If they're missing the pipeline still runs
 — FileBot falls back to whatever is configured in its own Preferences and
 MediaButler reports the auth failure (and which key to set) on a 401.
+
+## LLM fallback parsing
+
+When `EnableLlmFallback` is `true`, any folder the regex-based `NameParser`
+fails to classify is forwarded to `MindAttic.Legion` for a best-guess at
+title / kind / season. The configured `LlmProvider` (default `claude`) is
+called with the messy folder name; the response is mapped back into the
+same `MediaItem` shape the regex parser produces.
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `EnableLlmFallback` | `false` | Off by default to avoid surprise API calls. |
+| `LlmProvider` | `claude` | Any Legion-supported provider id (`claude`, `openai`, `gemini`, `deepseek`, ...). |
+
+Credentials are resolved through the shared `MindAttic.Vault` chain — the
+same `%APPDATA%\MindAttic\LLM\providers.json` keyring every other MindAttic
+project reads from. If the provider key isn't configured, the fallback is
+skipped silently and the folder is surfaced in the final report's
+"Needs manual fix" list.
 
 ## Why a console app and not PowerShell
 
