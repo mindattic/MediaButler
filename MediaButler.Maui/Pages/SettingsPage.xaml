@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MediaButler.Maui.Pages.SettingsPage"
+             Title="Settings"
+             BackgroundColor="{AppThemeBinding Light=#F5F5F7, Dark=#1A1A1A}">
+
+    <ScrollView Padding="16">
+        <VerticalStackLayout Spacing="14">
+
+            <Label x:Name="FilePathLabel"
+                   FontSize="11"
+                   TextColor="{AppThemeBinding Light=#666, Dark=#999}" />
+
+            <Border Stroke="{AppThemeBinding Light=#D0D0D0, Dark=#3A3A3A}"
+                    StrokeThickness="1"
+                    StrokeShape="RoundRectangle 8"
+                    BackgroundColor="{AppThemeBinding Light=White, Dark=#222222}"
+                    Padding="16">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Paths" FontSize="16" FontAttributes="Bold" />
+
+                    <Label Text="Source path" FontSize="12" />
+                    <Entry x:Name="EntrySource" />
+
+                    <Label Text="TV destination" FontSize="12" />
+                    <Entry x:Name="EntryTvDest" />
+
+                    <Label Text="Movies destination" FontSize="12" />
+                    <Entry x:Name="EntryMoviesDest" />
+
+                    <Label Text="FileBot path" FontSize="12" />
+                    <Entry x:Name="EntryFileBotPath" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Stroke="{AppThemeBinding Light=#D0D0D0, Dark=#3A3A3A}"
+                    StrokeThickness="1"
+                    StrokeShape="RoundRectangle 8"
+                    BackgroundColor="{AppThemeBinding Light=White, Dark=#222222}"
+                    Padding="16">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Options" FontSize="16" FontAttributes="Bold" />
+
+                    <Grid ColumnDefinitions="*,Auto" RowSpacing="2">
+                        <Label Grid.Column="0" Text="Dry run (preview only — no changes written)" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" x:Name="SwitchDryRun" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto" RowSpacing="2">
+                        <Label Grid.Column="0" Text="Rename TV episodes (FileBot TheTVDB)" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" x:Name="SwitchRenameEpisodes" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto" RowSpacing="2">
+                        <Label Grid.Column="0" Text="Rename movies (FileBot TheMovieDB)" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" x:Name="SwitchRenameMovies" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto" RowSpacing="2">
+                        <Label Grid.Column="0" Text="Fetch artwork (posters / fanart)" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" x:Name="SwitchFetchArtwork" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto" RowSpacing="2">
+                        <Label Grid.Column="0" Text="Fetch subtitles (OpenSubtitles)" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" x:Name="SwitchEnableSubtitles" />
+                    </Grid>
+
+                    <Label Text="Subtitle language (ISO 639-1)" FontSize="12" />
+                    <Entry x:Name="EntrySubtitleLanguage" />
+
+                    <Grid ColumnDefinitions="*,Auto" RowSpacing="2">
+                        <Label Grid.Column="0" Text="LLM fallback for unparseable folders" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" x:Name="SwitchEnableLlmFallback" />
+                    </Grid>
+
+                    <Label Text="LLM provider (claude, openai, gemini, …)" FontSize="12" />
+                    <Entry x:Name="EntryLlmProvider" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Stroke="{AppThemeBinding Light=#D0D0D0, Dark=#3A3A3A}"
+                    StrokeThickness="1"
+                    StrokeShape="RoundRectangle 8"
+                    BackgroundColor="{AppThemeBinding Light=White, Dark=#222222}"
+                    Padding="16">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Advanced" FontSize="16" FontAttributes="Bold" />
+
+                    <Label Text="Excluded folders (comma separated)" FontSize="12" />
+                    <Entry x:Name="EntryExcludedFolders" />
+
+                    <Label Text="Video extensions (comma separated)" FontSize="12" />
+                    <Entry x:Name="EntryVideoExtensions" />
+
+                    <Label Text="Empty-delete safety floor (bytes)" FontSize="12" />
+                    <Entry x:Name="EntryEmptyDeleteSafetyBytes" Keyboard="Numeric" />
+
+                    <Label Text="Title-year overrides (comma separated)" FontSize="12" />
+                    <Entry x:Name="EntryTitleYearOverrides" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <Label Grid.Column="0"
+                       x:Name="StatusLabel"
+                       VerticalOptions="Center"
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light=#666, Dark=#999}" />
+                <Button Grid.Column="1"
+                        Text="Reload"
+                        Clicked="OnReload" />
+                <Button Grid.Column="2"
+                        Text="Save"
+                        BackgroundColor="#1976D2"
+                        TextColor="White"
+                        Clicked="OnSave" />
+            </Grid>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

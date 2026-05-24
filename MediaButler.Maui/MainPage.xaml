@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MediaButler.Maui.MainPage"
+             Title="MediaButler"
+             BackgroundColor="{AppThemeBinding Light=#F5F5F7, Dark=#1A1A1A}">
+
+    <Grid RowDefinitions="Auto,Auto,*" Padding="16" RowSpacing="12">
+
+        <!-- Header / status strip -->
+        <Border Grid.Row="0"
+                Stroke="{AppThemeBinding Light=#D0D0D0, Dark=#3A3A3A}"
+                StrokeThickness="1"
+                StrokeShape="RoundRectangle 8"
+                BackgroundColor="{AppThemeBinding Light=White, Dark=#222222}"
+                Padding="14,12">
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="2">
+                <Label Grid.Row="0" Grid.Column="0"
+                       Text="MediaButler"
+                       FontSize="20"
+                       FontAttributes="Bold" />
+                <Label Grid.Row="0" Grid.Column="1"
+                       x:Name="ModeBadge"
+                       FontSize="13"
+                       FontAttributes="Bold"
+                       Padding="10,4"
+                       BackgroundColor="#388E3C"
+                       TextColor="White" />
+                <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                       x:Name="PathsLine"
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light=#444, Dark=#BBB}" />
+                <Label Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                       x:Name="FileBotLine"
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light=#444, Dark=#BBB}" />
+            </Grid>
+        </Border>
+
+        <!-- Action buttons -->
+        <Border Grid.Row="1"
+                Stroke="{AppThemeBinding Light=#D0D0D0, Dark=#3A3A3A}"
+                StrokeThickness="1"
+                StrokeShape="RoundRectangle 8"
+                BackgroundColor="{AppThemeBinding Light=White, Dark=#222222}"
+                Padding="12">
+            <VerticalStackLayout Spacing="8">
+                <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Center" Direction="Row">
+                    <Button Text="Run Full Pipeline"
+                            x:Name="BtnRunFull"
+                            BackgroundColor="#1976D2" TextColor="White"
+                            Margin="0,0,8,8"
+                            Clicked="OnRunFull" />
+                    <Button Text="Run Full (Dry Run)"
+                            x:Name="BtnRunFullDry"
+                            BackgroundColor="#F9A825" TextColor="Black"
+                            Margin="0,0,8,8"
+                            Clicked="OnRunFullDry" />
+                    <Button Text="Rename &amp; Hoist"
+                            x:Name="BtnRename"
+                            Margin="0,0,8,8"
+                            Clicked="OnRename" />
+                    <Button Text="FileBot TV"
+                            x:Name="BtnFbTv"
+                            Margin="0,0,8,8"
+                            Clicked="OnFileBotTv" />
+                    <Button Text="FileBot Movies"
+                            x:Name="BtnFbMovies"
+                            Margin="0,0,8,8"
+                            Clicked="OnFileBotMovies" />
+                    <Button Text="FileBot Subtitles"
+                            x:Name="BtnFbSubs"
+                            Margin="0,0,8,8"
+                            Clicked="OnFileBotSubtitles" />
+                    <Button Text="Move to Plex"
+                            x:Name="BtnMove"
+                            Margin="0,0,8,8"
+                            Clicked="OnMove" />
+                    <Button Text="Relocate…"
+                            x:Name="BtnRelocate"
+                            Margin="0,0,8,8"
+                            Clicked="OnRelocate" />
+                    <Button Text="Scan"
+                            x:Name="BtnScan"
+                            Margin="0,0,8,8"
+                            Clicked="OnScan" />
+                    <Button Text="Status"
+                            x:Name="BtnStatus"
+                            Margin="0,0,8,8"
+                            Clicked="OnStatus" />
+                </FlexLayout>
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                    <Label Grid.Column="0"
+                           x:Name="BusyLabel"
+                           VerticalOptions="Center"
+                           FontSize="12"
+                           TextColor="{AppThemeBinding Light=#666, Dark=#999}"
+                           Text="Ready." />
+                    <ActivityIndicator Grid.Column="1"
+                                       x:Name="Spinner"
+                                       IsRunning="False"
+                                       IsVisible="False"
+                                       Color="#1976D2"
+                                       WidthRequest="20"
+                                       HeightRequest="20" />
+                    <Button Grid.Column="2"
+                            Text="Clear log"
+                            BackgroundColor="Transparent"
+                            TextColor="{AppThemeBinding Light=#1976D2, Dark=#82B1FF}"
+                            BorderWidth="0"
+                            Padding="8,4"
+                            Clicked="OnClearLog" />
+                </Grid>
+            </VerticalStackLayout>
+        </Border>
+
+        <!-- Output log -->
+        <Border Grid.Row="2"
+                Stroke="{AppThemeBinding Light=#D0D0D0, Dark=#3A3A3A}"
+                StrokeThickness="1"
+                StrokeShape="RoundRectangle 8"
+                BackgroundColor="#0E1117"
+                Padding="0">
+            <ScrollView x:Name="LogScroll" Padding="12">
+                <Label x:Name="LogLabel"
+                       Text=""
+                       FontFamily="Consolas"
+                       FontSize="12"
+                       TextColor="#E6EDF3"
+                       LineBreakMode="WordWrap" />
+            </ScrollView>
+        </Border>
+
+    </Grid>
+</ContentPage>

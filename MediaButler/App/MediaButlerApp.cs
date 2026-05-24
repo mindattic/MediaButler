@@ -260,6 +260,12 @@ public sealed class MediaButlerApp
             },
             new()
             {
+                Label = "Run Full Pipeline (Dry Run)",
+                Description = "preview every change without touching disk — ignores Settings dry-run toggle",
+                OnSelect = RunFullPipelineDryRun,
+            },
+            new()
+            {
                 Label = "1. Rename & Hoist",
                 Description = "clean folder names, hoist nested seasons, pad to Season 01",
                 OnSelect = RunRenameAndHoist,
@@ -318,10 +324,15 @@ public sealed class MediaButlerApp
         };
     }
 
-    private bool RunFullPipeline()
+    private bool RunFullPipeline() => RunFullPipelineInteractive(forceDryRun: false);
+
+    private bool RunFullPipelineDryRun() => RunFullPipelineInteractive(forceDryRun: true);
+
+    private bool RunFullPipelineInteractive(bool forceDryRun)
     {
-        ConsoleMenu.WriteHeader("Run Full Pipeline");
+        ConsoleMenu.WriteHeader(forceDryRun ? "Run Full Pipeline (Dry Run)" : "Run Full Pipeline");
         var s = LoadEffective();
+        if (forceDryRun) s.DryRun = true;
         if (!ValidatePaths(s)) { ConsoleMenu.WaitForKey(); return true; }
 
         var report = new PipelineReport();
