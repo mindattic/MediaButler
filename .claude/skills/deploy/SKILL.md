@@ -1,23 +1,17 @@
 ---
 name: deploy
-description: Render README.md, sync MindAttic.Components, and FTP-upload index.htm to mindattic.com/mediabutler/. Runs scripts/cli/deploy.bat.
+description: Deploy the MediaButler landing page (mindattic.com/mediabutler.htm) via MindAttic.Deploy (sibling repo). Renders this repo's README.md through the catalog template and FTPS-uploads the single-file result.
 ---
 
-When invoked:
+When invoked, run:
 
-1. Run `scripts\cli\deploy.bat` from the project root (`D:\Projects\MindAttic\MediaButler`).
-2. The script will:
-   - `node scripts/cli/build-html.js` -- renders `README.md` into the `<!-- BEGIN README-CONTENT -->` marker block of `index.htm` (using marked + highlight.js). Auto-runs `npm install` if `node_modules` is absent.
-   - `git pull` MindAttic.Components (sibling repo) for the latest font / Cyberspace bundle.
-   - `sync-landing-page.ps1 -Subscriber MediaButler` -- splices OutfitFont / AtticFont / Cyberspace marker blocks into `index.htm`.
-   - Stamp `<!-- Last Updated: ... -->` at the top of `index.htm`.
-   - FTPS upload `index.htm` to `/mindattic.com/mediabutler/` (defined in `scripts/cli/deploy.settings.json`).
-3. Report the FTP outcome (OK/FAIL) and the deployed URL.
+```
+powershell -NoProfile -ExecutionPolicy Bypass -Command "cd D:\Projects\MindAttic\MindAttic.Deploy; npm run deploy -- --only mediabutler"
+```
 
-Flags:
-- `-NoBuild` -- skip the README render step.
-- `-NoSync` -- skip the components pull/splice.
+Report the result and flag any failures.
 
 Notes:
-- Credentials come from `scripts/cli/deploy.settings.json` (gitignored). If missing, copy `deploy.settings.json.template` and fill in.
-- `node_modules/` is gitignored; `npm install` runs on first deploy.
+- Catalog entry: `MindAttic.Deploy/projects.json` -> `projects[]` slug `mediabutler` (theme: Cyberspace).
+- Credentials: `MindAttic.Deploy/secrets/ftp.json` (gitignored).
+- The legacy `scripts/cli/deploy.{bat,ps1}` + `build-html.js` + `deploy.settings.json[.template]` in this repo are dead code -- do not invoke them.
