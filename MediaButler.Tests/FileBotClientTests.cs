@@ -83,9 +83,9 @@ public class FileBotClientTests
     }
 
     [Test]
-    public void BuildGetSubtitlesArgs_omits_creds_when_missing()
+    public void BuildGetSubtitlesArgs_omits_creds_when_files_missing()
     {
-        var args = FileBotClient.BuildGetSubtitlesArgs(@"M:\TV\Show - Season 01", "en", credentials: null);
+        var args = FileBotClient.BuildGetSubtitlesArgs(@"M:\TV\Show - Season 01", "en", userFile: null, pwdFile: null);
         Assert.Multiple(() =>
         {
             Assert.That(args, Does.Contain("-get-subtitles"));
@@ -96,25 +96,31 @@ public class FileBotClientTests
     }
 
     [Test]
-    public void BuildGetSubtitlesArgs_injects_credentials_when_complete()
+    public void BuildGetSubtitlesArgs_emits_at_path_references_not_raw_secrets()
     {
-        var creds = new SubtitleCredentials { User = "ryandebraal", Password = "secret" };
-        var args  = FileBotClient.BuildGetSubtitlesArgs(@"M:\TV\Show - Season 01", "en", creds);
+        // Critical: the raw credentials must NEVER appear in argv. FileBot's
+        // --def name=@path syntax loads the value from a file at startup so
+        // other processes can't read it via Win32_Process.CommandLine.
+        var args = FileBotClient.BuildGetSubtitlesArgs(
+            @"M:\TV\Show - Season 01", "en",
+            userFile: @"C:\Users\me\AppData\Local\Temp\mediabutler-osdb-user-abc.txt",
+            pwdFile:  @"C:\Users\me\AppData\Local\Temp\mediabutler-osdb-pwd-xyz.txt");
 
         Assert.Multiple(() =>
         {
-            Assert.That(args, Does.Contain("osdb.user=ryandebraal"));
-            Assert.That(args, Does.Contain("osdb.pwd=secret"));
-            // --def appears twice (once per definition)
+            Assert.That(args, Does.Contain(@"osdb.user=@C:\Users\me\AppData\Local\Temp\mediabutler-osdb-user-abc.txt"));
+            Assert.That(args, Does.Contain(@"osdb.pwd=@C:\Users\me\AppData\Local\Temp\mediabutler-osdb-pwd-xyz.txt"));
+            // The actual credential values must not leak into argv anywhere.
+            Assert.That(args.Any(a => a.Contains("ryandebraal", StringComparison.Ordinal)), Is.False);
+            // --def appears twice (once per definition).
             Assert.That(args.Count(a => a == "--def"), Is.EqualTo(2));
         });
     }
 
     [Test]
-    public void BuildGetSubtitlesArgs_omits_creds_when_partial()
+    public void BuildGetSubtitlesArgs_omits_creds_when_only_one_file_supplied()
     {
-        var creds = new SubtitleCredentials { User = "ryandebraal" /* password missing */ };
-        var args  = FileBotClient.BuildGetSubtitlesArgs(@"M:\TV", "en", creds);
+        var args = FileBotClient.BuildGetSubtitlesArgs(@"M:\TV", "en", userFile: @"C:\Temp\u.txt", pwdFile: null);
         Assert.That(args, Does.Not.Contain("--def"));
     }
 

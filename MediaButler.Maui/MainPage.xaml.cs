@@ -16,6 +16,13 @@ public partial class MainPage : ContentPage
     private readonly StringBuilder logBuffer = new();
     private bool busy;
 
+    private bool firstAppear = true;
+    // Suppress the persisted-settings write while we programmatically sync
+    // the checkbox to the loaded value at startup. Without this, the
+    // CheckedChanged handler would fire during OnAppearing and clobber the
+    // dry-run reset with a redundant save.
+    private bool suppressDryRunHandler;
+
     public MainPage(PipelineRunner runner, SettingsService settings)
     {
         InitializeComponent();
@@ -26,6 +33,33 @@ public partial class MainPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        if (firstAppear)
+        {
+            // Safety workflow: every app launch begins in dry-run mode so the
+            // user can preview the planned actions before any disk mutation.
+            // The toggle remains user-controllable during the session.
+            var s = settings.Load();
+            s.DryRun = true;
+            settings.Save(s);
+            firstAppear = false;
+        }
+        SyncDryRunCheckbox();
+        RefreshHeader();
+    }
+
+    private void SyncDryRunCheckbox()
+    {
+        suppressDryRunHandler = true;
+        try { DryRunCheck.IsChecked = settings.Load().DryRun; }
+        finally { suppressDryRunHandler = false; }
+    }
+
+    private void OnDryRunToggled(object? sender, CheckedChangedEventArgs e)
+    {
+        if (suppressDryRunHandler) return;
+        var s = settings.Load();
+        s.DryRun = e.Value;
+        settings.Save(s);
         RefreshHeader();
     }
 
@@ -57,15 +91,18 @@ public partial class MainPage : ContentPage
         LogLabel.Text = string.Empty;
     }
 
-    private void OnRunFull(object? sender, EventArgs e)            => _ = ExecuteAsync(PipelineRunner.PipelineAction.RunFull,         "Run Full Pipeline");
-    private void OnRunFullDry(object? sender, EventArgs e)         => _ = ExecuteAsync(PipelineRunner.PipelineAction.RunFullDryRun,   "Run Full Pipeline (Dry Run)");
-    private void OnRename(object? sender, EventArgs e)             => _ = ExecuteAsync(PipelineRunner.PipelineAction.Rename,          "Rename & Hoist");
-    private void OnFileBotTv(object? sender, EventArgs e)          => _ = ExecuteAsync(PipelineRunner.PipelineAction.FileBotTv,       "FileBot: TV");
-    private void OnFileBotMovies(object? sender, EventArgs e)      => _ = ExecuteAsync(PipelineRunner.PipelineAction.FileBotMovies,   "FileBot: Movies");
-    private void OnFileBotSubtitles(object? sender, EventArgs e)   => _ = ExecuteAsync(PipelineRunner.PipelineAction.FileBotSubtitles,"FileBot: Subtitles");
-    private void OnMove(object? sender, EventArgs e)               => _ = ExecuteAsync(PipelineRunner.PipelineAction.Move,            "Move to Plex");
+    private void OnRunFull(object? sender, EventArgs e)            => _ = ExecuteAsync(PipelineRunner.PipelineAction.RunFull,         LabelFor("Run Full Pipeline"));
+    private void OnRename(object? sender, EventArgs e)             => _ = ExecuteAsync(PipelineRunner.PipelineAction.Rename,          LabelFor("Rename & Hoist"));
+    private void OnFileBotTv(object? sender, EventArgs e)          => _ = ExecuteAsync(PipelineRunner.PipelineAction.FileBotTv,       LabelFor("FileBot: TV"));
+    private void OnFileBotMovies(object? sender, EventArgs e)      => _ = ExecuteAsync(PipelineRunner.PipelineAction.FileBotMovies,   LabelFor("FileBot: Movies"));
+    private void OnFileBotSubtitles(object? sender, EventArgs e)   => _ = ExecuteAsync(PipelineRunner.PipelineAction.FileBotSubtitles,LabelFor("FileBot: Subtitles"));
+    private void OnMove(object? sender, EventArgs e)               => _ = ExecuteAsync(PipelineRunner.PipelineAction.Move,            LabelFor("Move to Plex"));
     private void OnScan(object? sender, EventArgs e)               => _ = ExecuteAsync(PipelineRunner.PipelineAction.Scan,            "Scan");
     private void OnStatus(object? sender, EventArgs e)             => _ = ExecuteAsync(PipelineRunner.PipelineAction.Status,          "Status");
+
+    /// <summary>Tag the visible action label with the current DryRun state so the log header announces it.</summary>
+    private string LabelFor(string action) =>
+        settings.Load().DryRun ? action + " [DRY RUN]" : action + " [LIVE]";
 
     private async void OnRelocate(object? sender, EventArgs e)
     {
@@ -119,7 +156,6 @@ public partial class MainPage : ContentPage
 
     private static bool IsPipelineAction(PipelineRunner.PipelineAction a) =>
         a is PipelineRunner.PipelineAction.RunFull
-          or PipelineRunner.PipelineAction.RunFullDryRun
           or PipelineRunner.PipelineAction.Rename
           or PipelineRunner.PipelineAction.FileBotTv
           or PipelineRunner.PipelineAction.FileBotMovies
@@ -130,7 +166,6 @@ public partial class MainPage : ContentPage
     private void SetButtonsEnabled(bool enabled)
     {
         BtnRunFull.IsEnabled     = enabled;
-        BtnRunFullDry.IsEnabled  = enabled;
         BtnRename.IsEnabled      = enabled;
         BtnFbTv.IsEnabled        = enabled;
         BtnFbMovies.IsEnabled    = enabled;
@@ -139,6 +174,9 @@ public partial class MainPage : ContentPage
         BtnRelocate.IsEnabled    = enabled;
         BtnScan.IsEnabled        = enabled;
         BtnStatus.IsEnabled      = enabled;
+        // Lock the toggle while a run is in flight so the user can't flip
+        // DryRun mid-execution — the value is captured at the start of the run.
+        DryRunCheck.IsEnabled    = enabled;
     }
 
     private void AppendLine(string line)

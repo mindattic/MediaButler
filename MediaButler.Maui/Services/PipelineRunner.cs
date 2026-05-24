@@ -32,7 +32,6 @@ public sealed class PipelineRunner
     public enum PipelineAction
     {
         RunFull,
-        RunFullDryRun,
         Rename,
         FileBotTv,
         FileBotMovies,
@@ -81,14 +80,8 @@ public sealed class PipelineRunner
         switch (action)
         {
             case PipelineAction.RunFull:
-                if (!ValidatePaths(s)) return;
-                new RenameStage(s, report).Run();
-                RunFileBotIfAvailable(s, report);
-                new MoveStage(s, report).Run();
-                break;
-
-            case PipelineAction.RunFullDryRun:
-                s.DryRun = true;
+                // Dry-run state is read from persisted settings (toggled from
+                // the header checkbox) — no separate dry-run action needed.
                 if (!ValidatePaths(s)) return;
                 new RenameStage(s, report).Run();
                 RunFileBotIfAvailable(s, report);

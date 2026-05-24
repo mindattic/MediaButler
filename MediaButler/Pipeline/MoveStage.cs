@@ -246,9 +246,13 @@ public sealed class MoveStage
                 // Marker stays in place so the partial copy can be detected later.
                 throw;
             }
-            // Copy finished — commit by removing the marker, then delete source.
-            try { File.Delete(marker); } catch { /* tolerable; next scan can clean it up */ }
+            // Copy finished. Order matters: delete source FIRST, then the marker.
+            // If source-delete fails (locked file, AV scan), the marker stays so
+            // ReportOrphanCopyMarkers can still flag this destination as a
+            // partial state — otherwise we'd have duplicate content with no
+            // breadcrumb to find it.
             Directory.Delete(source, recursive: true);
+            try { File.Delete(marker); } catch { /* tolerable; next scan can clean it up */ }
             return;
         }
 
@@ -276,12 +280,52 @@ public sealed class MoveStage
         catch { /* enumeration failures are non-fatal */ }
     }
 
-    /// <summary>True when the two paths resolve to different volume roots.</summary>
+    /// <summary>
+    /// True when the two paths resolve to different volume roots. Junctions
+    /// and directory symlinks are followed to their final target before
+    /// comparing — without this, <c>D:\junction-to-M\Movies</c> and
+    /// <c>M:\Movies</c> would be treated as cross-volume and trigger a slow
+    /// copy+delete instead of the cheap <see cref="Directory.Move"/>.
+    /// </summary>
     internal static bool IsCrossVolume(string a, string b)
     {
-        var rootA = Path.GetPathRoot(Path.GetFullPath(a));
-        var rootB = Path.GetPathRoot(Path.GetFullPath(b));
+        var rootA = Path.GetPathRoot(ResolveFinalPath(a));
+        var rootB = Path.GetPathRoot(ResolveFinalPath(b));
         return !string.Equals(rootA, rootB, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Resolve a path through any junctions or directory symlinks to its final
+    /// on-disk target. Falls back to <see cref="Path.GetFullPath(string)"/> if
+    /// the path doesn't exist or the resolve API isn't supported on this OS
+    /// (e.g. legacy Windows). Walks up the tree if the leaf doesn't exist yet
+    /// — useful for destinations the move is about to create.
+    /// </summary>
+    private static string ResolveFinalPath(string path)
+    {
+        var full = Path.GetFullPath(path);
+        var probe = full;
+        while (!string.IsNullOrEmpty(probe))
+        {
+            try
+            {
+                if (Directory.Exists(probe))
+                {
+                    var info = new DirectoryInfo(probe);
+                    var resolved = info.ResolveLinkTarget(returnFinalTarget: true);
+                    var resolvedRoot = resolved?.FullName ?? probe;
+                    // Re-attach any path tail we walked past so the root computation
+                    // still works for non-existent leaves under a resolved parent.
+                    var tail = full[probe.Length..];
+                    return resolvedRoot + tail;
+                }
+            }
+            catch { /* fall through to parent walk-up */ }
+            var parent = Path.GetDirectoryName(probe);
+            if (string.IsNullOrEmpty(parent) || parent == probe) break;
+            probe = parent;
+        }
+        return full;
     }
 
     private static void CopyDirectoryRecursive(string source, string destination)

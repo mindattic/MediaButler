@@ -92,14 +92,49 @@ public sealed class FileBotClient
 
     /// <summary>
     /// Try to download subtitles in <paramref name="languageCode"/>. When
-    /// <paramref name="credentials"/> is supplied and complete, passes the
-    /// OpenSubtitles login through FileBot's <c>--def osdb.user/osdb.pwd</c>
-    /// definitions so FileBot Preferences need not be pre-configured. Callers
-    /// should inspect <see cref="FileBotResult.LooksLikeAuthFailure"/> to detect
-    /// the 401 case.
+    /// <paramref name="credentials"/> is supplied and complete, the OpenSubtitles
+    /// login is staged to a per-user temp file and passed via FileBot's
+    /// <c>--def osdb.user=@path</c> "value from file" syntax — the secret never
+    /// appears in argv where other processes can read it via
+    /// <c>Get-CimInstance Win32_Process</c>. The temp files are deleted on exit.
+    /// Callers should inspect <see cref="FileBotResult.LooksLikeAuthFailure"/>
+    /// to detect the 401 case.
     /// </summary>
-    public FileBotResult GetSubtitles(string folder, string languageCode, Settings.SubtitleCredentials? credentials = null) =>
-        Run(BuildGetSubtitlesArgs(folder, languageCode, credentials));
+    public FileBotResult GetSubtitles(string folder, string languageCode, Settings.SubtitleCredentials? credentials = null)
+    {
+        if (credentials is not { IsComplete: true })
+            return Run(BuildGetSubtitlesArgs(folder, languageCode, userFile: null, pwdFile: null));
+
+        var userFile = WriteSecretTempFile("osdb-user", credentials.User!);
+        var pwdFile  = WriteSecretTempFile("osdb-pwd",  credentials.Password!);
+        try
+        {
+            return Run(BuildGetSubtitlesArgs(folder, languageCode, userFile, pwdFile));
+        }
+        finally
+        {
+            TryDelete(userFile);
+            TryDelete(pwdFile);
+        }
+    }
+
+    /// <summary>
+    /// Stage a secret value in a unique per-user temp file. On Windows the
+    /// default temp directory already lives under the user's profile with
+    /// user-only ACLs, so simple creation is sufficient — no need to layer
+    /// explicit ACLs on top. Returns the absolute path.
+    /// </summary>
+    private static string WriteSecretTempFile(string label, string value)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"mediabutler-{label}-{Guid.NewGuid():N}.txt");
+        File.WriteAllText(path, value);
+        return path;
+    }
+
+    private static void TryDelete(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); } catch { /* best-effort cleanup */ }
+    }
 
     // ----- Pure argument builders (testable without spawning processes) -----
 
@@ -123,21 +158,43 @@ public sealed class FileBotClient
     internal static string[] BuildFetchMovieArtworkArgs(string movieFolder) =>
         ["-script", "fn:artwork", movieFolder];
 
-    internal static string[] BuildGetSubtitlesArgs(string folder, string languageCode, Settings.SubtitleCredentials? credentials)
+    /// <summary>
+    /// Build the args for a subtitle fetch. When <paramref name="userFile"/> /
+    /// <paramref name="pwdFile"/> are non-null, emits FileBot's
+    /// <c>--def name=@path</c> form so the secret values are read from those
+    /// files at startup instead of appearing in argv.
+    /// </summary>
+    internal static string[] BuildGetSubtitlesArgs(string folder, string languageCode, string? userFile, string? pwdFile)
     {
         var args = new List<string> { "-get-subtitles", folder, "--lang", languageCode, "-non-strict" };
-        if (credentials is { IsComplete: true })
+        if (!string.IsNullOrEmpty(userFile) && !string.IsNullOrEmpty(pwdFile))
         {
             args.Add("--def");
-            args.Add("osdb.user=" + credentials.User);
+            args.Add("osdb.user=@" + userFile);
             args.Add("--def");
-            args.Add("osdb.pwd=" + credentials.Password);
+            args.Add("osdb.pwd=@" + pwdFile);
         }
         return args.ToArray();
     }
 
+    /// <summary>
+    /// Hard cap on any single FileBot invocation. Network-bound operations
+    /// (OpenSubtitles fetch, TheTVDB lookup) occasionally hang; without a
+    /// timeout a cron-scheduled run blocks forever. Ten minutes covers the
+    /// slowest realistic operation (subtitle fetch over a flaky link) without
+    /// turning into a noticeable wait when something is genuinely wedged.
+    /// </summary>
+    public static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(10);
+
     /// <summary>Run filebot with the given arguments and capture stdout/stderr.</summary>
-    public FileBotResult Run(params string[] args)
+    public FileBotResult Run(params string[] args) => Run(DefaultTimeout, args);
+
+    /// <summary>
+    /// Run filebot with a hard timeout. If <paramref name="timeout"/> elapses
+    /// before the process exits, the process tree is killed and the result
+    /// carries <see cref="FileBotResult.TimedOut"/>=true with exit code -1.
+    /// </summary>
+    public FileBotResult Run(TimeSpan timeout, params string[] args)
     {
         var psi = new ProcessStartInfo
         {
@@ -159,7 +216,21 @@ public sealed class FileBotClient
         proc.ErrorDataReceived  += (_, e) => { if (e.Data is not null) stderr.AppendLine(e.Data); };
         proc.BeginOutputReadLine();
         proc.BeginErrorReadLine();
-        proc.WaitForExit();
+
+        if (!proc.WaitForExit(timeout))
+        {
+            try { proc.Kill(entireProcessTree: true); } catch { /* already gone */ }
+            // Drain any buffered output before reporting.
+            try { proc.WaitForExit(TimeSpan.FromSeconds(5)); } catch { /* best-effort */ }
+            stderr.AppendLine($"[mediabutler] killed filebot after {timeout.TotalMinutes:F1} min timeout.");
+            return new FileBotResult
+            {
+                ExitCode = -1,
+                StdOut = stdout.ToString(),
+                StdErr = stderr.ToString(),
+                TimedOut = true,
+            };
+        }
 
         return new FileBotResult
         {
@@ -176,6 +247,9 @@ public sealed class FileBotResult
     public required int ExitCode { get; init; }
     public required string StdOut { get; init; }
     public required string StdErr { get; init; }
+
+    /// <summary>True when the call was killed for exceeding the timeout, not because filebot returned non-zero.</summary>
+    public bool TimedOut { get; init; }
 
     public bool Success => ExitCode == 0;
 

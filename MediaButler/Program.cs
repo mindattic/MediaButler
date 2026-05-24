@@ -9,8 +9,9 @@ try { Console.OutputEncoding = System.Text.Encoding.UTF8; } catch { /* redirecte
 // Spectre.Console.Cli parses "--"-prefixed args as options first, so a
 // .WithAlias("--version") on VersionCommand never matches. Translate the
 // idiomatic --version / -v shapes into the bare subcommand so users get the
-// version output they expect.
-if (args.Length == 1 && (args[0] == "--version" || args[0] == "-v"))
+// version output they expect. Recognised in any position so
+// `mediabutler -v scan` and `mediabutler --version --help` both work.
+if (args.Any(a => a == "--version" || a == "-v"))
     args = new[] { "version" };
 
 var app = new CommandApp<MainMenuCommand>();

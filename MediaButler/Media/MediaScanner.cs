@@ -15,6 +15,11 @@ public sealed class MediaScanner
     private readonly HashSet<string> excluded;
     private readonly HashSet<string> videoExts;
     private readonly LegionFallbackParser? llmFallback;
+    // Cache HasAnyVideo results per scan. A multi-season parent classify
+    // ends up asking for the same subtree twice (once for the Empty check,
+    // again for HasMultipleSeasonSubfolders / BuildMultiSeasonParent),
+    // and each walk is O(files-in-subtree).
+    private readonly Dictionary<string, bool> hasVideoCache = new(StringComparer.OrdinalIgnoreCase);
 
     public MediaScanner(MediaButlerSettings settings)
     {
@@ -141,12 +146,22 @@ public sealed class MediaScanner
     {
         if (llmFallback is null) return null;
         var name = Path.GetFileName(fullPath);
-        var sampleFiles = Directory.EnumerateFiles(fullPath)
-            .Take(6)
-            .Select(Path.GetFileName)
-            .Where(s => s is not null)
-            .Cast<string>()
-            .ToList();
+        // Sample enumeration matches HasAnyVideo's guard set — a protected or
+        // race-deleted directory must not unwind the whole scan just because
+        // we wanted file names for the LLM prompt.
+        List<string> sampleFiles;
+        try
+        {
+            sampleFiles = Directory.EnumerateFiles(fullPath)
+                .Take(6)
+                .Select(Path.GetFileName)
+                .Where(s => s is not null)
+                .Cast<string>()
+                .ToList();
+        }
+        catch (UnauthorizedAccessException) { sampleFiles = new List<string>(); }
+        catch (DirectoryNotFoundException)  { sampleFiles = new List<string>(); }
+        catch (IOException)                 { sampleFiles = new List<string>(); }
         var guess = await llmFallback.ClassifyAsync(name, sampleFiles, ct).ConfigureAwait(false);
         if (guess is null) return null;
 
@@ -226,6 +241,14 @@ public sealed class MediaScanner
     }
 
     private bool HasAnyVideo(string fullPath)
+    {
+        if (hasVideoCache.TryGetValue(fullPath, out var cached)) return cached;
+        var result = ComputeHasAnyVideo(fullPath);
+        hasVideoCache[fullPath] = result;
+        return result;
+    }
+
+    private bool ComputeHasAnyVideo(string fullPath)
     {
         try
         {

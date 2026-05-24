@@ -19,13 +19,28 @@
                        Text="MediaButler"
                        FontSize="20"
                        FontAttributes="Bold" />
-                <Label Grid.Row="0" Grid.Column="1"
-                       x:Name="ModeBadge"
-                       FontSize="13"
-                       FontAttributes="Bold"
-                       Padding="10,4"
-                       BackgroundColor="#388E3C"
-                       TextColor="White" />
+                <!--
+                    Dry-run toggle. Single source of truth for whether every
+                    action below mutates disk or just previews. Forced ON at
+                    app start (see MainPage.xaml.cs OnAppearing) so a fresh
+                    session always begins in safe mode.
+                -->
+                <HorizontalStackLayout Grid.Row="0" Grid.Column="1"
+                                       Spacing="8"
+                                       VerticalOptions="Center">
+                    <CheckBox x:Name="DryRunCheck"
+                              IsChecked="True"
+                              VerticalOptions="Center"
+                              CheckedChanged="OnDryRunToggled" />
+                    <Label x:Name="ModeBadge"
+                           Text="DRY RUN"
+                           FontSize="13"
+                           FontAttributes="Bold"
+                           Padding="10,4"
+                           BackgroundColor="#F9A825"
+                           TextColor="Black"
+                           VerticalOptions="Center" />
+                </HorizontalStackLayout>
                 <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                        x:Name="PathsLine"
                        FontSize="12"
@@ -51,11 +66,6 @@
                             BackgroundColor="#1976D2" TextColor="White"
                             Margin="0,0,8,8"
                             Clicked="OnRunFull" />
-                    <Button Text="Run Full (Dry Run)"
-                            x:Name="BtnRunFullDry"
-                            BackgroundColor="#F9A825" TextColor="Black"
-                            Margin="0,0,8,8"
-                            Clicked="OnRunFullDry" />
                     <Button Text="Rename &amp; Hoist"
                             x:Name="BtnRename"
                             Margin="0,0,8,8"

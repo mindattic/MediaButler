@@ -2,4 +2,6 @@
   <Project Path="MediaButler/MediaButler.csproj" />
   <Project Path="MediaButler.Tests/MediaButler.Tests.csproj" />
   <Project Path="MediaButler.Maui/MediaButler.Maui.csproj" />
+  <Project Path="MediaButler.Maui.UiTests/MediaButler.Maui.UiTests.csproj" />
+  <Project Path="MediaButler.Landing.Tests/MediaButler.Landing.Tests.csproj" />
 </Solution>

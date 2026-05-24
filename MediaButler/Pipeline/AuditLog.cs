@@ -25,6 +25,28 @@ public static class AuditLog
     private static readonly object Lock = new();
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = false };
 
+    /// <summary>
+    /// Process-lifetime count of audit-write failures. Read by
+    /// <c>PipelineRunner.PrintReport</c> so a final warning surfaces when the
+    /// "system of record" is silently failing (disk full, ACL revoked, locked
+    /// file). Use <see cref="ResetFailureCount"/> in tests.
+    /// </summary>
+    public static int FailureCount => failureCount;
+    private static int failureCount;
+
+    /// <summary>The most recent failure's exception message, for the final warning.</summary>
+    public static string? LastFailureMessage { get; private set; }
+
+    /// <summary>Reset the per-process failure counter (intended for tests).</summary>
+    public static void ResetFailureCount()
+    {
+        lock (Lock)
+        {
+            failureCount = 0;
+            LastFailureMessage = null;
+        }
+    }
+
     /// <summary>The current day's log path under <c>%LOCALAPPDATA%</c>.</summary>
     public static string FilePath() => Path.Combine(
         VaultPaths.LocalApp(AppFolder),
@@ -62,9 +84,16 @@ public static class AuditLog
                 File.AppendAllText(path, line + Environment.NewLine);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Audit logging must never break a mutation. Failures are silent.
+            // Audit logging must never break a mutation, so we still swallow
+            // the exception. But we track it so the pipeline summary can warn
+            // the user — silent log loss defeats the whole point of the log.
+            lock (Lock)
+            {
+                failureCount++;
+                LastFailureMessage = ex.Message;
+            }
         }
     }
 }

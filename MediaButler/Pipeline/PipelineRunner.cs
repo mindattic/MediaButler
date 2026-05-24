@@ -135,13 +135,30 @@ public sealed class PipelineRunner
     /// <see cref="PipelineReport"/>, print the consolidated report, and map
     /// "any errors" to exit code 1.
     /// </summary>
+    /// <summary>
+    /// Exit code conventions for pipeline runs:
+    /// <list type="bullet">
+    ///   <item><c>0</c>: clean — no errors, nothing in the manual-review list.</item>
+    ///   <item><c>1</c>: errors occurred (exceptions, FileBot non-zero exits, IO failures).</item>
+    ///   <item><c>2</c>: no errors but items need a human eye (Unknown folders,
+    ///         target-exists skips, partial-copy markers). Cron jobs should
+    ///         treat this as actionable, not silent success.</item>
+    /// </list>
+    /// </summary>
+    public const int ExitOk = 0;
+    public const int ExitErrors = 1;
+    public const int ExitNeedsManual = 2;
+
     private int RunStage(MediaButlerSettings s, Action<PipelineReport> body, bool guardPaths = true)
     {
-        if (guardPaths && !PathGuard.ValidatePaths(s)) return 1;
+        if (guardPaths && !PathGuard.ValidatePaths(s)) return ExitErrors;
         var report = new PipelineReport();
+        var auditFailuresBefore = AuditLog.FailureCount;
         body(report);
-        PrintReport(s, report);
-        return report.Errors.Count == 0 ? 0 : 1;
+        PrintReport(s, report, AuditLog.FailureCount - auditFailuresBefore);
+        if (report.Errors.Count > 0) return ExitErrors;
+        if (report.NeedsManual.Count > 0) return ExitNeedsManual;
+        return ExitOk;
     }
 
     /// <summary>
@@ -156,7 +173,9 @@ public sealed class PipelineRunner
         return RunStage(s, report => body(fb, report));
     }
 
-    public void PrintReport(MediaButlerSettings s, PipelineReport r)
+    public void PrintReport(MediaButlerSettings s, PipelineReport r) => PrintReport(s, r, auditFailures: 0);
+
+    public void PrintReport(MediaButlerSettings s, PipelineReport r, int auditFailures)
     {
         AnsiConsole.WriteLine();
         Status.Summary("---- Pipeline summary ----", Theme.Header);
@@ -188,6 +207,15 @@ public sealed class PipelineRunner
             foreach (var m in r.NeedsManual.Take(30))
                 Status.Summary($"  - [{m.Kind}] {Path.GetFileName(m.Path)} — {m.Reason}", Theme.Dim);
             if (r.NeedsManual.Count > 30) Status.Summary($"  ...and {r.NeedsManual.Count - 30} more", Theme.Dim);
+        }
+
+        if (auditFailures > 0)
+        {
+            AnsiConsole.WriteLine();
+            Status.Summary($"WARNING: {auditFailures} audit log write(s) failed during this run.", Theme.Err);
+            if (!string.IsNullOrWhiteSpace(AuditLog.LastFailureMessage))
+                Status.Summary("  Last failure: " + AuditLog.LastFailureMessage, Theme.Dim);
+            Status.Summary("  The audit log at " + AuditLog.FilePath() + " is incomplete.", Theme.Dim);
         }
     }
 }

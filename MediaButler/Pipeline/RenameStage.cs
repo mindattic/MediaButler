@@ -217,7 +217,10 @@ public sealed class RenameStage
                     var dest = Path.Combine(firstSeason, Path.GetFileName(file));
                     if (!File.Exists(dest)) File.Move(file, dest);
                 }
-                catch { /* best effort */ }
+                catch (Exception ex)
+                {
+                    report.RecordError(file, "orphan file move failed: " + ex.Message);
+                }
             }
         }
 
@@ -225,7 +228,8 @@ public sealed class RenameStage
         // that still has hidden video content the scanner missed (e.g. Extras).
         if (!settings.DryRun && !HasAnyVideoLeft(item.FullPath))
         {
-            try { Directory.Delete(item.FullPath, recursive: true); } catch { /* best effort */ }
+            try { Directory.Delete(item.FullPath, recursive: true); }
+            catch (Exception ex) { report.RecordError(item.FullPath, "parent shell delete failed: " + ex.Message); }
         }
     }
 
