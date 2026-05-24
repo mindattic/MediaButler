@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using MediaButler.FileBot;
 using MediaButler.Pipeline;
 using MediaButler.Settings;
@@ -13,12 +12,9 @@ namespace MediaButler.Commands;
 /// through the shared <see cref="PipelineRunner"/> so behavior matches the
 /// headless subcommands exactly.
 /// </summary>
-[SuppressMessage("Performance", "CA1812", Justification = "Instantiated by Spectre.Console.Cli")]
-public sealed class MainMenuCommand : Command<MainMenuCommand.Settings>
+public sealed class MainMenuCommand : Command<BaseSettings>
 {
-    public sealed class Settings : BaseSettings { }
-
-    public override int Execute(CommandContext context, Settings cli)
+    public override int Execute(CommandContext context, BaseSettings cli)
     {
         Status.Verbosity = cli.Verbosity;
 
@@ -28,33 +24,25 @@ public sealed class MainMenuCommand : Command<MainMenuCommand.Settings>
         // LoadEffective() inside the loop will write the defaults file.
         runner.Settings.EnsureFolder();
 
-        while (true)
+        var exit = false;
+        while (!exit)
         {
             var s = runner.LoadEffective(cli.ApplyTo);
-            var items = BuildItems(s, cli);
+            var items = BuildItems(s, cli, runner, () => exit = true);
 
             Screen.Header();
             var sel = Menu.Prompt("[cyan1]MediaButler — choose an action:[/]", items, allowBack: false);
             if (sel is null) return 0;
-
-            switch (sel.Tag)
-            {
-                case "run":         RunFull(runner, cli, forceDryRun: false); break;
-                case "run-dry":     RunFull(runner, cli, forceDryRun: true);  break;
-                case "rename":      WrapStage("Rename & Hoist",                 runner, cli, runner.RunRename);          break;
-                case "filebot-tv":  WrapStage("FileBot: TV Episodes + Artwork", runner, cli, runner.RunFileBotTv);       break;
-                case "filebot-mov": WrapStage("FileBot: Movies + Artwork",      runner, cli, runner.RunFileBotMovies);   break;
-                case "filebot-sub": WrapStage("FileBot: Subtitles",             runner, cli, runner.RunFileBotSubtitles); break;
-                case "move":        WrapStage("Move to Plex",                   runner, cli, runner.RunMove);            break;
-                case "relocate":    RunRelocateInteractive(runner, cli); break;
-                case "settings":    new SettingsEditor(runner.Settings).Show(); break;
-                case "status":      RunStatusInteractive(runner, cli); break;
-                case "exit":        return 0;
-            }
+            if (sel.Tag is Action action) action();
         }
+        return 0;
     }
 
-    private static List<MenuItem> BuildItems(MediaButlerSettings s, BaseSettings cli)
+    private static List<MenuItem> BuildItems(
+        MediaButlerSettings s,
+        BaseSettings cli,
+        PipelineRunner runner,
+        Action requestExit)
     {
         var fileBot = FileBotClient.TryLocate(s.FileBotPath);
         var fileBotDesc = fileBot is null
@@ -65,41 +53,52 @@ public sealed class MainMenuCommand : Command<MainMenuCommand.Settings>
             ? (cli.DryRun ? "DRY RUN (CLI --dry-run)" : "DRY RUN (Settings toggle)")
             : "LIVE";
 
+        Action stage(string title, Func<MediaButlerSettings, int> body) => () =>
+        {
+            Screen.Header(title);
+            var snapshot = runner.LoadEffective(cli.ApplyTo);
+            body(snapshot);
+            Screen.PressAnyKey();
+        };
+
         return new List<MenuItem>
         {
             new() { Name = $"Run Full Pipeline  [{modeLabel}]",
                     Description = "rename + hoist, FileBot rename + artwork, subtitles, move to Plex",
-                    Tag = "run" },
+                    Tag = (Action)(() => RunFull(runner, cli, forceDryRun: false)) },
             new() { Name = "Run Full Pipeline (Dry Run)",
                     Description = "preview every change without touching disk",
-                    Tag = "run-dry" },
+                    Tag = (Action)(() => RunFull(runner, cli, forceDryRun: true)) },
             new() { Name = "1. Rename & Hoist",
                     Description = "clean folder names, hoist nested seasons, pad to Season 01",
-                    Tag = "rename" },
+                    Tag = stage("Rename & Hoist", runner.RunRename) },
             new() { Name = "2. FileBot: TV Episodes + Artwork",
                     Description = "rename episodes via TheTVDB, fetch posters/banners/fanart",
-                    Tag = "filebot-tv",  Disabled = fileBot is null },
+                    Tag = stage("FileBot: TV Episodes + Artwork", runner.RunFileBotTv),
+                    Disabled = fileBot is null },
             new() { Name = "3. FileBot: Movies + Artwork",
                     Description = "rename movies via TheMovieDB, fetch poster + backdrop",
-                    Tag = "filebot-mov", Disabled = fileBot is null },
+                    Tag = stage("FileBot: Movies + Artwork", runner.RunFileBotMovies),
+                    Disabled = fileBot is null },
             new() { Name = "4. FileBot: Subtitles",
                     Description = "OpenSubtitles via User Secrets (or FileBot Preferences)",
-                    Tag = "filebot-sub", Disabled = fileBot is null },
+                    Tag = stage("FileBot: Subtitles", runner.RunFileBotSubtitles),
+                    Disabled = fileBot is null },
             new() { Name = "5. Move to Plex",
                     Description = $"to {s.TvDestination} and {s.MoviesDestination}",
-                    Tag = "move" },
+                    Tag = stage("Move to Plex", runner.RunMove) },
             new() { Name = "Relocate misplaced items",
                     Description = "scan a destination dir and evict items whose kind doesn't belong",
-                    Tag = "relocate" },
+                    Tag = (Action)(() => RunRelocateInteractive(runner, cli)) },
             new() { Name = "Settings",
                     Description = "source, destinations, FileBot path, options, dry-run",
-                    Tag = "settings" },
+                    Tag = (Action)(() => new SettingsEditor(runner.Settings).Show()) },
             new() { Name = "Status",
                     Description = $"FileBot: {fileBotDesc}",
-                    Tag = "status" },
+                    Tag = stage("Status", runner.ShowStatus) },
             new() { Name = "Exit",
                     Description = "quit MediaButler",
-                    Tag = "exit" },
+                    Tag = (Action)requestExit },
         };
     }
 
@@ -112,26 +111,6 @@ public sealed class MainMenuCommand : Command<MainMenuCommand.Settings>
             if (forceDryRun) o.DryRun = true;
         });
         runner.RunFull(s);
-        Screen.PressAnyKey();
-    }
-
-    private static void WrapStage(
-        string title,
-        PipelineRunner runner,
-        BaseSettings cli,
-        Func<MediaButlerSettings, int> action)
-    {
-        Screen.Header(title);
-        var s = runner.LoadEffective(cli.ApplyTo);
-        action(s);
-        Screen.PressAnyKey();
-    }
-
-    private static void RunStatusInteractive(PipelineRunner runner, BaseSettings cli)
-    {
-        Screen.Header("Status");
-        var s = runner.LoadEffective(cli.ApplyTo);
-        runner.ShowStatus(s);
         Screen.PressAnyKey();
     }
 

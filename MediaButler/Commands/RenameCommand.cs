@@ -1,24 +1,12 @@
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using MediaButler.Pipeline;
 using MediaButler.Settings;
-using MediaButler.Ui;
-using Spectre.Console.Cli;
 
 namespace MediaButler.Commands;
 
-[SuppressMessage("Performance", "CA1812", Justification = "Instantiated by Spectre.Console.Cli")]
 [Description("Stage 1 only — local rename + hoist + empty cleanup.")]
-public sealed class RenameCommand : Command<RenameCommand.Settings>
+public sealed class RenameCommand : PipelineCommand
 {
-    public sealed class Settings : BaseSettings { }
-
-    public override int Execute(CommandContext context, Settings settings)
-    {
-        Status.Verbosity = settings.Verbosity;
-        var runner = new PipelineRunner(new SettingsService());
-        var s = runner.LoadEffective(settings.ApplyTo);
-        Screen.Header("Rename & Hoist (headless)");
-        return runner.RunRename(s);
-    }
+    protected override string Title => "Rename & Hoist (headless)";
+    protected override int Run(PipelineRunner runner, MediaButlerSettings s) => runner.RunRename(s);
 }

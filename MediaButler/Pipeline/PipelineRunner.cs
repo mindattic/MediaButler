@@ -31,10 +31,8 @@ public sealed class PipelineRunner
     }
 
     /// <summary>Run every stage in order: rename → FileBot (TV + movies + subs + artwork) → move.</summary>
-    public int RunFull(MediaButlerSettings s)
+    public int RunFull(MediaButlerSettings s) => RunStage(s, report =>
     {
-        if (!PathGuard.ValidatePaths(s)) return 1;
-        var report = new PipelineReport();
         new RenameStage(s, report).Run();
         var fb = FileBotClient.TryCreate(s);
         if (fb is null)
@@ -42,8 +40,41 @@ public sealed class PipelineRunner
         else
             new FileBotStage(s, fb, report).Run();
         new MoveStage(s, report).Run();
-        PrintReport(s, report);
-        return report.Errors.Count == 0 ? 0 : 1;
+    });
+
+    public int RunRename(MediaButlerSettings s) =>
+        RunStage(s, report => new RenameStage(s, report).Run());
+
+    public int RunFileBotTv(MediaButlerSettings s) =>
+        RunWithFileBot(s, (fb, report) => new FileBotStage(s, fb, report).RunTv());
+
+    public int RunFileBotMovies(MediaButlerSettings s) =>
+        RunWithFileBot(s, (fb, report) => new FileBotStage(s, fb, report).RunMovies());
+
+    public int RunFileBotSubtitles(MediaButlerSettings s)
+    {
+        if (!s.EnableSubtitles)
+        {
+            Status.Print("Subtitles are disabled in Settings. Enable EnableSubtitles to use this command.", Theme.Dim);
+            return 0;
+        }
+        return RunWithFileBot(s, (fb, report) => new FileBotStage(s, fb, report).RunSubtitles());
+    }
+
+    public int RunMove(MediaButlerSettings s) =>
+        RunStage(s, report => new MoveStage(s, report).Run());
+
+    public int RunRelocate(MediaButlerSettings s)
+    {
+        if (!Directory.Exists(s.SourcePath))
+        {
+            Status.Print("Source path not found: " + s.SourcePath, Theme.Err);
+            return 1;
+        }
+        // Relocate deliberately runs against a destination — pointing it at
+        // M:\Movies to evict a stray TvSeason is the whole point. So the
+        // source-vs-dest overlap guard is not applied here.
+        return RunStage(s, report => new RelocateStage(s, report).Run(), guardPaths: false);
     }
 
     public int RunScan(MediaButlerSettings s)
@@ -73,78 +104,6 @@ public sealed class PipelineRunner
         return 0;
     }
 
-    public int RunRename(MediaButlerSettings s)
-    {
-        if (!PathGuard.ValidatePaths(s)) return 1;
-        var report = new PipelineReport();
-        new RenameStage(s, report).Run();
-        PrintReport(s, report);
-        return report.Errors.Count == 0 ? 0 : 1;
-    }
-
-    public int RunFileBotTv(MediaButlerSettings s)
-    {
-        var fb = FileBotClient.TryCreate(s);
-        if (fb is null) { Status.Print("FileBot not found.", Theme.Err); return 1; }
-        if (!PathGuard.ValidatePaths(s)) return 1;
-        var report = new PipelineReport();
-        new FileBotStage(s, fb, report).RunTv();
-        PrintReport(s, report);
-        return report.Errors.Count == 0 ? 0 : 1;
-    }
-
-    public int RunFileBotMovies(MediaButlerSettings s)
-    {
-        var fb = FileBotClient.TryCreate(s);
-        if (fb is null) { Status.Print("FileBot not found.", Theme.Err); return 1; }
-        if (!PathGuard.ValidatePaths(s)) return 1;
-        var report = new PipelineReport();
-        new FileBotStage(s, fb, report).RunMovies();
-        PrintReport(s, report);
-        return report.Errors.Count == 0 ? 0 : 1;
-    }
-
-    public int RunFileBotSubtitles(MediaButlerSettings s)
-    {
-        if (!s.EnableSubtitles)
-        {
-            Status.Print("Subtitles are disabled in Settings. Enable EnableSubtitles to use this command.", Theme.Dim);
-            return 0;
-        }
-        var fb = FileBotClient.TryCreate(s);
-        if (fb is null) { Status.Print("FileBot not found.", Theme.Err); return 1; }
-        if (!PathGuard.ValidatePaths(s)) return 1;
-        var report = new PipelineReport();
-        new FileBotStage(s, fb, report).RunSubtitles();
-        PrintReport(s, report);
-        return report.Errors.Count == 0 ? 0 : 1;
-    }
-
-    public int RunMove(MediaButlerSettings s)
-    {
-        if (!PathGuard.ValidatePaths(s)) return 1;
-        var report = new PipelineReport();
-        new MoveStage(s, report).Run();
-        PrintReport(s, report);
-        return report.Errors.Count == 0 ? 0 : 1;
-    }
-
-    public int RunRelocate(MediaButlerSettings s)
-    {
-        if (!Directory.Exists(s.SourcePath))
-        {
-            Status.Print("Source path not found: " + s.SourcePath, Theme.Err);
-            return 1;
-        }
-        // Relocate deliberately runs against a destination — pointing it at
-        // M:\Movies to evict a stray TvSeason is the whole point. So the
-        // source-vs-dest overlap guard is not applied here.
-        var report = new PipelineReport();
-        new RelocateStage(s, report).Run();
-        PrintReport(s, report);
-        return report.Errors.Count == 0 ? 0 : 1;
-    }
-
     public int ShowStatus(MediaButlerSettings s)
     {
         Status.Print("Settings file: " + settings.FilePath, Theme.Normal);
@@ -168,6 +127,33 @@ public sealed class PipelineRunner
                 Status.Print($"  {grp.Key,-20} {grp.Count()}", Theme.Dim);
         }
         return 0;
+    }
+
+    /// <summary>
+    /// Standard headless flow: validate paths (unless the caller opts out for
+    /// the Relocate carve-out), run the supplied stage body against a fresh
+    /// <see cref="PipelineReport"/>, print the consolidated report, and map
+    /// "any errors" to exit code 1.
+    /// </summary>
+    private int RunStage(MediaButlerSettings s, Action<PipelineReport> body, bool guardPaths = true)
+    {
+        if (guardPaths && !PathGuard.ValidatePaths(s)) return 1;
+        var report = new PipelineReport();
+        body(report);
+        PrintReport(s, report);
+        return report.Errors.Count == 0 ? 0 : 1;
+    }
+
+    /// <summary>
+    /// Variant of <see cref="RunStage"/> that resolves a <see cref="FileBotClient"/>
+    /// up front and short-circuits with a clear error message if FileBot isn't
+    /// installed — used by the three FileBot-only subcommands.
+    /// </summary>
+    private int RunWithFileBot(MediaButlerSettings s, Action<FileBotClient, PipelineReport> body)
+    {
+        var fb = FileBotClient.TryCreate(s);
+        if (fb is null) { Status.Print("FileBot not found.", Theme.Err); return 1; }
+        return RunStage(s, report => body(fb, report));
     }
 
     public void PrintReport(MediaButlerSettings s, PipelineReport r)

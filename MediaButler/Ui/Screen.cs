@@ -3,9 +3,8 @@ using Spectre.Console;
 namespace MediaButler.Ui;
 
 /// <summary>
-/// Header / footer / prompt helpers shared by the main menu and the settings
-/// editor. Matches <c>MindAttic.Console.Ui.Screen</c> so the two consoles
-/// look identical.
+/// Header + prompt helpers shared by the main menu and the settings editor.
+/// Matches <c>MindAttic.Console.Ui.Screen</c> so the two consoles look identical.
 /// </summary>
 public static class Screen
 {
@@ -19,23 +18,6 @@ public static class Screen
             Justification = Justify.Left,
         });
         AnsiConsole.WriteLine();
-    }
-
-    public static void Footer(string extra = "")
-    {
-        AnsiConsole.WriteLine();
-        AnsiConsole.Write(new Rule { Style = Theme.AccentStyle });
-        var hints = "  [green]Up/Down[/][grey50] navigate  [/][green]Enter[/][grey50] select  [/][green]Esc[/][grey50] back[/]";
-        if (!string.IsNullOrWhiteSpace(extra))
-            hints = $"  {extra}  [grey50]·[/]  {hints.TrimStart()}";
-        AnsiConsole.MarkupLine(hints);
-        AnsiConsole.WriteLine();
-    }
-
-    public static void Notice(string markup)
-    {
-        AnsiConsole.WriteLine();
-        AnsiConsole.MarkupLine($"  {markup}");
     }
 
     public static void PressAnyKey()
