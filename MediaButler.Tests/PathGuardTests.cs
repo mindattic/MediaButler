@@ -1,4 +1,4 @@
-using MediaButler.App;
+using MediaButler.Pipeline;
 using NUnit.Framework;
 
 namespace MediaButler.Tests;
@@ -20,5 +20,5 @@ public class PathGuardTests
     [TestCase(@"",                  @"C:\Media\TV",       false)]
     [TestCase(@"C:\Media\TV",       @"",                  false)]
     public void PathOverlaps_detects_identical_and_nested_paths(string source, string other, bool expected) =>
-        Assert.That(MediaButlerApp.PathOverlaps(source, other), Is.EqualTo(expected));
+        Assert.That(PathGuard.PathOverlaps(source, other), Is.EqualTo(expected));
 }

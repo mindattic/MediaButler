@@ -1,6 +1,6 @@
 using MediaButler.Media;
-using MediaButler.Menu;
 using MediaButler.Settings;
+using MediaButler.Ui;
 
 namespace MediaButler.Pipeline;
 
@@ -39,7 +39,7 @@ public sealed class MoveStage
     public void Run()
     {
         if (settings.DryRun)
-            ConsoleMenu.Status("DRY RUN — no files will be moved.", ConsoleMenu.Active);
+            Status.Print("DRY RUN — no files will be moved.", Theme.Active);
 
         if (!settings.DryRun)
         {
@@ -87,7 +87,7 @@ public sealed class MoveStage
             }
             catch (Exception ex)
             {
-                ConsoleMenu.Status($"  ! {item.OriginalName}: {ex.Message}", ConsoleMenu.Err);
+                Status.Print($"  ! {item.OriginalName}: {ex.Message}", Theme.Err);
                 report.RecordError(item.FullPath, ex.Message);
             }
         }
@@ -97,7 +97,7 @@ public sealed class MoveStage
     {
         if (string.IsNullOrWhiteSpace(item.ShowName) || item.SeasonNumber is null)
         {
-            ConsoleMenu.Status($"  skip {item.OriginalName} (no show/season)", ConsoleMenu.Dim);
+            Status.Print($"  skip {item.OriginalName} (no show/season)", Theme.Dim);
             report.RecordManual(item.FullPath, item.Kind, "move skipped — show/season missing");
             return;
         }
@@ -109,14 +109,14 @@ public sealed class MoveStage
 
         if (Directory.Exists(seasonRoot) && Directory.EnumerateFileSystemEntries(seasonRoot).Any())
         {
-            ConsoleMenu.WriteColor("  [skip - target exists with content]", ConsoleMenu.Dim, newline: true);
+            Status.Line("  [skip - target exists with content]", Theme.Dim);
             report.RecordManual(item.FullPath, item.Kind, $"target {seasonRoot} already has content");
             return;
         }
 
         if (settings.DryRun)
         {
-            ConsoleMenu.WriteColor($"  [dry: -> {seasonRoot}]", ConsoleMenu.Active, newline: true);
+            Status.Line($"  [dry: -> {seasonRoot}]", Theme.Active);
             report.TvMoved++;
             return;
         }
@@ -137,7 +137,7 @@ public sealed class MoveStage
         }
 
         SafeMoveDirectory(item.FullPath, seasonRoot);
-        ConsoleMenu.WriteColor($"  -> {seasonRoot}", ConsoleMenu.Ok, newline: true);
+        Status.Line($"  -> {seasonRoot}", Theme.Ok);
         AuditLog.Record(settings, settings.DryRun, "move", item.FullPath, seasonRoot, item.Kind);
         report.TvMoved++;
     }
@@ -151,20 +151,20 @@ public sealed class MoveStage
 
         if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any())
         {
-            ConsoleMenu.WriteColor("  [skip - target exists with content]", ConsoleMenu.Dim, newline: true);
+            Status.Line("  [skip - target exists with content]", Theme.Dim);
             report.RecordManual(item.FullPath, item.Kind, $"target {target} already has content");
             return;
         }
 
         if (settings.DryRun)
         {
-            ConsoleMenu.WriteColor($"  [dry: -> {target}]", ConsoleMenu.Active, newline: true);
+            Status.Line($"  [dry: -> {target}]", Theme.Active);
             report.MoviesMoved++;
             return;
         }
 
         SafeMoveDirectory(item.FullPath, target);
-        ConsoleMenu.WriteColor($"  -> {target}", ConsoleMenu.Ok, newline: true);
+        Status.Line($"  -> {target}", Theme.Ok);
         AuditLog.Record(settings, settings.DryRun, "move", item.FullPath, target, item.Kind);
         report.MoviesMoved++;
     }

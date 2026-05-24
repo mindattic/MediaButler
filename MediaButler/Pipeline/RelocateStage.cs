@@ -1,6 +1,6 @@
 using MediaButler.Media;
-using MediaButler.Menu;
 using MediaButler.Settings;
+using MediaButler.Ui;
 
 namespace MediaButler.Pipeline;
 
@@ -42,15 +42,15 @@ public sealed class RelocateStage
 
     public void Run()
     {
-        ConsoleMenu.Status("Relocate scan: " + settings.SourcePath, ConsoleMenu.Normal);
+        Status.Print("Relocate scan: " + settings.SourcePath, Theme.Normal);
         if (settings.DryRun)
-            ConsoleMenu.Status("DRY RUN — no files will be moved.", ConsoleMenu.Active);
+            Status.Print("DRY RUN — no files will be moved.", Theme.Active);
 
         var expected = InferExpectedKind(settings);
-        ConsoleMenu.Status(expected is null
+        Status.Print(expected is null
             ? "Expected kind: any (will relocate both TvSeason and Movie items)."
             : $"Expected kind in this folder: {expected}. Other kinds will be relocated.",
-            ConsoleMenu.Dim);
+            Theme.Dim);
         Console.WriteLine();
 
         var items = new MediaScanner(settings).Scan().ToList();
@@ -62,7 +62,7 @@ public sealed class RelocateStage
             }
             catch (Exception ex)
             {
-                ConsoleMenu.Status($"  ! {item.OriginalName}: {ex.Message}", ConsoleMenu.Err);
+                Status.Print($"  ! {item.OriginalName}: {ex.Message}", Theme.Err);
                 report.RecordError(item.FullPath, ex.Message);
             }
         }
@@ -140,38 +140,38 @@ public sealed class RelocateStage
                 Path.TrimEndingDirectorySeparator(Path.GetFullPath(target)),
                 StringComparison.OrdinalIgnoreCase))
         {
-            ConsoleMenu.WriteColor("  [already in place]", ConsoleMenu.Dim, newline: true);
+            Status.Line("  [already in place]", Theme.Dim);
             return;
         }
 
         if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any())
         {
-            ConsoleMenu.WriteColor($"  [skip - target exists with content: {target}]", ConsoleMenu.Dim, newline: true);
+            Status.Line($"  [skip - target exists with content: {target}]", Theme.Dim);
             report.RecordManual(item.FullPath, item.Kind, $"relocate target {target} already has content");
             return;
         }
 
         if (settings.DryRun)
         {
-            ConsoleMenu.WriteColor($"  [dry: -> {target}]", ConsoleMenu.Active, newline: true);
+            Status.Line($"  [dry: -> {target}]", Theme.Active);
             return;
         }
 
         MoveStage.SafeMoveDirectory(item.FullPath, target);
-        ConsoleMenu.WriteColor($"  -> {target}", ConsoleMenu.Ok, newline: true);
+        Status.Line($"  -> {target}", Theme.Ok);
         AuditLog.Record(settings, settings.DryRun, "relocate", item.FullPath, target, item.Kind);
     }
 
     private static void LogInPlace(MediaItem item)
     {
         Console.Write("  " + item.OriginalName);
-        ConsoleMenu.WriteColor("  [in place]", ConsoleMenu.Dim, newline: true);
+        Status.Line("  [in place]", Theme.Dim);
     }
 
     private static void LogSkip(MediaItem item, string reason)
     {
         Console.Write("  " + item.OriginalName);
-        ConsoleMenu.WriteColor("  [skip - " + reason + "]", ConsoleMenu.Dim, newline: true);
+        Status.Line("  [skip - " + reason + "]", Theme.Dim);
     }
 
     /// <summary>

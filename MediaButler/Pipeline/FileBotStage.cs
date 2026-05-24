@@ -1,7 +1,7 @@
 using MediaButler.FileBot;
 using MediaButler.Media;
-using MediaButler.Menu;
 using MediaButler.Settings;
+using MediaButler.Ui;
 
 namespace MediaButler.Pipeline;
 
@@ -35,8 +35,6 @@ public sealed class FileBotStage
 
     public void Run()
     {
-        if (settings.DryRun)
-            ConsoleMenu.Status("DRY RUN — FileBot will run with --action TEST; artwork/subtitle fetches skipped.", ConsoleMenu.Active);
         RunTv();
         RunMovies();
         if (settings.EnableSubtitles) RunSubtitles();
@@ -44,6 +42,9 @@ public sealed class FileBotStage
 
     public void RunTv()
     {
+        if (settings.DryRun)
+            Status.Print("DRY RUN — FileBot will run with --action TEST; artwork fetches skipped.", Theme.Active);
+
         var items = new MediaScanner(settings).Scan()
             .Where(i => i.Kind == MediaKind.TvSeason)
             .OrderBy(i => i.ShowName)
@@ -52,16 +53,16 @@ public sealed class FileBotStage
 
         if (items.Count == 0)
         {
-            ConsoleMenu.Status("No TV season folders to process.", ConsoleMenu.Dim);
+            Status.Print("No TV season folders to process.", Theme.Dim);
             return;
         }
 
-        ConsoleMenu.Status($"Processing {items.Count} TV season folder(s)...", ConsoleMenu.Normal);
-        Console.WriteLine();
+        Status.Print($"Processing {items.Count} TV season folder(s)...", Theme.Normal);
+        Status.NewLine();
 
         foreach (var item in items)
         {
-            Console.Write("  " + item.OriginalName);
+            BeginItem(item.OriginalName);
             try
             {
                 if (settings.RenameEpisodes)
@@ -74,18 +75,20 @@ public sealed class FileBotStage
                     var aw = fileBot.FetchTvArtwork(item.FullPath);
                     RecordFileBotOutcome("artwork", item.FullPath, aw, dryRun: false, ok => report.ArtworkOk += ok ? 1 : 0);
                 }
-                Console.WriteLine();
+                Status.NewLine();
             }
             catch (Exception ex)
             {
-                ConsoleMenu.WriteColor("  ! " + ex.Message, ConsoleMenu.Err, newline: true);
-                report.RecordError(item.FullPath, ex.Message);
+                EndItemWithError(item, ex);
             }
         }
     }
 
     public void RunMovies()
     {
+        if (settings.DryRun)
+            Status.Print("DRY RUN — FileBot will run with --action TEST; artwork fetches skipped.", Theme.Active);
+
         var items = new MediaScanner(settings).Scan()
             .Where(i => i.Kind == MediaKind.Movie)
             .OrderBy(i => i.MovieTitle)
@@ -93,16 +96,16 @@ public sealed class FileBotStage
 
         if (items.Count == 0)
         {
-            ConsoleMenu.Status("No movie folders to process.", ConsoleMenu.Dim);
+            Status.Print("No movie folders to process.", Theme.Dim);
             return;
         }
 
-        ConsoleMenu.Status($"Processing {items.Count} movie folder(s)...", ConsoleMenu.Normal);
-        Console.WriteLine();
+        Status.Print($"Processing {items.Count} movie folder(s)...", Theme.Normal);
+        Status.NewLine();
 
         foreach (var item in items)
         {
-            Console.Write("  " + item.OriginalName);
+            BeginItem(item.OriginalName);
             try
             {
                 // Rename movie files first — this both cleans the filenames
@@ -118,14 +121,39 @@ public sealed class FileBotStage
                     var aw = fileBot.FetchMovieArtwork(item.FullPath);
                     RecordFileBotOutcome("artwork", item.FullPath, aw, dryRun: false, ok => report.ArtworkOk += ok ? 1 : 0);
                 }
-                Console.WriteLine();
+                Status.NewLine();
             }
             catch (Exception ex)
             {
-                ConsoleMenu.WriteColor("  ! " + ex.Message, ConsoleMenu.Err, newline: true);
-                report.RecordError(item.FullPath, ex.Message);
+                EndItemWithError(item, ex);
             }
         }
+    }
+
+    /// <summary>
+    /// Write the per-item leading text ("  {item name}") without a newline so
+    /// subsequent inline fragments stack on the same row. In Quiet mode the
+    /// fragments are suppressed, so this header is suppressed too — otherwise
+    /// each item would emit a stray blank line.
+    /// </summary>
+    private static void BeginItem(string name)
+    {
+        if (Status.Verbosity == Verbosity.Quiet) return;
+        Console.Write("  " + name);
+    }
+
+    /// <summary>
+    /// Close out an in-progress item line on the error path. In non-quiet mode
+    /// the leading <see cref="BeginItem"/> wrote "  name" without a newline —
+    /// emit one now so the error line doesn't run into the name. Always log
+    /// the error with the item name included, so Quiet-mode users (where
+    /// <see cref="BeginItem"/> was a no-op) still get context.
+    /// </summary>
+    private void EndItemWithError(MediaItem item, Exception ex)
+    {
+        if (Status.Verbosity != Verbosity.Quiet) Console.WriteLine();
+        Status.Line($"  ! {item.OriginalName}: {ex.Message}", Theme.Err);
+        report.RecordError(item.FullPath, ex.Message);
     }
 
     /// <summary>
@@ -138,14 +166,14 @@ public sealed class FileBotStage
     {
         if (result.Success)
         {
-            ConsoleMenu.WriteColor(dryRun ? $"  [dry {label} ok]" : $"  [{label} ok]", ConsoleMenu.Ok);
+            Status.Inline(dryRun ? $"  [dry {label} ok]" : $"  [{label} ok]", Theme.Ok);
             bumpOk(true);
             return;
         }
         var detail = result.LastInterestingLine();
-        ConsoleMenu.WriteColor($"  [{label}: exit {result.ExitCode}]", ConsoleMenu.Err);
+        Status.Inline($"  [{label}: exit {result.ExitCode}]", Theme.Err);
         if (!string.IsNullOrWhiteSpace(detail))
-            ConsoleMenu.WriteColor($"    {Truncate(detail, 160)}", ConsoleMenu.Dim, newline: true);
+            Status.Line($"    {Truncate(detail, 160)}", Theme.Dim);
         var message = $"FileBot {label} exit {result.ExitCode}" +
                       (string.IsNullOrWhiteSpace(detail) ? "" : $": {Truncate(detail, 240)}");
         report.RecordError(itemPath, message);
@@ -158,7 +186,7 @@ public sealed class FileBotStage
     {
         if (settings.DryRun)
         {
-            ConsoleMenu.Status("DRY RUN — subtitle fetch skipped (would download SRTs).", ConsoleMenu.Active);
+            Status.Print("DRY RUN — subtitle fetch skipped (would download SRTs).", Theme.Active);
             return;
         }
 
@@ -168,43 +196,46 @@ public sealed class FileBotStage
 
         if (items.Count == 0)
         {
-            ConsoleMenu.Status("Nothing to fetch subtitles for.", ConsoleMenu.Dim);
+            Status.Print("Nothing to fetch subtitles for.", Theme.Dim);
             return;
         }
 
         var creds = credentials;
         if (creds.IsComplete)
-            ConsoleMenu.Status($"Fetching {settings.SubtitleLanguage} subtitles for {items.Count} folder(s) as '{creds.User}'...", ConsoleMenu.Normal);
+            Status.Print($"Fetching {settings.SubtitleLanguage} subtitles for {items.Count} folder(s) as '{creds.User}'...", Theme.Normal);
         else
-            ConsoleMenu.Status($"Fetching {settings.SubtitleLanguage} subtitles for {items.Count} folder(s) (no MindAttic Vault creds — relying on FileBot Preferences)...", ConsoleMenu.Dim);
-        Console.WriteLine();
+            Status.Print($"Fetching {settings.SubtitleLanguage} subtitles for {items.Count} folder(s) (no MindAttic Vault creds — relying on FileBot Preferences)...", Theme.Dim);
+        Status.NewLine();
 
         var authWarned = false;
         foreach (var item in items)
         {
-            Console.Write("  " + item.OriginalName);
+            BeginItem(item.OriginalName);
             var sub = fileBot.GetSubtitles(item.FullPath, settings.SubtitleLanguage, creds);
             if (sub.LooksLikeAuthFailure)
             {
-                ConsoleMenu.WriteColor("  [auth failed]", ConsoleMenu.Err, newline: true);
+                if (Status.Verbosity != Verbosity.Quiet) Console.WriteLine();
+                Status.Line($"  ! {item.OriginalName}: OpenSubtitles auth failed (401)", Theme.Err);
                 report.RecordError(item.FullPath, "OpenSubtitles 401");
                 if (!authWarned)
                 {
-                    ConsoleMenu.Status(
+                    Status.Print(
                         "OpenSubtitles rejected the login. Set 'MindAttic:Vault:Subtitles:OpenSubtitles:user' and ':password' via `dotnet user-secrets set` or environment variables.",
-                        ConsoleMenu.Err);
+                        Theme.Err);
                     authWarned = true;
                 }
                 continue;
             }
             if (sub.Success)
             {
-                ConsoleMenu.WriteColor("  [ok]", ConsoleMenu.Ok, newline: true);
+                Status.Inline("  [ok]", Theme.Ok);
+                Status.NewLine();
                 report.SubtitlesOk++;
             }
             else
             {
-                ConsoleMenu.WriteColor("  [exit " + sub.ExitCode + "]", ConsoleMenu.Err, newline: true);
+                if (Status.Verbosity != Verbosity.Quiet) Console.WriteLine();
+                Status.Line($"  ! {item.OriginalName}: FileBot subtitle exit {sub.ExitCode}", Theme.Err);
                 report.RecordError(item.FullPath, "FileBot subtitle exit " + sub.ExitCode);
             }
         }

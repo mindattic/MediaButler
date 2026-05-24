@@ -1,16 +1,16 @@
 using MediaButler.FileBot;
 using MediaButler.Media;
-using MediaButler.Menu;
 using MediaButler.Pipeline;
 using MediaButler.Settings;
+using MediaButler.Ui;
 
 namespace MediaButler.Maui.Services;
 
 /// <summary>
 /// Executes MediaButler pipeline actions from the MAUI shell. Mirrors the
-/// orchestration logic in <c>MediaButlerApp</c>'s headless methods, but
-/// returns the populated <see cref="PipelineReport"/> instead of an exit
-/// code and captures all <see cref="Console"/> output via
+/// orchestration logic in <c>MediaButler.Pipeline.PipelineRunner</c>'s
+/// headless methods, but returns the populated <see cref="PipelineReport"/>
+/// instead of an exit code and captures all <see cref="Console"/> output via
 /// <see cref="ConsoleCaptureWriter"/> so the UI can display a live log.
 ///
 /// <para>
@@ -60,7 +60,7 @@ public sealed class PipelineRunner
             {
                 Console.SetOut(writer);
                 Console.SetError(writer);
-                ConsoleMenu.Verbosity = MediaButler.App.Verbosity.Normal;
+                Status.Verbosity = Verbosity.Normal;
                 Execute(action, report, relocateOverridePath);
                 writer.Flush();
             }

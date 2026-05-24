@@ -3,6 +3,9 @@ using MediaButler.FileBot;
 using MediaButler.Maui.Services;
 using MediaButler.Pipeline;
 using MediaButler.Settings;
+// MediaButler.Pipeline now also exports a PipelineRunner (used by the CLI);
+// the MAUI shell wraps a UI-flavored variant that captures output, so alias.
+using PipelineRunner = MediaButler.Maui.Services.PipelineRunner;
 
 namespace MediaButler.Maui;
 

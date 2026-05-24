@@ -1,6 +1,6 @@
 using MediaButler.Media;
-using MediaButler.Menu;
 using MediaButler.Settings;
+using MediaButler.Ui;
 
 namespace MediaButler.Pipeline;
 
@@ -38,9 +38,9 @@ public sealed class RenameStage
 
     public void Run()
     {
-        ConsoleMenu.Status("Source: " + settings.SourcePath, ConsoleMenu.Normal);
+        Status.Print("Source: " + settings.SourcePath, Theme.Normal);
         if (settings.DryRun)
-            ConsoleMenu.Status("DRY RUN — no files will be renamed, moved, or deleted.", ConsoleMenu.Active);
+            Status.Print("DRY RUN — no files will be renamed, moved, or deleted.", Theme.Active);
         Console.WriteLine();
 
         // Snapshot first — we mutate the directory tree as we go.
@@ -53,7 +53,7 @@ public sealed class RenameStage
             }
             catch (Exception ex)
             {
-                ConsoleMenu.Status($"  ! {item.OriginalName}: {ex.Message}", ConsoleMenu.Err);
+                Status.Print($"  ! {item.OriginalName}: {ex.Message}", Theme.Err);
                 report.RecordError(item.FullPath, ex.Message);
             }
         }
@@ -82,12 +82,12 @@ public sealed class RenameStage
                 break;
 
             case MediaKind.Extras:
-                ConsoleMenu.WriteColor("  [extras - left in place]", ConsoleMenu.Dim, newline: true);
+                Status.Line("  [extras - left in place]", Theme.Dim);
                 report.RecordManual(item.FullPath, item.Kind, "extras/specials folder — Plex prefers these inside the show root");
                 break;
 
             default:
-                ConsoleMenu.WriteColor("  [skip - unknown]", ConsoleMenu.Dim, newline: true);
+                Status.Line("  [skip - unknown]", Theme.Dim);
                 report.RecordManual(item.FullPath, item.Kind, "parser could not classify (try EnableLlmFallback)");
                 break;
         }
@@ -97,7 +97,7 @@ public sealed class RenameStage
     {
         if (string.IsNullOrWhiteSpace(item.ShowName) || item.SeasonNumber is null)
         {
-            ConsoleMenu.WriteColor("  [skip - missing show/season]", ConsoleMenu.Dim, newline: true);
+            Status.Line("  [skip - missing show/season]", Theme.Dim);
             report.RecordManual(item.FullPath, item.Kind, "parsed as TvSeason but show/season missing");
             return;
         }
@@ -105,26 +105,26 @@ public sealed class RenameStage
         var newName = NameParser.FormatSeasonFolder(item.ShowName, item.SeasonNumber.Value);
         if (string.Equals(item.OriginalName, newName, StringComparison.Ordinal))
         {
-            ConsoleMenu.WriteColor("  [ok]", ConsoleMenu.Dim, newline: true);
+            Status.Line("  [ok]", Theme.Dim);
             return;
         }
 
         var target = Path.Combine(settings.SourcePath, newName);
         if (Directory.Exists(target))
         {
-            ConsoleMenu.WriteColor($"  [skip - target exists: {newName}]", ConsoleMenu.Dim, newline: true);
+            Status.Line($"  [skip - target exists: {newName}]", Theme.Dim);
             report.RecordManual(item.FullPath, item.Kind, $"target {newName} already exists");
             return;
         }
 
         if (settings.DryRun)
         {
-            ConsoleMenu.WriteColor($"  [dry: -> {newName}]", ConsoleMenu.Active, newline: true);
+            Status.Line($"  [dry: -> {newName}]", Theme.Active);
         }
         else
         {
             Directory.Move(item.FullPath, target);
-            ConsoleMenu.WriteColor($"  -> {newName}", ConsoleMenu.Ok, newline: true);
+            Status.Line($"  -> {newName}", Theme.Ok);
         }
         AuditLog.Record(settings, settings.DryRun, "rename", item.FullPath, target, item.Kind);
         report.Renamed++;
@@ -134,7 +134,7 @@ public sealed class RenameStage
     {
         if (string.IsNullOrWhiteSpace(item.MovieTitle))
         {
-            ConsoleMenu.WriteColor("  [skip - no title]", ConsoleMenu.Dim, newline: true);
+            Status.Line("  [skip - no title]", Theme.Dim);
             report.RecordManual(item.FullPath, item.Kind, "parsed as Movie but title missing");
             return;
         }
@@ -142,26 +142,26 @@ public sealed class RenameStage
         var newName = NameParser.FormatMovieFolder(item.MovieTitle, item.MovieYear);
         if (string.Equals(item.OriginalName, newName, StringComparison.Ordinal))
         {
-            ConsoleMenu.WriteColor("  [movie - ok]", ConsoleMenu.Dim, newline: true);
+            Status.Line("  [movie - ok]", Theme.Dim);
             return;
         }
 
         var target = Path.Combine(settings.SourcePath, newName);
         if (Directory.Exists(target))
         {
-            ConsoleMenu.WriteColor($"  [skip - target exists: {newName}]", ConsoleMenu.Dim, newline: true);
+            Status.Line($"  [skip - target exists: {newName}]", Theme.Dim);
             report.RecordManual(item.FullPath, item.Kind, $"target {newName} already exists");
             return;
         }
 
         if (settings.DryRun)
         {
-            ConsoleMenu.WriteColor($"  [dry: -> {newName} (movie)]", ConsoleMenu.Active, newline: true);
+            Status.Line($"  [dry: -> {newName} (movie)]", Theme.Active);
         }
         else
         {
             Directory.Move(item.FullPath, target);
-            ConsoleMenu.WriteColor($"  -> {newName} (movie)", ConsoleMenu.Ok, newline: true);
+            Status.Line($"  -> {newName} (movie)", Theme.Ok);
         }
         AuditLog.Record(settings, settings.DryRun, "rename", item.FullPath, target, item.Kind);
         report.Renamed++;
@@ -172,7 +172,7 @@ public sealed class RenameStage
         var show = item.ShowName;
         if (string.IsNullOrWhiteSpace(show))
         {
-            ConsoleMenu.WriteColor("  [skip - could not parse show name]", ConsoleMenu.Err, newline: true);
+            Status.Line("  [skip - could not parse show name]", Theme.Err);
             report.RecordManual(item.FullPath, item.Kind, "multi-season parent: could not parse show name");
             return;
         }
@@ -186,18 +186,18 @@ public sealed class RenameStage
             var target  = Path.Combine(settings.SourcePath, newName);
             if (Directory.Exists(target))
             {
-                ConsoleMenu.WriteColor($"    [skip - exists: {newName}]", ConsoleMenu.Dim, newline: true);
+                Status.Line($"    [skip - exists: {newName}]", Theme.Dim);
                 report.RecordManual(season.FullPath, MediaKind.TvSeason, $"hoist target {newName} already exists");
                 continue;
             }
             if (settings.DryRun)
             {
-                ConsoleMenu.WriteColor($"    [dry: -> {newName}]", ConsoleMenu.Active, newline: true);
+                Status.Line($"    [dry: -> {newName}]", Theme.Active);
             }
             else
             {
                 Directory.Move(season.FullPath, target);
-                ConsoleMenu.WriteColor($"    -> {newName}", ConsoleMenu.Ok, newline: true);
+                Status.Line($"    -> {newName}", Theme.Ok);
             }
             AuditLog.Record(settings, settings.DryRun, "hoist", season.FullPath, target, MediaKind.TvSeason);
             hoisted.Add(target);
@@ -249,7 +249,7 @@ public sealed class RenameStage
         }
         catch (Exception ex)
         {
-            ConsoleMenu.WriteColor($"  [skip - could not measure: {ex.Message}]", ConsoleMenu.Err, newline: true);
+            Status.Line($"  [skip - could not measure: {ex.Message}]", Theme.Err);
             report.RecordError(item.FullPath, "measure failed: " + ex.Message);
             return;
         }
@@ -257,16 +257,16 @@ public sealed class RenameStage
         if (size > settings.EmptyDeleteSafetyBytes)
         {
             var mb = size / (1024.0 * 1024.0);
-            ConsoleMenu.WriteColor($"  [refuse - {mb:F1} MB of non-video content; extend VideoExtensions?]",
-                ConsoleMenu.Active, newline: true);
+            Status.Line($"  [refuse - {mb:F1} MB of non-video content; extend VideoExtensions?]",
+                Theme.Active);
             report.RecordManual(item.FullPath, item.Kind,
                 $"marked Empty but holds {mb:F1} MB — likely an unrecognised video container");
             return;
         }
 
         if (!settings.DryRun) Directory.Delete(item.FullPath, recursive: true);
-        ConsoleMenu.WriteColor(settings.DryRun ? "  [dry: would delete empty]" : "  [empty - deleted]",
-            ConsoleMenu.Dim, newline: true);
+        Status.Line(settings.DryRun ? "  [dry: would delete empty]" : "  [empty - deleted]",
+            Theme.Dim);
         AuditLog.Record(settings, settings.DryRun, "delete-empty", item.FullPath, null, item.Kind);
         report.EmptyDeleted++;
     }
