@@ -105,7 +105,7 @@ public sealed class MoveStage
         var showRoot   = Path.Combine(settings.TvDestination, SanitizeForFs(item.ShowName));
         var seasonRoot = Path.Combine(showRoot, $"Season {item.SeasonNumber:D2}");
 
-        Console.Write($"  {item.ShowName} S{item.SeasonNumber:D2}");
+        Status.Item($"{item.ShowName} S{item.SeasonNumber:D2}");
 
         if (Directory.Exists(seasonRoot) && Directory.EnumerateFileSystemEntries(seasonRoot).Any())
         {
@@ -147,7 +147,7 @@ public sealed class MoveStage
         var folderName = NameParser.FormatMovieFolder(item.MovieTitle ?? item.OriginalName, item.MovieYear);
         var target     = Path.Combine(settings.MoviesDestination, SanitizeForFs(folderName));
 
-        Console.Write($"  {folderName}");
+        Status.Item(folderName);
 
         if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any())
         {
@@ -270,7 +270,17 @@ public sealed class MoveStage
         if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) return;
         try
         {
-            foreach (var marker in Directory.EnumerateFiles(root, CopyingMarker, SearchOption.AllDirectories))
+            // Markers are only ever dropped at a move destination root:
+            // {MoviesDest}\{Movie}\ (depth 1) or {TvDest}\{Show}\Season XX\
+            // (depth 2). Cap recursion so this doesn't crawl an entire Plex
+            // library — potentially tens of thousands of folders — every run.
+            var opts = new EnumerationOptions
+            {
+                RecurseSubdirectories = true,
+                MaxRecursionDepth = 2,
+                IgnoreInaccessible = true,
+            };
+            foreach (var marker in Directory.EnumerateFiles(root, CopyingMarker, opts))
             {
                 var dir = Path.GetDirectoryName(marker)!;
                 report.RecordManual(dir, MediaKind.Unknown,

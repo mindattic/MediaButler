@@ -57,7 +57,7 @@ public sealed class MainMenuCommand : Command<BaseSettings>
         {
             Screen.Header(title);
             var snapshot = runner.LoadEffective(cli.ApplyTo);
-            body(snapshot);
+            ReportExit(body(snapshot));
             Screen.PressAnyKey();
         };
 
@@ -110,8 +110,27 @@ public sealed class MainMenuCommand : Command<BaseSettings>
             cli.ApplyTo(o);
             if (forceDryRun) o.DryRun = true;
         });
-        runner.RunFull(s);
+        ReportExit(runner.RunFull(s));
         Screen.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Surface a stage's exit code to the interactive user. The headless
+    /// subcommands return this code to the shell; in the menu the report is
+    /// already printed, so a one-line closing status is all that's needed —
+    /// otherwise an errored or needs-manual run looks identical to a clean one.
+    /// </summary>
+    private static void ReportExit(int code)
+    {
+        switch (code)
+        {
+            case PipelineRunner.ExitErrors:
+                Status.Print("Completed with errors — see the summary above.", Theme.Err);
+                break;
+            case PipelineRunner.ExitNeedsManual:
+                Status.Print("Completed — some items need manual review (see above).", Theme.Active);
+                break;
+        }
     }
 
     private static void RunRelocateInteractive(PipelineRunner runner, BaseSettings cli)

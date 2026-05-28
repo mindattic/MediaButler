@@ -51,7 +51,7 @@ public sealed class RelocateStage
             ? "Expected kind: any (will relocate both TvSeason and Movie items)."
             : $"Expected kind in this folder: {expected}. Other kinds will be relocated.",
             Theme.Dim);
-        Console.WriteLine();
+        Status.NewLine();
 
         var items = new MediaScanner(settings).Scan().ToList();
         foreach (var item in items)
@@ -74,14 +74,12 @@ public sealed class RelocateStage
         {
             case MediaKind.Movie:
                 if (expected == MediaKind.Movie) { LogInPlace(item); return; }
-                MoveItem(item, BuildMovieTarget(item));
-                report.MoviesMoved++;
+                if (MoveItem(item, BuildMovieTarget(item))) report.MoviesMoved++;
                 break;
 
             case MediaKind.TvSeason:
                 if (expected == MediaKind.TvSeason) { LogInPlace(item); return; }
-                MoveItem(item, BuildTvTarget(item));
-                report.TvMoved++;
+                if (MoveItem(item, BuildTvTarget(item))) report.TvMoved++;
                 break;
 
             case MediaKind.Extras:
@@ -127,11 +125,17 @@ public sealed class RelocateStage
         return Path.Combine(showRoot, $"Season {item.SeasonNumber:D2}");
     }
 
-    private void MoveItem(MediaItem item, string? target)
+    /// <summary>
+    /// Move <paramref name="item"/> to <paramref name="target"/>. Returns true
+    /// only when something was relocated (or, in dry-run, <em>would</em> be) so
+    /// the caller's moved-counter reflects reality — a null target, an
+    /// already-in-place folder, or a populated target must not inflate the tally.
+    /// </summary>
+    private bool MoveItem(MediaItem item, string? target)
     {
-        if (target is null) return;
+        if (target is null) return false;
 
-        Console.Write($"  {item.OriginalName}");
+        Status.Item(item.OriginalName);
 
         // Same-path no-op — happens when scanning the wrapper of the canonical
         // location ("Heat (1995)" inside M:\Movies is already at M:\Movies\Heat (1995)).
@@ -141,36 +145,37 @@ public sealed class RelocateStage
                 StringComparison.OrdinalIgnoreCase))
         {
             Status.Line("  [already in place]", Theme.Dim);
-            return;
+            return false;
         }
 
         if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any())
         {
             Status.Line($"  [skip - target exists with content: {target}]", Theme.Dim);
             report.RecordManual(item.FullPath, item.Kind, $"relocate target {target} already has content");
-            return;
+            return false;
         }
 
         if (settings.DryRun)
         {
             Status.Line($"  [dry: -> {target}]", Theme.Active);
-            return;
+            return true;
         }
 
         MoveStage.SafeMoveDirectory(item.FullPath, target);
         Status.Line($"  -> {target}", Theme.Ok);
         AuditLog.Record(settings, settings.DryRun, "relocate", item.FullPath, target, item.Kind);
+        return true;
     }
 
     private static void LogInPlace(MediaItem item)
     {
-        Console.Write("  " + item.OriginalName);
+        Status.Item(item.OriginalName);
         Status.Line("  [in place]", Theme.Dim);
     }
 
     private static void LogSkip(MediaItem item, string reason)
     {
-        Console.Write("  " + item.OriginalName);
+        Status.Item(item.OriginalName);
         Status.Line("  [skip - " + reason + "]", Theme.Dim);
     }
 
