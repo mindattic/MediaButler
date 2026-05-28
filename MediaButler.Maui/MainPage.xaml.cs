@@ -1,4 +1,3 @@
-using System.Text;
 using MediaButler.FileBot;
 using MediaButler.Maui.Services;
 using MediaButler.Pipeline;
@@ -13,7 +12,11 @@ public partial class MainPage : ContentPage
 {
     private readonly PipelineRunner runner;
     private readonly SettingsService settings;
-    private readonly StringBuilder logBuffer = new();
+    // Ring of the most recent log lines. A full-library run emits thousands of
+    // lines; keeping every line and re-materializing the whole log on each
+    // append is O(n²) and eventually janks the UI. Cap and reuse instead.
+    private const int MaxLogLines = 2000;
+    private readonly LinkedList<string> logLines = new();
     private bool busy;
 
     private bool firstAppear = true;
@@ -87,7 +90,7 @@ public partial class MainPage : ContentPage
 
     private void OnClearLog(object? sender, EventArgs e)
     {
-        logBuffer.Clear();
+        logLines.Clear();
         LogLabel.Text = string.Empty;
     }
 
@@ -181,8 +184,9 @@ public partial class MainPage : ContentPage
 
     private void AppendLine(string line)
     {
-        logBuffer.AppendLine(line);
-        LogLabel.Text = logBuffer.ToString();
+        logLines.AddLast(line);
+        while (logLines.Count > MaxLogLines) logLines.RemoveFirst();
+        LogLabel.Text = string.Join(Environment.NewLine, logLines);
         _ = LogScroll.ScrollToAsync(0, double.MaxValue, animated: false);
     }
 }

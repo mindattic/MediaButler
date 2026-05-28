@@ -25,6 +25,12 @@ public static class AuditLog
     private static readonly object Lock = new();
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = false };
 
+    // Cached append writer so a large run doesn't open/close the day file once
+    // per mutation. Re-created when the path changes (date rollover at midnight).
+    // AutoFlush keeps the log durable for crash forensics — its whole purpose.
+    private static StreamWriter? writer;
+    private static string? writerPath;
+
     /// <summary>
     /// Process-lifetime count of audit-write failures. Read by
     /// <c>PipelineRunner.PrintReport</c> so a final warning surfaces when the
@@ -44,6 +50,9 @@ public static class AuditLog
         {
             failureCount = 0;
             LastFailureMessage = null;
+            writer?.Dispose();
+            writer = null;
+            writerPath = null;
         }
     }
 
@@ -80,8 +89,14 @@ public static class AuditLog
             var path = FilePath();
             lock (Lock)
             {
-                VaultPaths.Ensure(Path.GetDirectoryName(path)!);
-                File.AppendAllText(path, line + Environment.NewLine);
+                if (writer is null || !string.Equals(writerPath, path, StringComparison.OrdinalIgnoreCase))
+                {
+                    writer?.Dispose();
+                    VaultPaths.Ensure(Path.GetDirectoryName(path)!);
+                    writer = new StreamWriter(path, append: true) { AutoFlush = true };
+                    writerPath = path;
+                }
+                writer.WriteLine(line);
             }
         }
         catch (Exception ex)

@@ -96,16 +96,25 @@ public sealed class LegionFallbackParser
     }
 
     /// <summary>
-    /// Some providers wrap their JSON in ```json fences or prose. Extract the
-    /// first <c>{...}</c> block; return null if nothing usable is present.
+    /// Some providers wrap their JSON in ```json fences or prose, or echo the
+    /// schema object before the real answer. Extract the first <i>balanced</i>
+    /// <c>{...}</c> block by tracking brace depth — a naive first-brace to
+    /// last-brace slice would merge two objects into invalid JSON. Returns null
+    /// if no complete object is present.
     /// </summary>
     private static string? ExtractJsonObject(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
         var start = raw.IndexOf('{');
-        var end = raw.LastIndexOf('}');
-        if (start < 0 || end <= start) return null;
-        return raw.Substring(start, end - start + 1);
+        if (start < 0) return null;
+        var depth = 0;
+        for (var i = start; i < raw.Length; i++)
+        {
+            if (raw[i] == '{') depth++;
+            else if (raw[i] == '}' && --depth == 0)
+                return raw.Substring(start, i - start + 1);
+        }
+        return null;
     }
 }
 

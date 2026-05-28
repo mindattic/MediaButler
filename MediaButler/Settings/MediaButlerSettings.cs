@@ -68,7 +68,19 @@ public sealed class MediaButlerSettings
     /// itself recognises; the second batch (.iso .img .vob .ifo) catches DVD/BD
     /// rips that the user's real library exposed in testing.
     /// </summary>
-    public string[] VideoExtensions { get; set; } =
+    public string[] VideoExtensions
+    {
+        // Never let this resolve to an empty set: an empty list classifies
+        // *every* folder as Empty, and the Rename stage then deletes them.
+        // A cleared array (bad settings.json / manual edit) falls back to the
+        // safe defaults instead.
+        get => videoExtensions is { Length: > 0 } ? videoExtensions : DefaultVideoExtensions;
+        set => videoExtensions = value is { Length: > 0 } ? value : DefaultVideoExtensions;
+    }
+
+    private string[] videoExtensions = DefaultVideoExtensions;
+
+    private static readonly string[] DefaultVideoExtensions =
         [".mkv", ".mp4", ".avi", ".m4v", ".wmv", ".mov", ".ts", ".m2ts", ".mpg", ".mpeg",
          ".webm", ".flv", ".divx", ".vob", ".mts", ".3gp", ".mxf", ".m2v", ".ogm", ".rmvb", ".rm", ".asf",
          ".iso", ".img", ".ifo"];

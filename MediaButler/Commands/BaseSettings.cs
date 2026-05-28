@@ -47,8 +47,8 @@ public class BaseSettings : CommandSettings
     public void ApplyTo(MediaButlerSettings s)
     {
         if (DryRun) s.DryRun = true;
-        if (!string.IsNullOrWhiteSpace(Source))     s.SourcePath        = Source!;
-        if (!string.IsNullOrWhiteSpace(TvDest))     s.TvDestination     = TvDest!;
-        if (!string.IsNullOrWhiteSpace(MoviesDest)) s.MoviesDestination = MoviesDest!;
+        if (!string.IsNullOrWhiteSpace(Source))     s.SourcePath        = Source.Trim();
+        if (!string.IsNullOrWhiteSpace(TvDest))     s.TvDestination     = TvDest.Trim();
+        if (!string.IsNullOrWhiteSpace(MoviesDest)) s.MoviesDestination = MoviesDest.Trim();
     }
 }

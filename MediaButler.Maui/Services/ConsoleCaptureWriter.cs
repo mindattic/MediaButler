@@ -26,37 +26,64 @@ public sealed class ConsoleCaptureWriter : TextWriter
 
     public override void Write(char value)
     {
+        string? completed = null;
         lock (buffer)
         {
             if (value == '\n')
             {
-                var line = buffer.ToString();
+                completed = buffer.ToString();
                 buffer.Clear();
-                if (line.EndsWith('\r')) line = line[..^1];
-                sink(line);
+                if (completed.EndsWith('\r')) completed = completed[..^1];
             }
             else
             {
                 buffer.Append(value);
             }
         }
+        // Fire the sink outside the lock so a slow/blocking sink can't stall
+        // other producers waiting on the buffer.
+        if (completed is not null) sink(completed);
     }
 
     public override void Write(string? value)
     {
-        if (value is null) return;
-        foreach (var ch in value) Write(ch);
+        if (string.IsNullOrEmpty(value)) return;
+        // Process the whole string under a single lock, collecting any completed
+        // lines, then dispatch to the sink outside the lock.
+        List<string>? completed = null;
+        lock (buffer)
+        {
+            foreach (var ch in value)
+            {
+                if (ch == '\n')
+                {
+                    var line = buffer.ToString();
+                    buffer.Clear();
+                    if (line.EndsWith('\r')) line = line[..^1];
+                    (completed ??= new List<string>()).Add(line);
+                }
+                else
+                {
+                    buffer.Append(ch);
+                }
+            }
+        }
+        if (completed is not null)
+            foreach (var line in completed) sink(line);
     }
 
     /// <summary>Flush any buffered partial line so the user sees it before completion.</summary>
     public override void Flush()
     {
+        string? line = null;
         lock (buffer)
         {
-            if (buffer.Length == 0) return;
-            var line = buffer.ToString();
-            buffer.Clear();
-            sink(line);
+            if (buffer.Length > 0)
+            {
+                line = buffer.ToString();
+                buffer.Clear();
+            }
         }
+        if (line is not null) sink(line);
     }
 }
