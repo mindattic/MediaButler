@@ -30,15 +30,27 @@ public sealed class MediaScanner
     }
 
     /// <summary>
-    /// Synchronous scan — the fast path used by every stage. Items the regex
-    /// parser can't classify are returned as <see cref="MediaKind.Unknown"/>
-    /// without consulting the LLM. Callers that want LLM-based fallback should
-    /// use <see cref="ScanAsync"/> instead.
+    /// Synchronous scan — the fast path used by every stage. When
+    /// <see cref="MediaButlerSettings.EnableLlmFallback"/> is on, folders the
+    /// regex parser can't classify are refined via the LLM (resolved
+    /// synchronously); when it's off this is pure-filesystem and never touches
+    /// the network. <see cref="ScanAsync"/> is the truly-async equivalent for
+    /// callers that already run in an async context.
     /// </summary>
     public IEnumerable<MediaItem> Scan()
     {
         foreach (var dir in TopLevelDirs())
-            yield return ClassifyByRegex(dir);
+        {
+            var item = ClassifyByRegex(dir);
+            if (item.Kind == MediaKind.Unknown && llmFallback is not null)
+            {
+                // No SynchronizationContext on the console / Task.Run threads that
+                // drive the pipeline, so blocking here can't deadlock.
+                var refined = TryLlmClassifyAsync(dir, CancellationToken.None).GetAwaiter().GetResult();
+                if (refined is not null) item = refined;
+            }
+            yield return item;
+        }
     }
 
     /// <summary>
@@ -231,7 +243,10 @@ public sealed class MediaScanner
         foreach (var sub in Directory.EnumerateDirectories(fullPath))
         {
             var subName = Path.GetFileName(sub);
-            if (NameParser.ParseNestedSeasonName(subName) is not null)
+            // Require video too, so this agrees with BuildMultiSeasonParent —
+            // otherwise empty "Season N" shells could classify a parent as
+            // multi-season but yield zero hoistable seasons.
+            if (NameParser.ParseNestedSeasonName(subName) is not null && HasAnyVideo(sub))
             {
                 count++;
                 if (count >= 2) return true;

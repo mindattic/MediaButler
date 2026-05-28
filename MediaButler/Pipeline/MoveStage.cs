@@ -338,6 +338,10 @@ public sealed class MoveStage
         }
         foreach (var sub in Directory.EnumerateDirectories(source))
         {
+            // Never follow junctions / directory symlinks: they can point
+            // outside the media tree (copying an unrelated subtree) or form a
+            // cycle. A genuine season/movie folder is never a reparse point.
+            if ((File.GetAttributes(sub) & FileAttributes.ReparsePoint) != 0) continue;
             var name = Path.GetFileName(sub);
             CopyDirectoryRecursive(sub, Path.Combine(destination, name));
         }

@@ -232,6 +232,12 @@ public sealed class FileBotClient
             };
         }
 
+        // The process exited within the timeout, but WaitForExit(TimeSpan) does
+        // NOT guarantee the async output handlers have drained — only the
+        // parameterless overload does. Without this the last stdout/stderr
+        // lines (e.g. the OpenSubtitles "401 Unauthorized" marker) can be lost.
+        try { proc.WaitForExit(); } catch { /* already fully exited */ }
+
         return new FileBotResult
         {
             ExitCode = proc.ExitCode,
