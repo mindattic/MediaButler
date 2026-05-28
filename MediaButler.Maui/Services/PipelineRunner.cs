@@ -131,7 +131,7 @@ public sealed class PipelineRunner
                 break;
 
             case PipelineAction.Relocate:
-                if (!string.IsNullOrWhiteSpace(relocateOverridePath)) s.SourcePath = relocateOverridePath;
+                if (!string.IsNullOrWhiteSpace(relocateOverridePath)) s.SourcePath = relocateOverridePath.Trim();
                 if (!Directory.Exists(s.SourcePath))
                 {
                     Console.WriteLine("Source path not found: " + s.SourcePath);

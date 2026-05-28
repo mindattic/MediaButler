@@ -211,32 +211,42 @@ public sealed class FileBotStage
         foreach (var item in items)
         {
             BeginItem(item.OriginalName);
-            var sub = fileBot.GetSubtitles(item.FullPath, settings.SubtitleLanguage, creds);
-            if (sub.LooksLikeAuthFailure)
+            try
             {
-                if (Status.Verbosity != Verbosity.Quiet) Console.WriteLine();
-                Status.Line($"  ! {item.OriginalName}: OpenSubtitles auth failed (401)", Theme.Err);
-                report.RecordError(item.FullPath, "OpenSubtitles 401");
-                if (!authWarned)
+                var sub = fileBot.GetSubtitles(item.FullPath, settings.SubtitleLanguage, creds);
+                if (sub.LooksLikeAuthFailure)
                 {
-                    Status.Print(
-                        "OpenSubtitles rejected the login. Set 'MindAttic:Vault:Subtitles:OpenSubtitles:user' and ':password' via `dotnet user-secrets set` or environment variables.",
-                        Theme.Err);
-                    authWarned = true;
+                    if (Status.Verbosity != Verbosity.Quiet) Console.WriteLine();
+                    Status.Line($"  ! {item.OriginalName}: OpenSubtitles auth failed (401)", Theme.Err);
+                    report.RecordError(item.FullPath, "OpenSubtitles 401");
+                    if (!authWarned)
+                    {
+                        Status.Print(
+                            "OpenSubtitles rejected the login. Set 'MindAttic:Vault:Subtitles:OpenSubtitles:user' and ':password' via `dotnet user-secrets set` or environment variables.",
+                            Theme.Err);
+                        authWarned = true;
+                    }
+                    continue;
                 }
-                continue;
+                if (sub.Success)
+                {
+                    Status.Inline("  [ok]", Theme.Ok);
+                    Status.NewLine();
+                    report.SubtitlesOk++;
+                }
+                else
+                {
+                    if (Status.Verbosity != Verbosity.Quiet) Console.WriteLine();
+                    Status.Line($"  ! {item.OriginalName}: FileBot subtitle exit {sub.ExitCode}", Theme.Err);
+                    report.RecordError(item.FullPath, "FileBot subtitle exit " + sub.ExitCode);
+                }
             }
-            if (sub.Success)
+            catch (Exception ex)
             {
-                Status.Inline("  [ok]", Theme.Ok);
-                Status.NewLine();
-                report.SubtitlesOk++;
-            }
-            else
-            {
-                if (Status.Verbosity != Verbosity.Quiet) Console.WriteLine();
-                Status.Line($"  ! {item.OriginalName}: FileBot subtitle exit {sub.ExitCode}", Theme.Err);
-                report.RecordError(item.FullPath, "FileBot subtitle exit " + sub.ExitCode);
+                // Match RunTv / RunMovies: one folder's failure (temp-file IO,
+                // process launch, etc.) records an error and moves on instead of
+                // aborting the whole subtitle batch.
+                EndItemWithError(item, ex);
             }
         }
     }

@@ -37,6 +37,18 @@ public static class Status
         WriteRaw("  " + text, color, newline: true);
     }
 
+    /// <summary>
+    /// Per-item leading header ("  {name}") with no newline, so the stage can
+    /// stack inline result fragments on the same row. Suppressed in Quiet mode —
+    /// without this the stages emit orphan folder-name lines whose (Dim/Ok)
+    /// result text is itself suppressed, leaving bare names with no outcome.
+    /// </summary>
+    public static void Item(string text)
+    {
+        if (Verbosity == Verbosity.Quiet) return;
+        Console.Write("  " + text);
+    }
+
     /// <summary>Trailing fragment on the current line, with a newline appended.</summary>
     public static void Line(string text, Color color)
     {
@@ -90,7 +102,11 @@ public static class Status
     private static void WriteRaw(string text, Color color, bool newline)
     {
         var system = AnsiConsole.Console.Profile.Capabilities.ColorSystem;
-        if (system == ColorSystem.NoColors || Console.IsOutputRedirected)
+        // NO_COLOR (https://no-color.org): any non-empty value disables color.
+        // Spectre's profile usually honors it, but this path emits raw ANSI
+        // directly, so check explicitly rather than assume the profile did.
+        var noColor = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR"));
+        if (noColor || system == ColorSystem.NoColors || Console.IsOutputRedirected)
         {
             if (newline) Console.WriteLine(text); else Console.Write(text);
             return;

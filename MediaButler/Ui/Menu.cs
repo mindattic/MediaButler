@@ -73,13 +73,17 @@ public static class Menu
                         navigated = true;
                         break;
                     case ConsoleKey.Home:
-                        index = FirstSelectable(rows, 0, +1);
-                        navigated = true;
+                    {
+                        var first = FirstSelectable(rows, 0, +1);
+                        if (first >= 0) { index = first; navigated = true; }
                         break;
+                    }
                     case ConsoleKey.End:
-                        index = FirstSelectable(rows, rows.Count - 1, -1);
-                        navigated = true;
+                    {
+                        var last = FirstSelectable(rows, rows.Count - 1, -1);
+                        if (last >= 0) { index = last; navigated = true; }
                         break;
+                    }
                     case ConsoleKey.Enter:
                     {
                         var chosen = rows[index];
@@ -125,8 +129,10 @@ public static class Menu
             if (!rows[i].Disabled) return i;
             i += delta;
         }
-        // Fall back to the original index even if disabled, so we don't get -1.
-        return Math.Clamp(from, 0, rows.Count - 1);
+        // No selectable row in this direction. Callers handle -1: the initial
+        // call returns null (nothing to pick), and Home/End keep the current
+        // index rather than parking the cursor on a disabled row.
+        return -1;
     }
 
     private static void Render(string title, IReadOnlyList<MenuItem> rows, int nameWidth, int highlighted)

@@ -41,7 +41,7 @@ public sealed class RenameStage
         Status.Print("Source: " + settings.SourcePath, Theme.Normal);
         if (settings.DryRun)
             Status.Print("DRY RUN — no files will be renamed, moved, or deleted.", Theme.Active);
-        Console.WriteLine();
+        Status.NewLine();
 
         // Snapshot first — we mutate the directory tree as we go.
         var items = scanner.Scan().ToList();
@@ -61,7 +61,7 @@ public sealed class RenameStage
 
     private void ProcessItem(MediaItem item)
     {
-        Console.Write("  " + item.OriginalName);
+        Status.Item(item.OriginalName);
 
         switch (item.Kind)
         {
@@ -177,7 +177,7 @@ public sealed class RenameStage
             return;
         }
 
-        Console.WriteLine();
+        Status.NewLine();
 
         var hoisted = new List<string>();
         foreach (var season in item.Seasons.OrderBy(s => s.SeasonNumber))
