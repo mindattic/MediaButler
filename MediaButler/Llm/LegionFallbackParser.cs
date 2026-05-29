@@ -108,10 +108,23 @@ public sealed class LegionFallbackParser
         var start = raw.IndexOf('{');
         if (start < 0) return null;
         var depth = 0;
+        var inString = false;
+        var escaped = false;
         for (var i = start; i < raw.Length; i++)
         {
-            if (raw[i] == '{') depth++;
-            else if (raw[i] == '}' && --depth == 0)
+            var c = raw[i];
+            // Braces inside a JSON string value are literal text, not structure —
+            // a title like "Spinal Tap {Live}" must not throw off the depth count.
+            if (inString)
+            {
+                if (escaped) escaped = false;
+                else if (c == '\\') escaped = true;
+                else if (c == '"') inString = false;
+                continue;
+            }
+            if (c == '"') inString = true;
+            else if (c == '{') depth++;
+            else if (c == '}' && --depth == 0)
                 return raw.Substring(start, i - start + 1);
         }
         return null;

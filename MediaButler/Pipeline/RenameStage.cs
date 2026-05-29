@@ -204,6 +204,18 @@ public sealed class RenameStage
             report.Hoisted++;
         }
 
+        // No nested "Season N" subfolders to hoist — e.g. a flat dump where every
+        // episode sits directly under the parent ("Breaking Bad S01-S05 1080p").
+        // Without this the parent is left untouched and unreported; surface it so
+        // the user knows the multi-season name didn't yield an organizable layout.
+        if (hoisted.Count == 0)
+        {
+            Status.Line("  [skip - no season subfolders to hoist]", Theme.Active);
+            report.RecordManual(item.FullPath, item.Kind,
+                "multi-season name but no nested season subfolders found — episodes may be loose in the parent");
+            return;
+        }
+
         // Orphan show-level files at the parent (e.g. Bones_Large.jpg, Info.txt)
         // get tucked into the first new season folder so they aren't lost when
         // we delete the parent. Plex doesn't read them but they're cheap to keep.

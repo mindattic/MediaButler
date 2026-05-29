@@ -33,6 +33,22 @@ public class MediaScannerTests
     }
 
     [Test]
+    public void Extras_folder_without_video_is_classified_Extras_not_Empty()
+    {
+        // An extras/specials folder holding only subtitles/nfo/art (no recognized
+        // video) must NOT be classified Empty — the Rename stage would delete it.
+        using var tmp = new TempDir();
+        var folder = tmp.MakeDir("The Venture Bros. - Specials");
+        File.WriteAllText(Path.Combine(folder, "notes.nfo"), "fake");
+        File.WriteAllText(Path.Combine(folder, "behind.srt"), "fake");
+
+        var items = new MediaScanner(SettingsFor(tmp.Path)).Scan().ToList();
+
+        Assert.That(items, Has.Count.EqualTo(1));
+        Assert.That(items[0].Kind, Is.EqualTo(MediaKind.Extras));
+    }
+
+    [Test]
     public void Folder_with_video_and_year_is_classified_as_Movie()
     {
         using var tmp = new TempDir();

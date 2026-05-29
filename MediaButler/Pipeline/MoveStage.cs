@@ -144,7 +144,18 @@ public sealed class MoveStage
 
     private void MoveMovie(MediaItem item)
     {
-        var folderName = NameParser.FormatMovieFolder(item.MovieTitle ?? item.OriginalName, item.MovieYear);
+        // A blank title would build a junk destination ("(2019)" or even ""), so
+        // skip and surface for manual review — matching RenameStage.RenameMovie
+        // and RelocateStage.BuildMovieTarget rather than moving into a bad folder.
+        if (string.IsNullOrWhiteSpace(item.MovieTitle))
+        {
+            Status.Item(item.OriginalName);
+            Status.Line("  [skip - no title]", Theme.Dim);
+            report.RecordManual(item.FullPath, item.Kind, "move skipped — movie title missing");
+            return;
+        }
+
+        var folderName = NameParser.FormatMovieFolder(item.MovieTitle, item.MovieYear);
         var target     = Path.Combine(settings.MoviesDestination, SanitizeForFs(folderName));
 
         Status.Item(folderName);
@@ -184,7 +195,11 @@ public sealed class MoveStage
             var dest = Path.Combine(showRoot, name);
             if (File.Exists(dest))
             {
-                try { File.Delete(file); }
+                try
+                {
+                    File.Delete(file);
+                    AuditLog.Record(settings, settings.DryRun, "delete-art", file, null, MediaKind.TvSeason);
+                }
                 catch (Exception ex) { report.RecordError(file, "art dedupe delete failed: " + ex.Message); }
                 continue;
             }
@@ -209,7 +224,11 @@ public sealed class MoveStage
         {
             var name = Path.GetFileName(file);
             if (!showArt.Contains(name)) continue;
-            try { File.Delete(file); }
+            try
+            {
+                File.Delete(file);
+                AuditLog.Record(settings, settings.DryRun, "delete-art", file, null, MediaKind.TvSeason);
+            }
             catch (Exception ex) { report.RecordError(file, "art dedupe delete failed: " + ex.Message); }
         }
     }

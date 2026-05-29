@@ -285,8 +285,17 @@ public static class NameParser
         }
 
         var rest = normalized[override_.Length..];
+        // Prefer an explicit parenthesised year ("Blade Runner 2049 (2017)"), but
+        // also accept a bare trailing year ("Blade Runner 2049 2017") so the
+        // release year isn't lost. Resolution tags (1080p/2160p/720p) can't match
+        // the 19xx/20xx shape, so this won't misfire on quality markers.
         var paren = ParenYear.Match(rest);
         if (paren.Success) year = int.Parse(paren.Groups[1].Value);
+        else
+        {
+            var bare = BareYear.Match(rest);
+            if (bare.Success) year = int.Parse(bare.Groups[1].Value);
+        }
         return true;
     }
 }

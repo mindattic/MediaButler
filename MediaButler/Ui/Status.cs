@@ -106,7 +106,11 @@ public static class Status
         // Spectre's profile usually honors it, but this path emits raw ANSI
         // directly, so check explicitly rather than assume the profile did.
         var noColor = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR"));
-        if (noColor || system == ColorSystem.NoColors || Console.IsOutputRedirected)
+        // Only the TrueColor profile can render the 24-bit escapes we emit below.
+        // On a Legacy/Standard/EightBit console those sequences print as literal
+        // garbage (e.g. "[38;2;...m") since the terminal can't interpret them —
+        // fall back to plain text rather than corrupt the output.
+        if (noColor || system != ColorSystem.TrueColor || Console.IsOutputRedirected)
         {
             if (newline) Console.WriteLine(text); else Console.Write(text);
             return;

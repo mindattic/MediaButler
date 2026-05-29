@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace MediaButler.Maui.Services;
 
@@ -20,7 +21,16 @@ public sealed class ConsoleCaptureWriter : TextWriter
     private readonly Action<string> sink;
     private readonly StringBuilder buffer = new();
 
+    // The shared CLI logger (MediaButler.Ui.Status) emits raw ANSI SGR color
+    // escapes when its console profile isn't detected as redirected. Captured
+    // into a UI label those render as literal noise ("[38;2;...m"), so strip
+    // them here — the GUI applies its own styling.
+    private static readonly Regex AnsiEscape =
+        new("\x1b\\[[0-9;]*m", RegexOptions.Compiled);
+
     public ConsoleCaptureWriter(Action<string> sink) => this.sink = sink;
+
+    private void Emit(string line) => sink(AnsiEscape.Replace(line, ""));
 
     public override Encoding Encoding => Encoding.UTF8;
 
@@ -42,7 +52,7 @@ public sealed class ConsoleCaptureWriter : TextWriter
         }
         // Fire the sink outside the lock so a slow/blocking sink can't stall
         // other producers waiting on the buffer.
-        if (completed is not null) sink(completed);
+        if (completed is not null) Emit(completed);
     }
 
     public override void Write(string? value)
@@ -69,7 +79,7 @@ public sealed class ConsoleCaptureWriter : TextWriter
             }
         }
         if (completed is not null)
-            foreach (var line in completed) sink(line);
+            foreach (var line in completed) Emit(line);
     }
 
     /// <summary>Flush any buffered partial line so the user sees it before completion.</summary>
@@ -84,6 +94,6 @@ public sealed class ConsoleCaptureWriter : TextWriter
                 buffer.Clear();
             }
         }
-        if (line is not null) sink(line);
+        if (line is not null) Emit(line);
     }
 }

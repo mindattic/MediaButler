@@ -53,8 +53,15 @@ public sealed class FileBotClient
         {
             foreach (var dir in path.Split(Path.PathSeparator))
             {
-                var p = Path.Combine(dir, "filebot.exe");
-                if (File.Exists(p)) return p;
+                if (string.IsNullOrWhiteSpace(dir)) continue;
+                // A single malformed PATH entry (stray quote, illegal char) must
+                // not abort the whole search — skip it and keep looking.
+                try
+                {
+                    var p = Path.Combine(dir, "filebot.exe");
+                    if (File.Exists(p)) return p;
+                }
+                catch (ArgumentException) { /* illegal characters in this PATH entry */ }
             }
         }
         return null;

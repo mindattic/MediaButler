@@ -109,14 +109,17 @@ public sealed class MediaScanner
     {
         var name = Path.GetFileName(fullPath);
 
+        // Extras / Specials / Bonus folders — sit next to a show but aren't a season.
+        // Checked BEFORE the Empty test: an extras folder that holds only subtitles,
+        // nfo, or artwork (no recognized video) would otherwise classify as Empty
+        // and the Rename stage would DELETE it. Classify as Extras so it is left in
+        // place and surfaced for manual review instead of destroyed.
+        if (NameParser.LooksLikeExtras(name))
+            return new MediaItem { FullPath = fullPath, OriginalName = name, Kind = MediaKind.Extras };
+
         // Empty? (no video files anywhere underneath)
         if (!HasAnyVideo(fullPath))
             return new MediaItem { FullPath = fullPath, OriginalName = name, Kind = MediaKind.Empty };
-
-        // Extras / Specials / Bonus folders — sit next to a show but aren't a season.
-        // Check before the season-marker tests so "Show - Extras" isn't misread.
-        if (NameParser.LooksLikeExtras(name))
-            return new MediaItem { FullPath = fullPath, OriginalName = name, Kind = MediaKind.Extras };
 
         // Multi-season? Look at name first, then structure.
         if (NameParser.LooksLikeMultiSeason(name) || HasMultipleSeasonSubfolders(fullPath))
@@ -275,6 +278,7 @@ public sealed class MediaScanner
         }
         catch (UnauthorizedAccessException) { /* skip protected dirs */ }
         catch (DirectoryNotFoundException) { /* race vs. external mover */ }
+        catch (IOException) { /* not-ready drive, path too long, locked subtree — treat as no video */ }
         return false;
     }
 }

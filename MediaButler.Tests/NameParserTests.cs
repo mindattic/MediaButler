@@ -146,6 +146,11 @@ public class NameParserTests
     [TestCase("Wonder Woman 1984 (2020)",  "Wonder Woman 1984", 2020)]
     [TestCase("2001 A Space Odyssey",      "2001 A Space Odyssey", null)]
     [TestCase("2001 A Space Odyssey (1968)", "2001 A Space Odyssey", 1968)]
+    // Bare (non-parenthesised) release year after an override is still captured,
+    // and quality tags (1080p/2160p) must not be mistaken for the year.
+    [TestCase("Blade Runner 2049 2017",            "Blade Runner 2049", 2017)]
+    [TestCase("Wonder Woman 1984 2020 1080p BluRay", "Wonder Woman 1984", 2020)]
+    [TestCase("Blade Runner 2049 1080p BluRay",    "Blade Runner 2049", null)]
     public void ParseMovie_respects_title_year_overrides(string input, string expectedTitle, int? expectedYear)
     {
         var overrides = new MediaButler.Settings.MediaButlerSettings().TitleYearOverrides;
