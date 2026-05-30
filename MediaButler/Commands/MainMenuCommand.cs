@@ -147,7 +147,7 @@ public sealed class MainMenuCommand : Command<BaseSettings>
             return;
         }
         s.SourcePath = prompt;
-        runner.RunRelocate(s);
+        ReportExit(runner.RunRelocate(s));
         Screen.PressAnyKey();
     }
 }

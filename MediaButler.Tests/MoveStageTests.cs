@@ -36,4 +36,25 @@ public class MoveStageTests
             Assert.That(File.ReadAllText(Path.Combine(dst, "payload.txt")), Is.EqualTo("hello"));
         });
     }
+
+    [Test]
+    public void SafeMoveDirectory_succeeds_when_target_is_a_preexisting_empty_shell()
+    {
+        // Regression: a leftover empty target directory (aborted prior run, or a
+        // pre-created path) made the same-volume Directory.Move throw "Cannot
+        // create a file when that file already exists". The empty shell must be
+        // cleared so the move still completes.
+        using var tmp = new TempDir();
+        var src = tmp.MakeDir("source-folder");
+        File.WriteAllText(Path.Combine(src, "payload.txt"), "hello");
+        var dst = tmp.MakeDir("destination-folder"); // exists, empty
+
+        MoveStage.SafeMoveDirectory(src, dst);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Directory.Exists(src), Is.False);
+            Assert.That(File.ReadAllText(Path.Combine(dst, "payload.txt")), Is.EqualTo("hello"));
+        });
+    }
 }

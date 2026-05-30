@@ -136,6 +136,45 @@ public class RenameStageTests
     }
 
     [Test]
+    public void Loose_video_at_multi_season_parent_is_not_misfiled_into_a_season()
+    {
+        // A multi-season parent with season subfolders PLUS a loose episode at
+        // the root. The loose video must not be tucked into Season 01 (wrong
+        // season) — it stays put, the parent is kept, and it's flagged for
+        // manual sorting. Non-video orphans (artwork/nfo) still get hoisted.
+        using var tmp = new TempDir();
+        var parent = tmp.MakeDir("Bones Complete Series S1-S12");
+        foreach (var n in new[] { 1, 2 })
+        {
+            var sub = Path.Combine(parent, $"Season {n}");
+            Directory.CreateDirectory(sub);
+            File.WriteAllText(Path.Combine(sub, "ep1.mkv"), "fake");
+        }
+        var looseVideo = Path.Combine(parent, "Bones.S03E07.stray.mkv");
+        File.WriteAllText(looseVideo, "fake");
+        File.WriteAllText(Path.Combine(parent, "poster.jpg"), "art");
+
+        var report = new PipelineReport();
+        new RenameStage(SettingsFor(tmp.Path), report).Run();
+
+        Assert.Multiple(() =>
+        {
+            // Seasons hoisted out.
+            Assert.That(Directory.Exists(Path.Combine(tmp.Path, "Bones - Season 01")), Is.True);
+            Assert.That(Directory.Exists(Path.Combine(tmp.Path, "Bones - Season 02")), Is.True);
+            // Loose video NOT moved into Season 01, and parent kept (not deleted).
+            Assert.That(File.Exists(looseVideo), Is.True, "loose episode must stay at the parent");
+            Assert.That(File.Exists(Path.Combine(tmp.Path, "Bones - Season 01", "Bones.S03E07.stray.mkv")),
+                Is.False, "loose episode must not be misfiled into Season 01");
+            // Non-video orphan still hoisted into the first season.
+            Assert.That(File.Exists(Path.Combine(tmp.Path, "Bones - Season 01", "poster.jpg")), Is.True);
+            // Flagged for manual review.
+            Assert.That(report.NeedsManual,
+                Has.Some.Matches<ManualItem>(m => m.Kind == MediaKind.MultiSeasonParent));
+        });
+    }
+
+    [Test]
     public void Extras_folder_is_left_in_place_and_flagged()
     {
         using var tmp = new TempDir();

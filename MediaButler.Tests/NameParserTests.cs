@@ -83,6 +83,14 @@ public class NameParserTests
         Assert.That(show, Does.StartWith(expectedPrefix));
     }
 
+    // ---- CleanShowName -----------------------------------------------------
+
+    [TestCase("Sherlock 2010 [GroupX]", "Sherlock")]
+    [TestCase("The Following 2013 [i_c]", "The Following")]
+    [TestCase("The Mentalist - ", "The Mentalist")]
+    public void CleanShowName_strips_trailing_year_even_behind_bracket_tags(string raw, string expected) =>
+        Assert.That(NameParser.CleanShowName(raw), Is.EqualTo(expected));
+
     // ---- ParseNestedSeasonName ---------------------------------------------
 
     [TestCase("Season 1",  1)]
@@ -159,6 +167,21 @@ public class NameParserTests
         {
             Assert.That(title, Is.EqualTo(expectedTitle));
             Assert.That(year,  Is.EqualTo(expectedYear));
+        });
+    }
+
+    [Test]
+    public void ParseMovie_override_preserves_residual_title_words()
+    {
+        // Regression: a short override like "300" must protect its own
+        // year-shaped number WITHOUT swallowing the rest of the title. Before
+        // the fix this returned title "300" for "300 Rise of an Empire (2014)".
+        var overrides = new[] { "300" };
+        var (title, year) = NameParser.ParseMovie("300 Rise of an Empire (2014)", overrides);
+        Assert.Multiple(() =>
+        {
+            Assert.That(title, Is.EqualTo("300 Rise of an Empire"));
+            Assert.That(year,  Is.EqualTo(2014));
         });
     }
 

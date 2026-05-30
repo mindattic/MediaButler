@@ -237,11 +237,15 @@ public static class NameParser
     public static string CleanShowName(string raw)
     {
         var n = raw;
+        // Strip dangling bracket tags FIRST. They often trail the year
+        // ("Sherlock 2010 [GroupX]") — if the year regexes run first they only
+        // match at end-of-string, so the bracket would shield the year and leave
+        // "Sherlock 2010" as the show name. Remove brackets, then the year.
+        n = Regex.Replace(n, @"\[[^\]]*\]", " ");
+        n = Regex.Replace(n, @"\s+", " ").Trim();
         // Strip trailing "(YYYY)" or " YYYY" — keeps "The Following" out of "The Following 2013".
         n = Regex.Replace(n, @"\s*\((19|20)\d{2}\)\s*$", "");
         n = Regex.Replace(n, @"\s+(19|20)\d{2}\s*$", "");
-        // Strip dangling bracket tags
-        n = Regex.Replace(n, @"\[[^\]]*\]", " ");
         n = Regex.Replace(n, @"\s+", " ").Trim();
         // Strip the canonical " - " separator MediaButler itself inserts before
         // "Season XX". Critical for idempotency: without this, re-running the
@@ -267,8 +271,10 @@ public static class NameParser
 
     /// <summary>
     /// True when <paramref name="normalized"/> begins with <paramref name="override_"/>
-    /// (followed by end-of-string, space, or open-paren). Returns the override as
-    /// the title and any parenthesised year that follows as the release year.
+    /// (followed by end-of-string, space, or open-paren). The override's only job
+    /// is to shield the year-shaped number it contains from being mistaken for the
+    /// release year — so the title is the override <em>plus any residual title
+    /// words</em> that precede the real year, and the year is whatever follows.
     /// </summary>
     private static bool TryMatchOverride(string normalized, string override_, out string title, out int? year)
     {
@@ -285,17 +291,28 @@ public static class NameParser
         }
 
         var rest = normalized[override_.Length..];
-        // Prefer an explicit parenthesised year ("Blade Runner 2049 (2017)"), but
-        // also accept a bare trailing year ("Blade Runner 2049 2017") so the
-        // release year isn't lost. Resolution tags (1080p/2160p/720p) can't match
-        // the 19xx/20xx shape, so this won't misfire on quality markers.
+        // Find the release year in the REST only (never inside the override) and
+        // split the residual title from it. Prefer a parenthesised year
+        // ("300 Rise of an Empire (2014)"); fall back to a bare trailing year
+        // ("Blade Runner 2049 2017"). Resolution tags (1080p/2160p) can't match
+        // the 19xx/20xx shape, so quality markers won't be read as the year.
+        var tailEnd = rest.Length;
         var paren = ParenYear.Match(rest);
-        if (paren.Success) year = int.Parse(paren.Groups[1].Value);
+        if (paren.Success) { year = int.Parse(paren.Groups[1].Value); tailEnd = paren.Index; }
         else
         {
             var bare = BareYear.Match(rest);
-            if (bare.Success) year = int.Parse(bare.Groups[1].Value);
+            if (bare.Success) { year = int.Parse(bare.Groups[1].Value); tailEnd = bare.Index; }
         }
+
+        // Keep residual title words ("300" + "Rise of an Empire") instead of
+        // truncating to just the override. Strip junk/quality tags and stray
+        // brackets the same way the generic movie parser does.
+        var tail = rest[..tailEnd];
+        tail = TrailingJunk.Replace(tail, "");
+        tail = Regex.Replace(tail, @"[\(\)\[\]]+", " ");
+        tail = Regex.Replace(tail, @"\s+", " ").Trim().TrimEnd('-').Trim();
+        title = string.IsNullOrEmpty(tail) ? override_ : $"{override_} {tail}";
         return true;
     }
 }

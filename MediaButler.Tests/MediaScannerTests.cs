@@ -137,6 +137,31 @@ public class MediaScannerTests
     }
 
     [Test]
+    public void Single_nested_season_subfolder_is_a_show_parent_not_a_movie()
+    {
+        // Canonical Plex layout: a show folder whose NAME carries no season
+        // marker but holds exactly one "Season XX" subfolder. This must NOT
+        // classify as a Movie — otherwise a Relocate pass over a TV destination
+        // would evict the whole show into the Movies library.
+        using var tmp = new TempDir();
+        var show   = tmp.MakeDir("Breaking Bad");
+        var season = Path.Combine(show, "Season 05");
+        Directory.CreateDirectory(season);
+        File.WriteAllText(Path.Combine(season, "ep1.mkv"), "fake");
+
+        var items = new MediaScanner(SettingsFor(tmp.Path)).Scan().ToList();
+
+        Assert.That(items, Has.Count.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(items[0].Kind,    Is.EqualTo(MediaKind.MultiSeasonParent));
+            Assert.That(items[0].Kind,    Is.Not.EqualTo(MediaKind.Movie));
+            Assert.That(items[0].Seasons, Has.Count.EqualTo(1));
+            Assert.That(items[0].Seasons, Has.Some.Matches<SeasonChild>(c => c.SeasonNumber == 5));
+        });
+    }
+
+    [Test]
     public void Extras_subfolder_at_root_is_classified_as_Extras()
     {
         using var tmp = new TempDir();

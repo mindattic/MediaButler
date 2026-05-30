@@ -219,11 +219,16 @@ public sealed class RenameStage
         // Orphan show-level files at the parent (e.g. Bones_Large.jpg, Info.txt)
         // get tucked into the first new season folder so they aren't lost when
         // we delete the parent. Plex doesn't read them but they're cheap to keep.
+        // Loose VIDEO files are deliberately excluded: tucking an episode into
+        // "Season 01" would misfile it under the wrong season — leave it at the
+        // parent so the not-empty guard below keeps the folder and flags it.
+        var videoExts = new HashSet<string>(settings.VideoExtensions, StringComparer.OrdinalIgnoreCase);
         if (!settings.DryRun && item.OrphanFilesAtParent.Count > 0 && hoisted.Count > 0)
         {
             var firstSeason = hoisted[0];
             foreach (var file in item.OrphanFilesAtParent)
             {
+                if (videoExts.Contains(Path.GetExtension(file))) continue;
                 try
                 {
                     var dest = Path.Combine(firstSeason, Path.GetFileName(file));
@@ -234,6 +239,16 @@ public sealed class RenameStage
                     report.RecordError(file, "orphan file move failed: " + ex.Message);
                 }
             }
+        }
+
+        // Loose episode videos sitting directly under the parent can't be safely
+        // auto-filed into a season — surface them so the user sorts them by hand
+        // rather than leaving the parent silently behind.
+        if (!settings.DryRun && HasAnyVideoLeft(item.FullPath))
+        {
+            report.RecordManual(item.FullPath, item.Kind,
+                "loose video files remain at the multi-season parent root — sort into the correct season manually");
+            return;
         }
 
         // Delete the parent if no video files remain. We do NOT delete a parent

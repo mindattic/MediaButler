@@ -21,6 +21,7 @@ public sealed class FileBotStage
     private readonly FileBotClient fileBot;
     private readonly SubtitleCredentials credentials;
     private readonly PipelineReport report;
+    private bool dryRunBannerShown;
 
     public FileBotStage(MediaButlerSettings settings, FileBotClient fileBot, PipelineReport report)
         : this(settings, fileBot, report, SubtitleCredentials.Load()) { }
@@ -42,8 +43,7 @@ public sealed class FileBotStage
 
     public void RunTv()
     {
-        if (settings.DryRun)
-            Status.Print("DRY RUN — FileBot will run with --action TEST; artwork fetches skipped.", Theme.Active);
+        AnnounceDryRunOnce();
 
         var items = new MediaScanner(settings).Scan()
             .Where(i => i.Kind == MediaKind.TvSeason)
@@ -86,8 +86,7 @@ public sealed class FileBotStage
 
     public void RunMovies()
     {
-        if (settings.DryRun)
-            Status.Print("DRY RUN — FileBot will run with --action TEST; artwork fetches skipped.", Theme.Active);
+        AnnounceDryRunOnce();
 
         var items = new MediaScanner(settings).Scan()
             .Where(i => i.Kind == MediaKind.Movie)
@@ -136,6 +135,18 @@ public sealed class FileBotStage
     /// fragments are suppressed, so this header is suppressed too — otherwise
     /// each item would emit a stray blank line.
     /// </summary>
+    /// <summary>
+    /// Print the dry-run banner at most once per stage instance. A full pipeline
+    /// run invokes RunTv then RunMovies on the same instance; without the guard
+    /// the identical banner printed twice (or three times with subtitles).
+    /// </summary>
+    private void AnnounceDryRunOnce()
+    {
+        if (!settings.DryRun || dryRunBannerShown) return;
+        dryRunBannerShown = true;
+        Status.Print("DRY RUN — FileBot will run with --action TEST; artwork fetches skipped.", Theme.Active);
+    }
+
     private static void BeginItem(string name)
     {
         if (Status.Verbosity == Verbosity.Quiet) return;
@@ -179,8 +190,10 @@ public sealed class FileBotStage
         report.RecordError(itemPath, message);
     }
 
+    // Reserve one slot for the ellipsis so the returned string never exceeds
+    // max characters (the old s[..max] + "…" produced max + 1).
     private static string Truncate(string s, int max) =>
-        s.Length <= max ? s : s[..max] + "…";
+        s.Length <= max ? s : s[..(max - 1)] + "…";
 
     public void RunSubtitles()
     {
@@ -218,7 +231,12 @@ public sealed class FileBotStage
                 {
                     if (Status.Verbosity != Verbosity.Quiet) Console.WriteLine();
                     Status.Line($"  ! {item.OriginalName}: OpenSubtitles auth failed (401)", Theme.Err);
-                    report.RecordError(item.FullPath, "OpenSubtitles 401");
+                    // Subtitles are best-effort: a rejected login is something the
+                    // user must act on (fix credentials), but it must not fail the
+                    // whole organize pipeline. Surface it for manual review (exit 2)
+                    // rather than as a hard error (exit 1) — matches the documented
+                    // "warn instead of failing" contract on FileBotResult.
+                    report.RecordManual(item.FullPath, item.Kind, "OpenSubtitles auth failed (401) — check credentials");
                     if (!authWarned)
                     {
                         Status.Print(
@@ -238,7 +256,9 @@ public sealed class FileBotStage
                 {
                     if (Status.Verbosity != Verbosity.Quiet) Console.WriteLine();
                     Status.Line($"  ! {item.OriginalName}: FileBot subtitle exit {sub.ExitCode}", Theme.Err);
-                    report.RecordError(item.FullPath, "FileBot subtitle exit " + sub.ExitCode);
+                    // A non-zero subtitle exit (often "no subtitles found") is not a
+                    // pipeline failure — surface it for manual review, not exit 1.
+                    report.RecordManual(item.FullPath, item.Kind, "FileBot subtitle fetch exit " + sub.ExitCode);
                 }
             }
             catch (Exception ex)

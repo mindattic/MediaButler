@@ -275,6 +275,13 @@ public sealed class MoveStage
             return;
         }
 
+        // Same-volume rename. Directory.Move throws "Cannot create a file when
+        // that file already exists" if the target directory already exists —
+        // even when empty. Callers only reach here after confirming the target
+        // has no content, so remove an empty leftover shell first. The delete is
+        // non-recursive on purpose: if it unexpectedly holds content the throw
+        // surfaces as a recorded error instead of silently merging directories.
+        if (Directory.Exists(destination)) Directory.Delete(destination);
         Directory.Move(source, destination);
     }
 
