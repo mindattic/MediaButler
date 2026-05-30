@@ -8,7 +8,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
-    <UserSecretsId>mindattic-vault-shared</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

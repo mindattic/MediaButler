@@ -115,13 +115,13 @@ managed through the in-app Settings menu. Defaults:
 ## OpenSubtitles credentials
 
 Credentials are **never** stored in `settings.json` (which lives unencrypted
-in roaming app-data). Set them via User Secrets so they live under
-`%APPDATA%\Microsoft\UserSecrets\mindattic-vault-shared\secrets.json`:
+in roaming app-data). Place them in the canonical Subtitles credential file
+`%APPDATA%\MindAttic\Subtitles\providers.json`:
 
-```powershell
-cd MediaButler
-dotnet user-secrets set "MindAttic:Vault:Subtitles:OpenSubtitles:user"     ryandebraal
-dotnet user-secrets set "MindAttic:Vault:Subtitles:OpenSubtitles:password" '***'
+```json
+{
+  "OpenSubtitles": { "user": "ryandebraal", "password": "***" }
+}
 ```
 
 Or as environment variables (CI / containers):

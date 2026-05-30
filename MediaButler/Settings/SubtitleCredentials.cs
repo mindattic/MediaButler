@@ -5,12 +5,16 @@ namespace MediaButler.Settings;
 
 /// <summary>
 /// OpenSubtitles login resolved from the MindAttic Vault chain. Credentials
-/// must <b>never</b> live in <c>settings.json</c>; instead set them via
-/// User Secrets (dev) or environment variables (CI / App Service):
+/// must <b>never</b> live in <c>settings.json</c>; instead place them in the
+/// canonical Subtitles credential file
+/// <c>%APPDATA%\MindAttic\Subtitles\providers.json</c> (or supply them via
+/// environment variables for CI / App Service):
 ///
 /// <code>
-/// dotnet user-secrets set "MindAttic:Vault:Subtitles:OpenSubtitles:user"     ryandebraal
-/// dotnet user-secrets set "MindAttic:Vault:Subtitles:OpenSubtitles:password" '***'
+/// // %APPDATA%\MindAttic\Subtitles\providers.json
+/// {
+///   "OpenSubtitles": { "user": "ryandebraal", "password": "***" }
+/// }
 /// </code>
 /// <para>
 /// The env-var equivalents are <c>MindAttic__Vault__Subtitles__OpenSubtitles__user</c>
@@ -36,22 +40,15 @@ public sealed record SubtitleCredentials
         !string.IsNullOrWhiteSpace(User) && !string.IsNullOrWhiteSpace(Password);
 
     /// <summary>
-    /// Build the configuration chain (User Secrets &gt; environment variables)
+    /// Build the configuration chain (Vault files &gt; environment variables)
     /// and resolve credentials. Both legs are optional so the loader never
     /// throws — missing creds simply yield <see cref="IsComplete"/> = false.
+    /// Reads <c>%APPDATA%\MindAttic\Subtitles\providers.json</c>.
     /// </summary>
     public static SubtitleCredentials Load()
     {
         var builder = new ConfigurationBuilder();
-        try
-        {
-            builder.AddUserSecrets(VaultConfigurationKeys.SharedUserSecretsId);
-        }
-        catch
-        {
-            // First-run / build hosts won't have the User Secrets store on disk.
-            // Falling through to env vars is the right behaviour.
-        }
+        builder.AddMindAtticVaultFiles();
         builder.AddEnvironmentVariables();
         return Load(builder.Build());
     }

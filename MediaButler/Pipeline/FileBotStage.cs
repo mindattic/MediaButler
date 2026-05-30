@@ -240,7 +240,7 @@ public sealed class FileBotStage
                     if (!authWarned)
                     {
                         Status.Print(
-                            "OpenSubtitles rejected the login. Set 'MindAttic:Vault:Subtitles:OpenSubtitles:user' and ':password' via `dotnet user-secrets set` or environment variables.",
+                            "OpenSubtitles rejected the login. Set the 'user' and 'password' fields under OpenSubtitles in %APPDATA%\\MindAttic\\Subtitles\\providers.json (or the equivalent environment variables).",
                             Theme.Err);
                         authWarned = true;
                     }
