@@ -109,7 +109,8 @@ the source overlaps a destination.
 - **`SubtitleCredentials`** (`MediaButler/Settings/SubtitleCredentials.cs`) — OpenSubtitles
   user/password resolved via the Vault chain; `IsComplete` gates whether creds are passed.
 - **`PipelineReport`** (`MediaButler/Pipeline/PipelineReport.cs`) — running tallies (`Renamed`,
-  `Hoisted`, `Moved`, `Errors`, `NeedsManual`, ...) that produce the consolidated summary.
+  `Hoisted`, `EmptyDeleted`, `TvMoved`, `MoviesMoved`, `Errors`, `NeedsManual`, ...) that produce
+  the consolidated summary.
 - **`LlmGuess`** (`MediaButler/Llm/LegionFallbackParser.cs`) — the LLM fallback's parsed answer.
 
 ### 4.3 Key services (VERBS)
@@ -202,12 +203,13 @@ success. (Verified by `Pipeline_returns_NeedsManual_exit_code_when_only_extras_r
 ## 6. Verified state {#MB-§6}
 > Build/test evidence recorded 2026-06-07 — see [#MB-§8](#MB-§8) for the bar.
 
-- **Build:** `dotnet build MediaButler/MediaButler.csproj` — see final report for the recorded
-  result of this run.
-- **Core tests:** `dotnet test MediaButler.Tests/MediaButler.Tests.csproj` — NUnit suite covering
-  `NameParserTests`, `MediaScannerTests`, `RenameStageTests`, `MoveStageTests`,
-  `RelocateStageTests`, `PathGuardTests`, `SubtitleCredentialsTests`, `FileBotClientTests`,
-  `CliEndToEndTests`, `PathologicalLibraryPipelineTests`. Result recorded in the final report.
+- **Build (2026-06-07):** `dotnet build MediaButler/MediaButler.csproj` — **succeeded, 0 warnings,
+  0 errors** (net10.0-windows; references MindAttic.Vault + MindAttic.Legion resolved cleanly).
+- **Core tests (2026-06-07):** `dotnet test MediaButler.Tests/MediaButler.Tests.csproj` — **Passed:
+  150, Failed: 0, Skipped: 0** (NUnit; duration ~2 s). Suite covers `NameParserTests`,
+  `MediaScannerTests`, `RenameStageTests`, `MoveStageTests`, `RelocateStageTests`,
+  `PathGuardTests`, `SubtitleCredentialsTests`, `FileBotClientTests`, `CliEndToEndTests`,
+  `PathologicalLibraryPipelineTests`.
 - **Proven working (✅):** name parsing/classification of the pathological fixture, dry-run
   no-mutation, idempotent re-runs, multi-season hoist, empty-delete safety floor, Extras
   preservation, path-overlap refusal, relocate eviction, FileBot arg construction, exit-code
@@ -215,7 +217,9 @@ success. (Verified by `Pipeline_returns_NeedsManual_exit_code_when_only_extras_r
 - **Partial (🟡):** the MAUI shell (`MediaButler.Maui`) and its UI smoke tests run only on
   Windows desktop and are not part of the headless `MediaButler.Tests` gate; treated as 🟡 until
   proven in this environment. Live FileBot/OpenSubtitles/LLM paths require external binaries and
-  credentials and are exercised by construction tests, not live integration.
+  credentials and are exercised by construction tests, not live integration. `LandingPageTests`
+  require Playwright browser binaries (`playwright.ps1 install chromium`) and skip gracefully when
+  absent — treated as 🟡 in headless CI until binaries are provisioned.
 
 ## 7. Active frontier {#MB-§7}
 - See `docs/rfc/` for open design notes.
