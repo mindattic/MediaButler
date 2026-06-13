@@ -20,6 +20,9 @@ public sealed class PipelineReport
     /// <summary>Movies split out of multi-movie pack folders.</summary>
     public int PackSplit { get; set; }
 
+    /// <summary>Movie sub-folders hoisted out of collection husk folders.</summary>
+    public int CollectionHoisted { get; set; }
+
     /// <summary>Files merged into an already-existing canonical season folder (source-side or destination-side).</summary>
     public int MergedFiles { get; set; }
     public int TvMoved { get; set; }

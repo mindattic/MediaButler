@@ -44,4 +44,13 @@ public enum MediaKind
     /// MediaButler does not organize music yet — left in place and flagged.
     /// </summary>
     Music,
+
+    /// <summary>
+    /// A folder that is a collection husk containing several movie sub-folders
+    /// (e.g. <c>Studio.Ghibli/</c> holding <c>Spirited.Away.2001/</c>,
+    /// <c>Howl's.Moving.Castle.2004/</c>, etc.).
+    /// The Rename stage and the FileBot pre-pass both hoist each sub-folder to the
+    /// source root so FileBot can process each movie individually, then delete the husk.
+    /// </summary>
+    MovieCollection,
 }

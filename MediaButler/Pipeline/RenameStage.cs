@@ -82,6 +82,10 @@ public sealed class RenameStage
                 ConsolidateEpisode(item);
                 break;
 
+            case MediaKind.MovieCollection:
+                HoistMovieCollection(item);
+                break;
+
             case MediaKind.MoviePack:
                 SplitMoviePack(item);
                 break;
@@ -379,6 +383,106 @@ public sealed class RenameStage
         }
         AuditLog.Record(settings, settings.DryRun, "rename", item.FullPath, target, item.Kind);
         report.Renamed++;
+    }
+
+    /// <summary>
+    /// Pre-pass entry point: hoist every <see cref="MediaKind.MovieCollection"/>
+    /// at the source root so <see cref="FileBotStage.RunMovies"/> can then process
+    /// each hoisted sub-folder as a normal <see cref="MediaKind.Movie"/>.
+    /// </summary>
+    public void HoistMovieCollections()
+    {
+        var items = scanner.Scan()
+            .Where(i => i.Kind == MediaKind.MovieCollection)
+            .ToList();
+
+        if (items.Count == 0) return;
+
+        Status.Print($"Hoisting {items.Count} movie collection(s)...", Theme.Normal);
+        Status.NewLine();
+
+        foreach (var item in items)
+        {
+            Status.Item(item.OriginalName);
+            try { HoistMovieCollection(item); }
+            catch (Exception ex)
+            {
+                Status.Print($"  ! {item.OriginalName}: {ex.Message}", Theme.Err);
+                report.RecordError(item.FullPath, ex.Message);
+            }
+        }
+        Status.NewLine();
+    }
+
+    /// <summary>
+    /// Hoist each movie sub-folder out of a collection husk folder
+    /// (e.g. "Studio.Ghibli/Spirited.Away.2001/" → source root "Spirited Away (2001)/"),
+    /// then delete the now-empty husk.
+    /// </summary>
+    private void HoistMovieCollection(MediaItem item)
+    {
+        Status.NewLine();
+        var hoisted = 0;
+        try
+        {
+            foreach (var sub in Directory.EnumerateDirectories(item.FullPath).OrderBy(p => p))
+            {
+                var subName = Path.GetFileName(sub);
+                var parsed = NameParser.ParseMovie(subName, settings.TitleYearOverrides);
+                if (parsed.Year is null)
+                {
+                    Status.Line($"    [skip - no year: {subName}]", Theme.Dim);
+                    report.RecordManual(sub, MediaKind.Movie, $"collection sub-dir '{subName}' has no year — hoist manually");
+                    continue;
+                }
+
+                var newName = NameParser.FormatMovieFolder(parsed.Title, parsed.Year);
+                var target = Path.Combine(settings.SourcePath, newName);
+                if (Directory.Exists(target))
+                {
+                    Status.Line($"    [skip - exists: {newName}]", Theme.Dim);
+                    report.RecordManual(sub, MediaKind.Movie, $"collection hoist target '{newName}' already exists");
+                    continue;
+                }
+
+                if (settings.DryRun)
+                {
+                    Status.Line($"    [dry: -> {newName}]", Theme.Active);
+                }
+                else
+                {
+                    Directory.Move(sub, target);
+                    Status.Line($"    -> {newName}", Theme.Ok);
+                }
+                AuditLog.Record(settings, settings.DryRun, "hoist-collection", sub, target, MediaKind.Movie);
+                hoisted++;
+                report.CollectionHoisted++;
+            }
+        }
+        catch (UnauthorizedAccessException ex) { report.RecordError(item.FullPath, "collection hoist failed: " + ex.Message); }
+        catch (DirectoryNotFoundException  ex) { report.RecordError(item.FullPath, "collection hoist failed: " + ex.Message); }
+        catch (IOException                 ex) { report.RecordError(item.FullPath, "collection hoist failed: " + ex.Message); }
+
+        if (hoisted == 0)
+        {
+            Status.Line("  [skip - no hoistable sub-dirs]", Theme.Active);
+            report.RecordManual(item.FullPath, item.Kind, "collection husk has no sub-dirs with a parseable year");
+            return;
+        }
+
+        if (!settings.DryRun)
+        {
+            if (!HasAnyVideoLeft(item.FullPath))
+            {
+                try { Directory.Delete(item.FullPath, recursive: true); }
+                catch (Exception ex) { report.RecordError(item.FullPath, "collection husk delete failed: " + ex.Message); }
+            }
+            else
+            {
+                report.RecordManual(item.FullPath, item.Kind,
+                    "collection husk still has video content after hoist — some sub-dirs may not have moved");
+            }
+        }
     }
 
     private void HoistParent(MediaItem item)

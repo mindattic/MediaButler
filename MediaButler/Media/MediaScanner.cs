@@ -255,6 +255,14 @@ public sealed class MediaScanner
             return ClassifyTvByContent(fullPath, name)
                 ?? new MediaItem { FullPath = fullPath, OriginalName = name, Kind = MediaKind.Unknown };
 
+        // Movie collection husk? A folder with no top-level video files whose
+        // sub-dirs are each parseable as movies with years — e.g. "Studio.Ghibli/"
+        // holding "Spirited.Away.2001/", "Howl's.Moving.Castle.2004/", etc.
+        // Must be checked before ClassifyMoviePath so FileBot doesn't try to rename
+        // the husk itself ("Studio Ghibli" → exit 3 — no match).
+        if (!NameParser.HasAnySeasonMarker(name) && TopLevelVideos(fullPath).Count == 0 && IsMovieCollection(fullPath))
+            return new MediaItem { FullPath = fullPath, OriginalName = name, Kind = MediaKind.MovieCollection };
+
         // Movie? (video file present + no season marker)
         if (!NameParser.HasAnySeasonMarker(name))
             return ClassifyMoviePath(fullPath, name);
@@ -577,6 +585,34 @@ public sealed class MediaScanner
                 var subName = Path.GetFileName(sub);
                 if (NameParser.ParseNestedSeasonName(subName) is not null && HasAnyVideo(sub))
                     return true;
+            }
+        }
+        catch (UnauthorizedAccessException) { }
+        catch (DirectoryNotFoundException)  { }
+        catch (IOException)                 { }
+        return false;
+    }
+
+    /// <summary>
+    /// True when a folder contains at least two sub-directories that each
+    /// (a) parse with a release year via <see cref="NameParser.ParseMovie"/> and
+    /// (b) contain at least one video file.
+    /// Used to detect collection husks like "Studio.Ghibli/" before the movie-path
+    /// classifier blindly treats the husk itself as a movie.
+    /// </summary>
+    private bool IsMovieCollection(string fullPath)
+    {
+        var count = 0;
+        try
+        {
+            foreach (var sub in Directory.EnumerateDirectories(fullPath))
+            {
+                var parsed = NameParser.ParseMovie(Path.GetFileName(sub), settings.TitleYearOverrides);
+                if (parsed.Year is not null && HasAnyVideo(sub))
+                {
+                    count++;
+                    if (count >= 2) return true;
+                }
             }
         }
         catch (UnauthorizedAccessException) { }

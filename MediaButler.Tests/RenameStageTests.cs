@@ -14,10 +14,13 @@ public class RenameStageTests
 {
     private static MediaButlerSettings SettingsFor(string source, bool dryRun = false) => new()
     {
-        SourcePath        = source,
-        TvDestination     = Path.Combine(source, "_tv"),
-        MoviesDestination = Path.Combine(source, "_movies"),
-        DryRun            = dryRun,
+        SourcePath           = source,
+        TvDestination        = Path.Combine(source, "_tv"),
+        MoviesDestination    = Path.Combine(source, "_movies"),
+        DryRun               = dryRun,
+        // Each test gets its own catalog so recorded folder-name hints from one
+        // test don't pin classification in a subsequent test (catalog contamination).
+        VariationCatalogPath = Path.Combine(Path.GetTempPath(), $"mb-test-cat-{Guid.NewGuid():N}.json"),
     };
 
     [Test]
@@ -252,6 +255,73 @@ public class RenameStageTests
         {
             Assert.That(Directory.Exists(extras), Is.True);
             Assert.That(report.NeedsManual,       Has.Some.Matches<ManualItem>(m => m.Kind == MediaKind.Extras));
+        });
+    }
+
+    [Test]
+    public void MovieCollection_hoist_moves_sub_folders_to_source_root_and_deletes_husk()
+    {
+        using var tmp = new TempDir();
+        var husk = tmp.MakeDir("Studio.Ghibli");
+        var sub1 = Directory.CreateDirectory(Path.Combine(husk, "Spirited.Away.2001"));
+        File.WriteAllText(Path.Combine(sub1.FullName, "movie.mkv"), "fake");
+        var sub2 = Directory.CreateDirectory(Path.Combine(husk, "Howl's.Moving.Castle.2004"));
+        File.WriteAllText(Path.Combine(sub2.FullName, "movie.mkv"), "fake");
+
+        var report = new PipelineReport();
+        new RenameStage(SettingsFor(tmp.Path), report).Run();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Directory.Exists(husk),                                          Is.False, "husk must be deleted after hoist");
+            Assert.That(Directory.Exists(Path.Combine(tmp.Path, "Spirited Away (2001)")), Is.True,  "first movie hoisted to source root");
+            Assert.That(Directory.Exists(Path.Combine(tmp.Path, "Howl's Moving Castle (2004)")), Is.True, "second movie hoisted to source root");
+            Assert.That(report.CollectionHoisted,                                        Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public void MovieCollection_hoist_dry_run_leaves_disk_untouched_but_counts_hoisted()
+    {
+        using var tmp = new TempDir();
+        var husk = tmp.MakeDir("Studio.Ghibli");
+        var sub1 = Directory.CreateDirectory(Path.Combine(husk, "Spirited.Away.2001"));
+        File.WriteAllText(Path.Combine(sub1.FullName, "movie.mkv"), "fake");
+        var sub2 = Directory.CreateDirectory(Path.Combine(husk, "My.Neighbor.Totoro.1988"));
+        File.WriteAllText(Path.Combine(sub2.FullName, "movie.mkv"), "fake");
+
+        var report = new PipelineReport();
+        new RenameStage(SettingsFor(tmp.Path, dryRun: true), report).Run();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Directory.Exists(husk),                                           Is.True, "dry run must not delete husk");
+            Assert.That(Directory.Exists(Path.Combine(tmp.Path, "Spirited Away (2001)")), Is.False, "dry run must not create hoisted folders");
+            Assert.That(report.CollectionHoisted,                                         Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public void HoistMovieCollections_pre_pass_hoists_collection_and_leaves_normal_movies_untouched()
+    {
+        using var tmp = new TempDir();
+        var husk = tmp.MakeDir("Studio.Ghibli");
+        var sub1 = Directory.CreateDirectory(Path.Combine(husk, "Princess.Mononoke.1997"));
+        File.WriteAllText(Path.Combine(sub1.FullName, "movie.mkv"), "fake");
+        var sub2 = Directory.CreateDirectory(Path.Combine(husk, "Nausicaa.of.the.Valley.of.the.Wind.1984"));
+        File.WriteAllText(Path.Combine(sub2.FullName, "movie.mkv"), "fake");
+        // A normal movie alongside the husk — must be left untouched.
+        var normal = tmp.MakeDir("Heat (1995)");
+        File.WriteAllText(Path.Combine(normal, "heat.mkv"), "fake");
+
+        var report = new PipelineReport();
+        new RenameStage(SettingsFor(tmp.Path), report).HoistMovieCollections();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Directory.Exists(husk),   Is.False, "husk deleted after hoist");
+            Assert.That(Directory.Exists(normal),  Is.True,  "normal movie folder untouched");
+            Assert.That(report.CollectionHoisted,  Is.EqualTo(2));
         });
     }
 }

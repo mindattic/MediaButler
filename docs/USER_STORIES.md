@@ -4,7 +4,7 @@ project: MediaButler
 code: MB
 layer: stories
 status: living
-updated: 2026-06-12
+updated: 2026-06-13
 ---
 
 # MediaButler — User Stories
@@ -31,6 +31,12 @@ updated: 2026-06-12
   not movies, so they're never reorganised. *(verified by
   `Extras_subfolder_at_root_is_classified_as_Extras`,
   `Extras_folder_without_video_is_classified_Extras_not_Empty`.)* See [#MB-LAW-4](BIBLE.md#MB-LAW-4).
+- **MB-US-A5 ✅** As an operator, a "collection husk" folder (e.g. `Studio.Ghibli/` holding
+  `Spirited.Away.2001/`, `Howl's.Moving.Castle.2004/`) is recognised as `MovieCollection` and NOT
+  mis-classified as a movie, so FileBot is never asked to match a studio name against a movie
+  database and fail. *(verified by `Collection_husk_with_two_year_folders_classifies_as_MovieCollection`,
+  `Collection_husk_with_only_one_year_sub_dir_does_not_classify_as_MovieCollection`,
+  `Collection_husk_sub_dirs_without_video_do_not_count_toward_collection`.)* See [MB-A4](AMENDMENTS.md).
 
 ## Epic B — Rename & canonicalize (local)
 - **MB-US-B1 ✅** As an operator, a live rename produces the canonical folder name
@@ -46,6 +52,13 @@ updated: 2026-06-12
   `Loose_episode_at_multi_season_parent_is_filed_into_its_OWN_season`,
   `Unparseable_loose_video_at_multi_season_parent_stays_and_is_flagged`.)*
   Reworded per MB-A3 in [AMENDMENTS.md](AMENDMENTS.md); original in the audit log.
+- **MB-US-B5 ✅** As an operator, each movie sub-folder inside a collection husk is hoisted to the
+  source root (renamed to `{Title} (YYYY)/`), the husk is deleted, and each hoisted folder is then
+  processed by FileBot individually — so films like "Spirited Away" and "Howl's Moving Castle" in a
+  `Studio.Ghibli/` husk are renamed, receive artwork, and have their folder names synced. *(verified
+  by `MovieCollection_hoist_moves_sub_folders_to_source_root_and_deletes_husk`,
+  `MovieCollection_hoist_dry_run_leaves_disk_untouched_but_counts_hoisted`,
+  `HoistMovieCollections_pre_pass_hoists_collection_and_leaves_normal_movies_untouched`.)* See [MB-A4](AMENDMENTS.md).
 - **MB-US-B4 ✅** As an operator, an empty disguised folder is deleted, but only below the byte
   safety floor — a large folder with an unknown video extension is surfaced for manual review
   instead. *(verified by `Empty_disguised_folder_is_deleted`,

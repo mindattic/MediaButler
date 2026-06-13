@@ -94,6 +94,11 @@ public sealed class FileBotStage
     {
         AnnounceDryRunOnce();
 
+        // Pre-pass: hoist any collection husks (e.g. "Studio.Ghibli/" holding
+        // individual film sub-dirs) to the source root so each film is processed
+        // individually by the FileBot movie rename below.
+        new RenameStage(settings, report).HoistMovieCollections();
+
         var items = new MediaScanner(settings).Scan()
             // Loose movie FILES are wrapped into folders by the Rename stage;
             // FileBot's folder-oriented rename+artwork pass skips them until then.

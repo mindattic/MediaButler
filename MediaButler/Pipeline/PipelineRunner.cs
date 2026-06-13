@@ -197,6 +197,7 @@ public sealed class PipelineRunner
                     MediaKind.TvSeason          => $" -> {NameParser.FormatSeasonFolder(it.ShowName ?? "?", it.SeasonNumber ?? 0)}",
                     MediaKind.TvEpisode         => $" -> {NameParser.FormatSeasonFolder(it.ShowName ?? "?", it.SeasonNumber ?? 0)} (episode {it.EpisodeNumber})",
                     MediaKind.MoviePack         => $" ({it.PackMovies.Count} movie(s) to split)",
+                    MediaKind.MovieCollection   => $" (collection husk — {Directory.EnumerateDirectories(it.FullPath).Count()} sub-dir(s) to hoist)",
                     MediaKind.MultiSeasonParent => $" ({it.Seasons.Count} season folder(s), {it.LooseEpisodes.Count} loose episode(s), show='{it.ShowName ?? "?"}')",
                     _                           => "",
                 };
@@ -299,6 +300,7 @@ public sealed class PipelineRunner
         Status.Summary($"Hoisted seasons  : {r.Hoisted}", Theme.Normal);
         Status.Summary($"Episodes filed   : {r.Consolidated}", Theme.Normal);
         Status.Summary($"Pack movies split: {r.PackSplit}", Theme.Normal);
+        Status.Summary($"Collection hoist : {r.CollectionHoisted}", Theme.Normal);
         Status.Summary($"Merged files     : {r.MergedFiles}", Theme.Normal);
         Status.Summary($"Empty deleted    : {r.EmptyDeleted}", Theme.Normal);
         Status.Summary($"FileBot TV ok    : {r.FileBotTvOk}", Theme.Normal);

@@ -14,10 +14,13 @@ public class MediaScannerTests
 {
     private static MediaButlerSettings SettingsFor(string source) => new()
     {
-        SourcePath        = source,
-        TvDestination     = Path.Combine(source, "_tv_dest"),
-        MoviesDestination = Path.Combine(source, "_movies_dest"),
-        EnableLlmFallback = false,
+        SourcePath           = source,
+        TvDestination        = Path.Combine(source, "_tv_dest"),
+        MoviesDestination    = Path.Combine(source, "_movies_dest"),
+        EnableLlmFallback    = false,
+        // Each test gets its own catalog so recorded folder-name hints from one
+        // test don't pin classification in a subsequent test (catalog contamination).
+        VariationCatalogPath = Path.Combine(Path.GetTempPath(), $"mb-test-cat-{Guid.NewGuid():N}.json"),
     };
 
     [Test]
@@ -223,6 +226,53 @@ public class MediaScannerTests
 
         Assert.That(items, Has.Count.EqualTo(1));
         Assert.That(items[0], Is.EqualTo("Okja (2017)"));
+    }
+
+    [Test]
+    public void Collection_husk_with_two_year_folders_classifies_as_MovieCollection()
+    {
+        // e.g. "Studio.Ghibli/" holding "Spirited.Away.2001/" and "Howl's.Moving.Castle.2004/"
+        using var tmp = new TempDir();
+        var husk = tmp.MakeDir("Studio.Ghibli");
+        var sub1 = Directory.CreateDirectory(Path.Combine(husk, "Spirited.Away.2001"));
+        File.WriteAllText(Path.Combine(sub1.FullName, "movie.mkv"), "fake");
+        var sub2 = Directory.CreateDirectory(Path.Combine(husk, "Howl's.Moving.Castle.2004"));
+        File.WriteAllText(Path.Combine(sub2.FullName, "movie.mkv"), "fake");
+
+        var items = new MediaScanner(SettingsFor(tmp.Path)).Scan().ToList();
+
+        Assert.That(items, Has.Count.EqualTo(1));
+        Assert.That(items[0].Kind, Is.EqualTo(MediaKind.MovieCollection));
+    }
+
+    [Test]
+    public void Collection_husk_with_only_one_year_sub_dir_does_not_classify_as_MovieCollection()
+    {
+        // Only one movie sub-dir — not enough to be a collection; falls through to Movie.
+        using var tmp = new TempDir();
+        var husk = tmp.MakeDir("Studio.Ghibli");
+        var sub1 = Directory.CreateDirectory(Path.Combine(husk, "Spirited.Away.2001"));
+        File.WriteAllText(Path.Combine(sub1.FullName, "movie.mkv"), "fake");
+
+        var items = new MediaScanner(SettingsFor(tmp.Path)).Scan().ToList();
+
+        Assert.That(items, Has.Count.EqualTo(1));
+        Assert.That(items[0].Kind, Is.Not.EqualTo(MediaKind.MovieCollection));
+    }
+
+    [Test]
+    public void Collection_husk_sub_dirs_without_video_do_not_count_toward_collection()
+    {
+        // Sub-dirs must contain video to qualify; empty shells don't count.
+        using var tmp = new TempDir();
+        var husk = tmp.MakeDir("Studio.Ghibli");
+        Directory.CreateDirectory(Path.Combine(husk, "Spirited.Away.2001")); // no video
+        Directory.CreateDirectory(Path.Combine(husk, "Howl's.Moving.Castle.2004")); // no video
+
+        var items = new MediaScanner(SettingsFor(tmp.Path)).Scan().ToList();
+
+        Assert.That(items, Has.Count.EqualTo(1));
+        Assert.That(items[0].Kind, Is.Not.EqualTo(MediaKind.MovieCollection));
     }
 }
 

@@ -4,7 +4,7 @@ project: MediaButler
 code: MB
 layer: amendments
 status: living
-updated: 2026-06-12
+updated: 2026-06-13
 ---
 
 # MediaButler — Amendments (append-only; amendment wins over the bible)
@@ -72,3 +72,25 @@ Driven by a full inventory of the real inboxes (`M:\Torrents`, `M:\Torrents\temp
 
 Verified by `RealWorldLibraryPipelineTests.*`, `EpisodeParsingTests.*`, `VariationCatalogTests.*`
 (196 tests passing, 2026-06-12).
+
+## MB-A4 — MovieCollection: classify and hoist collection husks (supersedes §4.1)
+
+Adds `MediaKind.MovieCollection` to the scanner and pipeline.
+
+**Problem.** A folder like `Studio.Ghibli/` holding `Spirited.Away.2001/`, `Howl's.Moving.Castle.2004/`, etc. is a "collection husk" — it contains no top-level video files, only movie sub-directories. The scanner previously classified it as `Movie` (title "Studio Ghibli", year null) and FileBot failed with exit 3 (no database match). The sub-folders were never processed.
+
+**Classification rule.** A folder with no top-level video files whose ≥ 2 direct sub-directories each (a) parse with a release year via `NameParser.ParseMovie` and (b) contain at least one video file is classified as `MediaKind.MovieCollection`. Detection occurs before `ClassifyMoviePath` in `MediaScanner.ClassifyByRegex`.
+
+**Pipeline behaviour.**
+- `RenameStage.ProcessItem`: calls `HoistMovieCollection` — moves each parseable sub-dir to the source root as `{Title} (YYYY)/`, then deletes the now-empty husk. Sub-dirs without a parseable year are flagged for manual review.
+- `RenameStage.HoistMovieCollections` (public): pre-pass entry point for `FileBotStage.RunMovies` — scans for all `MovieCollection` items and hoists them so FileBot can process each film individually.
+- `FileBotStage.RunMovies`: calls `new RenameStage(settings, report).HoistMovieCollections()` before the main scan, ensuring the `filebot-movies` standalone command also handles collection husks.
+- `PipelineReport.CollectionHoisted`: counter incremented per hoisted sub-dir; displayed in the pipeline summary as `Collection hoist`.
+
+**Test isolation fix.** `MediaScannerTests.SettingsFor` and `RenameStageTests.SettingsFor` now generate a per-test `VariationCatalogPath` (temp GUID file) to prevent catalog cross-contamination between tests that reuse the same folder names.
+
+Verified by `Collection_husk_with_two_year_folders_classifies_as_MovieCollection`,
+`MovieCollection_hoist_moves_sub_folders_to_source_root_and_deletes_husk`,
+`MovieCollection_hoist_dry_run_leaves_disk_untouched_but_counts_hoisted`,
+`HoistMovieCollections_pre_pass_hoists_collection_and_leaves_normal_movies_untouched`
+(207 tests passing, 2026-06-13).
