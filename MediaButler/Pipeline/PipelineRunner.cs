@@ -144,6 +144,7 @@ public sealed class PipelineRunner
         Recursive             = false, // sources are already expanded by the caller
         AudioExtensions       = s.AudioExtensions,
         FileBotPath           = s.FileBotPath,
+        FileBotTrustAll       = s.FileBotTrustAll,
         SubtitleLanguage      = s.SubtitleLanguage,
         EnableSubtitles       = s.EnableSubtitles,
         RenameEpisodes        = s.RenameEpisodes,

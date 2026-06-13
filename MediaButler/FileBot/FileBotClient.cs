@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Security.Cryptography.X509Certificates;
 using MediaButler.Settings;
 
 namespace MediaButler.FileBot;
@@ -24,6 +25,135 @@ public sealed class FileBotClient
     private readonly bool _trustAll;
 
     private FileBotClient(string exePath, bool trustAll) { ExePath = exePath; _trustAll = trustAll; }
+
+    // Path where we copy + patch FileBot's bundled cacerts (user-writable, no admin required).
+    private static readonly string UserCacertsPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "MindAttic", "MediaButler", "filebot-cacerts");
+
+    private static readonly object CacertsLock = new();
+
+    /// <summary>
+    /// One-time setup: copies FileBot's bundled cacerts to a user-writable location,
+    /// then imports every Windows trusted root CA on top via keytool. FileBot's JRE
+    /// ships a stale cacerts that predates modern CAs (ISRG Root X1 for Let's Encrypt,
+    /// Amazon Root CA 1, etc.), causing SSL failures against api.themoviedb.org and
+    /// api.filebot.net. Layering in Windows roots ensures the JVM trusts exactly what
+    /// Windows trusts. Subsequent calls return immediately once the file exists.
+    /// Returns the patched path, or null if a prerequisite (FileBot JRE, keytool) is missing.
+    /// </summary>
+    private string? EnsureUserCacerts()
+    {
+        if (File.Exists(UserCacertsPath)) return UserCacertsPath;
+        lock (CacertsLock)
+        {
+            if (File.Exists(UserCacertsPath)) return UserCacertsPath;
+            try
+            {
+                var fbDir = Path.GetDirectoryName(ExePath)!;
+
+                // FileBot's stripped JRE has no keytool — find one on the system.
+                var keytool = FindSystemKeytool();
+                if (keytool is null) return null;
+
+                // Copy FileBot's bundled cacerts as the base (correct PKCS12 structure,
+                // most common CAs already present, password "changeit").
+                var srcCacerts = Path.Combine(fbDir, "jre", "lib", "security", "cacerts");
+                if (!File.Exists(srcCacerts)) return null;
+
+                Directory.CreateDirectory(Path.GetDirectoryName(UserCacertsPath)!);
+                File.Copy(srcCacerts, UserCacertsPath, overwrite: true);
+
+                // Import all Windows trusted root CAs on top. Using thumbprint as
+                // alias guarantees uniqueness; non-zero keytool exits (duplicate alias)
+                // are intentionally ignored.
+                using var winStore = new X509Store(StoreName.Root, StoreLocation.LocalMachine);
+                winStore.Open(OpenFlags.ReadOnly);
+
+                var tempDir = Path.Combine(Path.GetTempPath(), $"mb-certs-{Guid.NewGuid():N}");
+                Directory.CreateDirectory(tempDir);
+                try
+                {
+                    foreach (var cert in winStore.Certificates)
+                    {
+                        var derPath = Path.Combine(tempDir, cert.Thumbprint + ".der");
+                        File.WriteAllBytes(derPath, cert.Export(X509ContentType.Cert));
+                        RunKeytoolImport(keytool, UserCacertsPath, cert.Thumbprint.ToLowerInvariant(), derPath);
+                    }
+                }
+                finally
+                {
+                    try { Directory.Delete(tempDir, recursive: true); } catch { /* best-effort cleanup */ }
+                }
+
+                return UserCacertsPath;
+            }
+            catch
+            {
+                try { File.Delete(UserCacertsPath); } catch { /* best-effort cleanup */ }
+                return null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Find keytool.exe in common system JDK locations, then PATH.
+    /// FileBot's bundled JRE does not include keytool. Returns null if not found.
+    /// </summary>
+    private static string? FindSystemKeytool()
+    {
+        var candidates = new[]
+        {
+            @"C:\Program Files\Microsoft\jdk-11.0.12.7-hotspot\bin\keytool.exe",
+            @"C:\Program Files\Eclipse Adoptium\jdk-21.0.3.9-hotspot\bin\keytool.exe",
+            @"C:\Program Files\Java\jdk-11\bin\keytool.exe",
+            @"C:\Program Files\Java\jdk-17\bin\keytool.exe",
+            @"C:\Program Files\Java\jdk-21\bin\keytool.exe",
+        };
+        foreach (var c in candidates) if (File.Exists(c)) return c;
+
+        var path = Environment.GetEnvironmentVariable("PATH");
+        if (!string.IsNullOrEmpty(path))
+        {
+            foreach (var dir in path.Split(Path.PathSeparator))
+            {
+                if (string.IsNullOrWhiteSpace(dir)) continue;
+                try
+                {
+                    var p = Path.Combine(dir, "keytool.exe");
+                    if (File.Exists(p)) return p;
+                }
+                catch (ArgumentException) { }
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Import a DER certificate into a PKCS12 keystore via keytool.
+    /// Silently ignores non-zero exit codes (duplicate alias, etc.).
+    /// </summary>
+    private static void RunKeytoolImport(string keytool, string keystorePath, string alias, string certFile)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = keytool,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+        };
+        psi.ArgumentList.Add("-importcert");
+        psi.ArgumentList.Add("-noprompt");
+        psi.ArgumentList.Add("-trustcacerts");
+        psi.ArgumentList.Add("-keystore"); psi.ArgumentList.Add(keystorePath);
+        psi.ArgumentList.Add("-storetype"); psi.ArgumentList.Add("PKCS12");
+        psi.ArgumentList.Add("-storepass"); psi.ArgumentList.Add("changeit");
+        psi.ArgumentList.Add("-alias"); psi.ArgumentList.Add(alias);
+        psi.ArgumentList.Add("-file"); psi.ArgumentList.Add(certFile);
+        using var proc = Process.Start(psi)!;
+        proc.WaitForExit(30_000);
+    }
 
     /// <summary>Return a usable client or null if FileBot can't be located.</summary>
     public static FileBotClient? TryCreate(MediaButlerSettings settings)
@@ -216,9 +346,25 @@ public sealed class FileBotClient
 
         if (_trustAll)
         {
-            // Prepend to any existing FILEBOT_OPTS so user-set flags are preserved.
-            var existing = psi.Environment.TryGetValue("FILEBOT_OPTS", out var v) ? v + " " : "";
-            psi.Environment["FILEBOT_OPTS"] = existing + "-Dtrust.all.certs=true";
+            // FileBot's Groovy HTTP client (artwork scripts) checks -Dtrust.all.certs=true.
+            // FileBot's Java JSSE stack (rename --db TheMovieDB) reads the cacerts file
+            // directly and ignores that property. FileBot's bundled JRE ships a stale
+            // cacerts that predates Let's Encrypt's ISRG Root X1 root CA, so api.themoviedb.org
+            // fails SSL. Fix: point the JVM at our user-space cacerts that has ISRG Root X1
+            // added. EnsureUserCacerts() does the one-time copy+import on first call.
+            var userCacerts = EnsureUserCacerts();
+            var opts = userCacerts is not null
+                ? $"-Djavax.net.ssl.trustStore={userCacerts} -Djavax.net.ssl.trustStorePassword=changeit -Djavax.net.ssl.trustStoreType=PKCS12 -Dtrust.all.certs=true"
+                : "-Dtrust.all.certs=true";
+
+            // Must use _JAVA_OPTIONS — FileBot's jpackage native-exe launcher on Windows
+            // does NOT forward FILEBOT_OPTS to the embedded JVM; _JAVA_OPTIONS is read by
+            // the JVM itself before main() and prints "Picked up _JAVA_OPTIONS: ..." to stderr
+            // (harmless). FILEBOT_OPTS kept for Linux/macOS batch-script-based installs.
+            var existingFb = psi.Environment.TryGetValue("FILEBOT_OPTS", out var fb) ? fb + " " : "";
+            psi.Environment["FILEBOT_OPTS"] = existingFb + opts;
+            var existingJo = psi.Environment.TryGetValue("_JAVA_OPTIONS", out var jo) ? jo + " " : "";
+            psi.Environment["_JAVA_OPTIONS"] = existingJo + opts;
         }
 
         var stdout = new System.Text.StringBuilder();
@@ -307,6 +453,9 @@ public sealed class FileBotResult
         var lines = text.Split('\n')
             .Select(l => l.TrimEnd('\r'))
             .Where(l => !string.IsNullOrWhiteSpace(l))
+            // Skip JVM environment pickup banners ("Picked up _JAVA_OPTIONS: ...")
+            // so they don't crowd out the actual FileBot error message.
+            .Where(l => !l.StartsWith("Picked up ", StringComparison.OrdinalIgnoreCase))
             .ToArray();
         return lines.Length == 0 ? "" : lines[^1];
     }
