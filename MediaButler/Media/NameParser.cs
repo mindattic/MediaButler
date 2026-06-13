@@ -94,9 +94,31 @@ public static class NameParser
     // Tail tags FileBot/Plex shouldn't see in a clean title.
     // Anchored by one of the known tokens; the trailing .*$ eats release-group suffixes.
     // DELIBERATELY case-sensitive: "Max" in "Mad Max" must NOT trigger the strip.
-    // For tokens with real-inbox mixed-case variants add all forms explicitly (Mp4|MP4|mp4).
+    // For mixed-case real-inbox variants add all forms explicitly (Mp4|MP4|mp4, h265|H265).
+    // Normalize() converts dots→spaces before this runs, so multi-part tokens use [\s.]?
+    // so they match both the raw ("H.265") and normalized ("H 265") forms.
+    // Add entries when a new tag turns up before the year in a real-inbox folder name.
     private static readonly Regex TrailingJunk = new(
-        @"\s+(?:Complete|COMPLETE|IMAX|SDR|REMUX|BDREMUX|10bit|10BIT|10-bit|WEBRip|WEB-DL|WEB|HDTV|BluRay|BRrip|BDRip|2160p|1080p|720p|480p|4K|x265|x264|HEVC|H\.?265|H\.?264|AAC|AC3|DTS(?:-?HDMA)?|DD\+?5\.1|DDP5\.1|Atmos|MULTi|REMASTERED|PROPER|REPACK|DSNP|ATVP|PCOK|HULU|PMTP|AMZN|NF|HDR|DV|HMAX|MAX|Mp4|MP4|mp4|AVI|MKV).*$",
+        // Release flags
+        @"\s+(?:Complete|COMPLETE|EXTENDED|REMASTERED|PROPER|REPACK|READNFO|Upscale|MultiSubs|" +
+        // Source / quality tier
+        @"WEBSCREENER|TELESYNC|Telesync|DCPRip|DVDRip|iMAX|IMAX|SDR|Hybrid|UHD|" +
+        // Web / optical sources
+        @"WEBRip|WEB-DL|WEB|HDTV|BluRay|Bluray|BrRip|BRrip|BDRip|REMUX|BDREMUX|" +
+        // Resolution
+        @"2160p|1440p|1080p|720p|576p|480p|4K|" +
+        // Video codec — [\s.]? handles both raw dots and post-Normalize spaces
+        @"AV1|X265|X264|x265|x264|h265|h264|HEVC|H[\s.]?265|H[\s.]?264|" +
+        // Audio codec
+        @"TrueHD|OPUS|AAC|AC3|DTS(?:[\s.-]?HDMA)?|DD\+?5[\s.]?1|DDP5[\s.]?1|DDPA|Atmos|" +
+        // HDR / vision
+        @"DoVi|MULTi|HDR|DV|" +
+        // Bit depth
+        @"10bit|10BIT|10Bit|10bits|10-bit|" +
+        // Streaming platform codes
+        @"DSNP|ATVP|ATV|PCOK|HULU|PMTP|PLAY|AMZN|NF|HMAX|MAX|" +
+        // Container
+        @"Mp4|MP4|mp4|AVI|MKV).*$",
         RegexOptions.Compiled);
 
     // Index/release-group prefix like "www.UIndex.org    -    " or "[YTS.MX] - ".
