@@ -281,6 +281,15 @@ public sealed class FileBotResult
         StdOut.Contains("invalid username/password", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// True when FileBot ran cleanly but found nothing to rename — all files are
+    /// already in the target format. FileBot exits 1 (not 0) in this case, so
+    /// callers must check here before treating a non-zero exit as a real failure.
+    /// </summary>
+    public bool LooksLikeNoOp =>
+        StdOut.Contains("Processed 0 files", StringComparison.OrdinalIgnoreCase) ||
+        StdErr.Contains("Processed 0 files", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Last meaningful line emitted by FileBot. Prefers stderr on failure
     /// (where FileBot writes its diagnostic) and falls back to stdout. Used
     /// to give the user the actual reason behind a non-zero exit instead of

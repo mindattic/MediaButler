@@ -153,6 +153,27 @@ public class FileBotClientTests
     }
 
     [Test]
+    public void LooksLikeNoOp_detects_processed_0_files_in_stdout()
+    {
+        var r = new FileBotResult { ExitCode = 1, StdOut = "Processed 0 files", StdErr = "" };
+        Assert.That(r.LooksLikeNoOp, Is.True);
+    }
+
+    [Test]
+    public void LooksLikeNoOp_detects_processed_0_files_in_stderr()
+    {
+        var r = new FileBotResult { ExitCode = 1, StdOut = "", StdErr = "Processed 0 files" };
+        Assert.That(r.LooksLikeNoOp, Is.True);
+    }
+
+    [Test]
+    public void LooksLikeNoOp_is_false_for_real_errors()
+    {
+        var r = new FileBotResult { ExitCode = 1, StdOut = "Processed 1 files", StdErr = "Network error" };
+        Assert.That(r.LooksLikeNoOp, Is.False);
+    }
+
+    [Test]
     public void LastInterestingLine_prefers_stderr_over_stdout()
     {
         var r = new FileBotResult

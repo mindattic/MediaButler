@@ -185,6 +185,14 @@ public sealed class FileBotStage
             bumpOk(true);
             return;
         }
+        if (result.LooksLikeNoOp)
+        {
+            // Files are already in the target format — FileBot had nothing to do.
+            // Exit 1 with "Processed 0 files" is not a failure; treat as success.
+            Status.Inline($"  [{label}: already named]", Theme.Dim);
+            bumpOk(true);
+            return;
+        }
         var detail = result.LastInterestingLine();
         Status.Inline($"  [{label}: exit {result.ExitCode}]", Theme.Err);
         if (!string.IsNullOrWhiteSpace(detail))
