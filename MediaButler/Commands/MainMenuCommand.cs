@@ -90,6 +90,13 @@ public sealed class MainMenuCommand : Command<BaseSettings>
             new() { Name = "Relocate misplaced items",
                     Description = "scan a destination dir and evict items whose kind doesn't belong",
                     Tag = (Action)(() => RunRelocateInteractive(runner, cli)) },
+            new() { Name = "Fix Library Folder",
+                    Description = "re-run FileBot rename + folder sync + artwork against an existing Movies or TV folder",
+                    Tag = (Action)(() => RunFixLibraryInteractive(runner, cli)),
+                    Disabled = fileBot is null },
+            new() { Name = "Scan inbox",
+                    Description = "list everything MediaButler sees in the source — no changes made",
+                    Tag = stage("Scan inbox", runner.RunScan) },
             new() { Name = "Settings",
                     Description = "source, destinations, FileBot path, options, dry-run",
                     Tag = (Action)(() => new SettingsEditor(runner.Settings).Show()) },
@@ -148,6 +155,51 @@ public sealed class MainMenuCommand : Command<BaseSettings>
         }
         s.SourcePath = prompt;
         ReportExit(runner.RunRelocate(s));
+        Screen.PressAnyKey();
+    }
+
+    /// <summary>
+    /// Prompt for a library folder path and content type, then run the FileBot
+    /// rename + folder-sync + artwork pass against it. Path guard is bypassed
+    /// so the source can be a destination folder (M:\Movies, M:\TV\Show Name, …).
+    /// </summary>
+    private static void RunFixLibraryInteractive(PipelineRunner runner, BaseSettings cli)
+    {
+        Screen.Header("Fix Library Folder");
+        var s = runner.LoadEffective(cli.ApplyTo);
+
+        var folder = Screen.Prompt(
+            "Library folder to fix (e.g. M:\\Movies  or  M:\\TV\\Criminal Minds)",
+            currentValue: "");
+        if (string.IsNullOrWhiteSpace(folder))
+        {
+            Status.Print("Cancelled — no folder supplied.", Theme.Dim);
+            Screen.PressAnyKey();
+            return;
+        }
+
+        var choices = new List<MenuItem>
+        {
+            new() { Name = "Movies",   Description = "FileBot rename + folder sync + artwork  (TheMovieDB)" },
+            new() { Name = "TV Shows", Description = "FileBot rename episodes + folder sync + artwork  (TheTVDB)" },
+        };
+        var choice = Menu.Prompt("Content type in this folder:", choices, allowBack: true);
+        if (choice is null)
+        {
+            Status.Print("Cancelled.", Theme.Dim);
+            Screen.PressAnyKey();
+            return;
+        }
+
+        s.SourcePath   = folder.Trim();
+        s.ExtraSources = Array.Empty<string>();
+        s.Recursive    = false;
+        s.NoGuard      = true; // allow running against a destination folder
+
+        var exit = choice.Name == "Movies"
+            ? runner.RunFileBotMovies(s)
+            : runner.RunFileBotTv(s);
+        ReportExit(exit);
         Screen.PressAnyKey();
     }
 }

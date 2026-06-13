@@ -37,6 +37,11 @@ app.Configure(config =>
     config.AddCommand<RenameCommand>("rename")
         .WithExample("rename", "--dry-run", "--source", @"D:\Temp\Inbox");
 
+    config.AddCommand<HoistCommand>("hoist")
+        .WithDescription("Stage 1 only — local rename, hoist nested seasons, wrap loose movie files.")
+        .WithExample("hoist", "--dry-run")
+        .WithExample("hoist", "--source", @"M:\Movies", "--no-guard");
+
     config.AddCommand<FileBotTvCommand>("filebot-tv")
         .WithExample("filebot-tv")
         .WithExample("filebot-tv", "--dry-run");

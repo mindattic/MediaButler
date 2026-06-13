@@ -49,6 +49,10 @@ public class BaseSettings : CommandSettings
     [CommandOption("--limit <N>")]
     public int? Limit { get; init; }
 
+    [Description("Bypass the source/destination overlap safety check. Use when pointing a command at a destination folder to repair an existing library (e.g. hoist --source M:\\Movies --no-guard).")]
+    [CommandOption("--no-guard")]
+    public bool NoGuard { get; init; }
+
     [Description("Print only the final summary and errors.")]
     [CommandOption("-q|--quiet")]
     public bool Quiet { get; init; }
@@ -88,5 +92,6 @@ public class BaseSettings : CommandSettings
         if (!string.IsNullOrWhiteSpace(MoviesDest)) s.MoviesDestination = MoviesDest.Trim();
         if (!string.IsNullOrWhiteSpace(MusicDest))  s.MusicDestination  = MusicDest.Trim();
         if (Limit.HasValue && Limit.Value > 0) s.Limit = Limit;
+        if (NoGuard) s.NoGuard = true;
     }
 }

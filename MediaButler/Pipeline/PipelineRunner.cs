@@ -161,6 +161,7 @@ public sealed class PipelineRunner
         ShowLevelArtFiles     = s.ShowLevelArtFiles,
         TitleYearOverrides    = s.TitleYearOverrides,
         Limit                 = s.Limit,
+        NoGuard               = s.NoGuard,
     };
 
     public int RunRelocate(MediaButlerSettings s)
@@ -260,7 +261,7 @@ public sealed class PipelineRunner
 
     private int RunStage(MediaButlerSettings s, Action<PipelineReport> body, bool guardPaths = true)
     {
-        if (guardPaths && !PathGuard.ValidatePaths(s)) return ExitErrors;
+        if (guardPaths && !s.NoGuard && !PathGuard.ValidatePaths(s)) return ExitErrors;
         var report = new PipelineReport();
         var auditFailuresBefore = AuditLog.FailureCount;
         body(report);

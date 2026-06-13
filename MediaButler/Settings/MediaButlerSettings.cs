@@ -88,6 +88,15 @@ public sealed class MediaButlerSettings
     public int? Limit { get; set; }
 
     /// <summary>
+    /// When true, the source/destination overlap safety check is bypassed.
+    /// Use when deliberately pointing a command at a destination folder to
+    /// repair an existing library (e.g. <c>hoist --source "M:\Movies" --no-guard</c>
+    /// to fix folder names, or <c>rename --source "M:\Movies" --no-guard</c> for a
+    /// full pass). Not persisted — CLI/menu only.
+    /// </summary>
+    public bool NoGuard { get; set; }
+
+    /// <summary>
     /// When true, folders the regex parser can't classify are sent to an LLM
     /// (via MindAttic.Legion) for a best-guess at show/movie/season. Off by
     /// default to avoid surprise API calls; turn on after confirming credentials

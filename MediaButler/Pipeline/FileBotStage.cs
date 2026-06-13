@@ -64,17 +64,22 @@ public sealed class FileBotStage
         foreach (var item in items)
         {
             BeginItem(item.OriginalName);
+            var folderPath = item.FullPath;
             try
             {
                 if (settings.RenameEpisodes)
                 {
-                    var rn = fileBot.RenameTvEpisodes(item.FullPath, dryRun: settings.DryRun);
-                    RecordFileBotOutcome("rename", item.FullPath, rn, settings.DryRun, ok => report.FileBotTvOk += ok ? 1 : 0);
+                    var rn = fileBot.RenameTvEpisodes(folderPath, dryRun: settings.DryRun);
+                    RecordFileBotOutcome("rename", folderPath, rn, settings.DryRun, ok => report.FileBotTvOk += ok ? 1 : 0);
+                    // Sync the season folder name to the renamed episodes so the folder
+                    // always matches the canonical Show - Season XX format.
+                    if (rn.Success || rn.LooksLikeNoOp)
+                        folderPath = SyncTvFolderToEpisodes(folderPath) ?? folderPath;
                 }
                 if (settings.FetchArtwork && !settings.DryRun)
                 {
-                    var aw = fileBot.FetchTvArtwork(item.FullPath);
-                    RecordFileBotOutcome("artwork", item.FullPath, aw, dryRun: false, ok => report.ArtworkOk += ok ? 1 : 0);
+                    var aw = fileBot.FetchTvArtwork(folderPath);
+                    RecordFileBotOutcome("artwork", folderPath, aw, dryRun: false, ok => report.ArtworkOk += ok ? 1 : 0);
                 }
                 Status.NewLine();
             }
@@ -109,6 +114,7 @@ public sealed class FileBotStage
         foreach (var item in items)
         {
             BeginItem(item.OriginalName);
+            var folderPath = item.FullPath;
             try
             {
                 // Rename movie files first — this both cleans the filenames
@@ -116,13 +122,17 @@ public sealed class FileBotStage
                 // metadata the artwork script needs.
                 if (settings.RenameMovies)
                 {
-                    var rn = fileBot.RenameMovie(item.FullPath, dryRun: settings.DryRun);
-                    RecordFileBotOutcome("rename", item.FullPath, rn, settings.DryRun, ok => report.FileBotMoviesOk += ok ? 1 : 0);
+                    var rn = fileBot.RenameMovie(folderPath, dryRun: settings.DryRun);
+                    RecordFileBotOutcome("rename", folderPath, rn, settings.DryRun, ok => report.FileBotMoviesOk += ok ? 1 : 0);
+                    // Sync the folder name to the renamed file so the folder
+                    // always matches its primary video (Aladdin.2019/ → Aladdin (2019)/).
+                    if (rn.Success || rn.LooksLikeNoOp)
+                        folderPath = SyncFolderToVideo(folderPath) ?? folderPath;
                 }
                 if (settings.FetchArtwork && !settings.DryRun)
                 {
-                    var aw = fileBot.FetchMovieArtwork(item.FullPath);
-                    RecordFileBotOutcome("artwork", item.FullPath, aw, dryRun: false, ok => report.ArtworkOk += ok ? 1 : 0);
+                    var aw = fileBot.FetchMovieArtwork(folderPath);
+                    RecordFileBotOutcome("artwork", folderPath, aw, dryRun: false, ok => report.ArtworkOk += ok ? 1 : 0);
                 }
                 Status.NewLine();
             }
@@ -206,6 +216,126 @@ public sealed class FileBotStage
     // max characters (the old s[..max] + "…" produced max + 1).
     private static string Truncate(string s, int max) =>
         s.Length <= max ? s : s[..(max - 1)] + "…";
+
+    /// <summary>
+    /// Rename the movie folder so it matches the primary video file's stem.
+    /// FileBot renames files but not their containing folder, so after FileBot
+    /// runs on <c>Aladdin.2019/</c> and produces <c>Aladdin (2019).mkv</c>
+    /// inside, this step renames the folder to <c>Aladdin (2019)/</c>.
+    ///
+    /// <para>Primary video = the largest video file in the folder (skips
+    /// sample-sized files that are not the feature). Returns the new folder
+    /// path if a rename happened, or null if the folder name already matched
+    /// or the rename was skipped (dry run, conflict, no video found).</para>
+    /// </summary>
+    private string? SyncFolderToVideo(string folderPath)
+    {
+        var videoExts = new HashSet<string>(settings.VideoExtensions, StringComparer.OrdinalIgnoreCase);
+        string? primary;
+        try
+        {
+            primary = Directory.EnumerateFiles(folderPath)
+                .Where(f => videoExts.Contains(Path.GetExtension(f)))
+                .OrderByDescending(f => { try { return new FileInfo(f).Length; } catch { return 0L; } })
+                .FirstOrDefault();
+        }
+        catch { return null; }
+
+        if (primary is null) return null;
+
+        var stem = Path.GetFileNameWithoutExtension(primary);
+        var currentName = Path.GetFileName(folderPath);
+        if (string.Equals(stem, currentName, StringComparison.OrdinalIgnoreCase)) return null;
+
+        var parent = Path.GetDirectoryName(folderPath)!;
+        var newPath = Path.Combine(parent, stem);
+        if (Directory.Exists(newPath)) return null;
+
+        if (settings.DryRun)
+        {
+            Status.Inline($"  [dry: folder -> {stem}]", Theme.Active);
+            return null;
+        }
+
+        try
+        {
+            Directory.Move(folderPath, newPath);
+            Status.Inline($"  [folder -> {stem}]", Theme.Ok);
+            AuditLog.Record(settings, settings.DryRun, "rename-folder", folderPath, newPath, MediaKind.Movie);
+            return newPath;
+        }
+        catch (Exception ex)
+        {
+            Status.Inline($"  [folder sync failed: {ex.Message}]", Theme.Err);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// After FileBot renames TV episodes to <c>Show - S01E02 - Title.ext</c>,
+    /// derive the canonical season folder name from the episode filenames and
+    /// rename the folder if it doesn't already match. Returns the new path on
+    /// rename, or null if the folder was already correct or the rename was skipped.
+    /// </summary>
+    private string? SyncTvFolderToEpisodes(string folderPath)
+    {
+        var videoExts = new HashSet<string>(settings.VideoExtensions, StringComparer.OrdinalIgnoreCase);
+        var ep = new System.Text.RegularExpressions.Regex(
+            @"^(?<show>.+?) - S(?<season>\d{2})E\d+",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        string? showName = null;
+        int? seasonNum = null;
+        try
+        {
+            foreach (var f in Directory.EnumerateFiles(folderPath))
+            {
+                if (!videoExts.Contains(Path.GetExtension(f))) continue;
+                var m = ep.Match(Path.GetFileNameWithoutExtension(f));
+                if (!m.Success) continue;
+                showName = m.Groups["show"].Value.Trim();
+                seasonNum = int.Parse(m.Groups["season"].Value);
+                break;
+            }
+        }
+        catch { return null; }
+
+        if (showName is null || seasonNum is null) return null;
+
+        var canonical = NameParser.FormatSeasonFolder(showName, seasonNum.Value);
+        var currentName = Path.GetFileName(folderPath);
+        if (string.Equals(canonical, currentName, StringComparison.OrdinalIgnoreCase)) return null;
+
+        // "Season 01" is the Plex library layout — the folder is already inside
+        // a show root and the plain season name is correct. Skip to avoid
+        // renaming library folders to "Show - Season 01" which breaks Plex.
+        if (System.Text.RegularExpressions.Regex.IsMatch(currentName, @"^Season \d+$",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            return null;
+
+        var parent = Path.GetDirectoryName(folderPath)!;
+        var newPath = Path.Combine(parent, canonical);
+        if (Directory.Exists(newPath)) return null;
+
+        if (settings.DryRun)
+        {
+            Status.Inline($"  [dry: folder -> {canonical}]", Theme.Active);
+            return null;
+        }
+
+        try
+        {
+            Directory.Move(folderPath, newPath);
+            Status.Inline($"  [folder -> {canonical}]", Theme.Ok);
+            AuditLog.Record(settings, settings.DryRun, "rename-folder", folderPath, newPath, MediaKind.TvSeason);
+            return newPath;
+        }
+        catch (Exception ex)
+        {
+            Status.Inline($"  [folder sync failed: {ex.Message}]", Theme.Err);
+            return null;
+        }
+    }
 
     public void RunSubtitles()
     {
