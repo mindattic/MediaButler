@@ -91,9 +91,12 @@ public static class NameParser
         @"\b((?:19|20)\d{2})\b",
         RegexOptions.Compiled);
 
-    // Tail tags FileBot/Plex shouldn't see in a clean title
+    // Tail tags FileBot/Plex shouldn't see in a clean title.
+    // Anchored by one of the known tokens; the trailing .*$ eats release-group suffixes.
+    // DELIBERATELY case-sensitive: "Max" in "Mad Max" must NOT trigger the strip.
+    // For tokens with real-inbox mixed-case variants add all forms explicitly (Mp4|MP4|mp4).
     private static readonly Regex TrailingJunk = new(
-        @"\s+(?:Complete|COMPLETE|1080p|720p|2160p|4K|BluRay|BRrip|BDRip|WEBRip|WEB-DL|HDTV|x264|x265|HEVC|H\.?264|H\.?265|AAC|AC3|DTS(?:-?HDMA)?|DD\+?5\.1|DDP5\.1|Atmos|MULTi|REMASTERED|PROPER|REPACK|NF|AMZN|HDR|DV|HMAX|MAX).*$",
+        @"\s+(?:Complete|COMPLETE|IMAX|SDR|REMUX|BDREMUX|10bit|10BIT|10-bit|WEBRip|WEB-DL|WEB|HDTV|BluRay|BRrip|BDRip|2160p|1080p|720p|480p|4K|x265|x264|HEVC|H\.?265|H\.?264|AAC|AC3|DTS(?:-?HDMA)?|DD\+?5\.1|DDP5\.1|Atmos|MULTi|REMASTERED|PROPER|REPACK|DSNP|ATVP|PCOK|HULU|PMTP|AMZN|NF|HDR|DV|HMAX|MAX|Mp4|MP4|mp4|AVI|MKV).*$",
         RegexOptions.Compiled);
 
     // Index/release-group prefix like "www.UIndex.org    -    " or "[YTS.MX] - ".
