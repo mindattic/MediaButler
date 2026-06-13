@@ -44,6 +44,15 @@ public sealed class MediaButlerSettings
     /// <summary>Absolute path to the FileBot executable.</summary>
     public string FileBotPath { get; set; } = @"C:\Program Files\FileBot\filebot.exe";
 
+    /// <summary>
+    /// When true, passes <c>-Dtrust.all.certs=true</c> to FileBot's JVM via
+    /// <c>FILEBOT_OPTS</c>. Use when FileBot's bundled JRE can't build the
+    /// certificate chain to TheMovieDB or TheTVDB — typically a
+    /// <c>SunCertPathBuilderException</c> in FileBot's stderr. Not recommended
+    /// on permanently open, fully-trusted networks.
+    /// </summary>
+    public bool FileBotTrustAll { get; set; } = false;
+
     /// <summary>ISO 639-1 language code passed to <c>filebot -get-subtitles --lang</c>.</summary>
     public string SubtitleLanguage { get; set; } = "en";
 

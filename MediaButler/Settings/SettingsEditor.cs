@@ -49,6 +49,8 @@ public sealed class SettingsEditor
                     Tag = (Action)(() => Toggle(v => v.Recursive, (v, x) => v.Recursive = x)) },
             new() { Name = "FileBot Path",        Description = s.FileBotPath,
                     Tag = (Action)(() => EditString("FileBot path",        v => v.FileBotPath,       (v, x) => v.FileBotPath = x)) },
+            new() { Name = "FileBot Trust All Certs", Description = Bool(s.FileBotTrustAll) + " (bypass SSL — use when FileBot hits SunCertPathBuilderException)",
+                    Tag = (Action)(() => Toggle(v => v.FileBotTrustAll, (v, x) => v.FileBotTrustAll = x)) },
             new() { Name = "Subtitle Language",   Description = s.SubtitleLanguage,
                     Tag = (Action)(() => EditString("Subtitle language",   v => v.SubtitleLanguage,  (v, x) => v.SubtitleLanguage = x)) },
             new() { Name = "Dry Run",             Description = Bool(s.DryRun) + " (no disk mutations when on)",

@@ -21,14 +21,15 @@ namespace MediaButler.FileBot;
 public sealed class FileBotClient
 {
     public string ExePath { get; }
+    private readonly bool _trustAll;
 
-    private FileBotClient(string exePath) => ExePath = exePath;
+    private FileBotClient(string exePath, bool trustAll) { ExePath = exePath; _trustAll = trustAll; }
 
     /// <summary>Return a usable client or null if FileBot can't be located.</summary>
     public static FileBotClient? TryCreate(MediaButlerSettings settings)
     {
         var path = TryLocate(settings.FileBotPath);
-        return path is null ? null : new FileBotClient(path);
+        return path is null ? null : new FileBotClient(path, settings.FileBotTrustAll);
     }
 
     /// <summary>
@@ -212,6 +213,13 @@ public sealed class FileBotClient
             CreateNoWindow = true,
         };
         foreach (var a in args) psi.ArgumentList.Add(a);
+
+        if (_trustAll)
+        {
+            // Prepend to any existing FILEBOT_OPTS so user-set flags are preserved.
+            var existing = psi.Environment.TryGetValue("FILEBOT_OPTS", out var v) ? v + " " : "";
+            psi.Environment["FILEBOT_OPTS"] = existing + "-Dtrust.all.certs=true";
+        }
 
         var stdout = new System.Text.StringBuilder();
         var stderr = new System.Text.StringBuilder();
