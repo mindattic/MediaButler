@@ -4,7 +4,7 @@ using MediaButler.Settings;
 
 namespace MediaButler.Commands;
 
-[Description("Run the full pipeline non-interactively (rename + FileBot + move).")]
+[Description("Run the full pipeline non-interactively (rename + FileBot + move). Alias for `rename`.")]
 public sealed class RunCommand : PipelineCommand
 {
     protected override string Title => "Run Full Pipeline (headless)";

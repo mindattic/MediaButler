@@ -273,12 +273,16 @@ public sealed class PipelineRunner
     /// Variant of <see cref="RunStage"/> that resolves a <see cref="FileBotClient"/>
     /// up front and short-circuits with a clear error message if FileBot isn't
     /// installed — used by the three FileBot-only subcommands.
+    /// Path guard is intentionally bypassed: FileBot renames files in-place inside
+    /// the source folder and never moves content between source and destination, so
+    /// pointing it at a destination directory (e.g. to clean up filenames after a
+    /// manual move) is safe and deliberately supported.
     /// </summary>
     private int RunWithFileBot(MediaButlerSettings s, Action<FileBotClient, PipelineReport> body)
     {
         var fb = FileBotClient.TryCreate(s);
         if (fb is null) { Status.Print("FileBot not found.", Theme.Err); return 1; }
-        return RunStage(s, report => body(fb, report));
+        return RunStage(s, report => body(fb, report), guardPaths: false);
     }
 
     public void PrintReport(MediaButlerSettings s, PipelineReport r) => PrintReport(s, r, auditFailures: 0);

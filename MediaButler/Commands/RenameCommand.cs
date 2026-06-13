@@ -4,9 +4,9 @@ using MediaButler.Settings;
 
 namespace MediaButler.Commands;
 
-[Description("Stage 1 only — local rename + hoist + empty cleanup.")]
+[Description("Run the full pipeline non-interactively (rename + FileBot + move). Use `hoist` for the rename-only stage.")]
 public sealed class RenameCommand : PipelineCommand
 {
-    protected override string Title => "Rename & Hoist (headless)";
-    protected override int Run(PipelineRunner runner, MediaButlerSettings s) => runner.RunRename(s);
+    protected override string Title => "Run Full Pipeline (headless)";
+    protected override int Run(PipelineRunner runner, MediaButlerSettings s) => runner.RunFull(s);
 }
