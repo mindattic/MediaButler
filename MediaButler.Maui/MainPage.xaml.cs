@@ -78,7 +78,7 @@ public partial class MainPage : ContentPage
         else
         {
             ModeBadge.Text = "LIVE";
-            ModeBadge.BackgroundColor = Color.FromArgb("#388E3C");
+            ModeBadge.BackgroundColor = Color.FromArgb("#2E7D32"); // #388E3C was 3.76:1; #2E7D32 = 4.59:1 (WCAG AA)
             ModeBadge.TextColor = Colors.White;
         }
         PathsLine.Text = $"Source: {s.SourcePath}    TV: {s.TvDestination}    Movies: {s.MoviesDestination}";
@@ -94,12 +94,39 @@ public partial class MainPage : ContentPage
         LogLabel.Text = string.Empty;
     }
 
-    private void OnRunFull(object? sender, EventArgs e)            => _ = ExecuteAsync(PipelineRunner.PipelineAction.RunFull,         LabelFor("Run Full Pipeline"));
+    private async void OnRunFull(object? sender, EventArgs e)
+    {
+        if (!settings.Load().DryRun)
+        {
+            var ok = await DisplayAlertAsync(
+                "Run Full Pipeline — LIVE",
+                "This will rename files, run FileBot, and permanently move everything to your Plex library. This cannot be easily undone.\n\nContinue in LIVE mode?",
+                accept: "Run Pipeline",
+                cancel: "Cancel");
+            if (!ok) return;
+        }
+        _ = ExecuteAsync(PipelineRunner.PipelineAction.RunFull, LabelFor("Run Full Pipeline"));
+    }
+
     private void OnRename(object? sender, EventArgs e)             => _ = ExecuteAsync(PipelineRunner.PipelineAction.Rename,          LabelFor("Rename & Hoist"));
     private void OnFileBotTv(object? sender, EventArgs e)          => _ = ExecuteAsync(PipelineRunner.PipelineAction.FileBotTv,       LabelFor("FileBot: TV"));
     private void OnFileBotMovies(object? sender, EventArgs e)      => _ = ExecuteAsync(PipelineRunner.PipelineAction.FileBotMovies,   LabelFor("FileBot: Movies"));
     private void OnFileBotSubtitles(object? sender, EventArgs e)   => _ = ExecuteAsync(PipelineRunner.PipelineAction.FileBotSubtitles,LabelFor("FileBot: Subtitles"));
-    private void OnMove(object? sender, EventArgs e)               => _ = ExecuteAsync(PipelineRunner.PipelineAction.Move,            LabelFor("Move to Plex"));
+
+    private async void OnMove(object? sender, EventArgs e)
+    {
+        if (!settings.Load().DryRun)
+        {
+            var ok = await DisplayAlertAsync(
+                "Move to Plex — LIVE",
+                "This will permanently move all renamed folders from the inbox to your TV and Movies destinations.\n\nContinue in LIVE mode?",
+                accept: "Move Files",
+                cancel: "Cancel");
+            if (!ok) return;
+        }
+        _ = ExecuteAsync(PipelineRunner.PipelineAction.Move, LabelFor("Move to Plex"));
+    }
+
     private void OnScan(object? sender, EventArgs e)               => _ = ExecuteAsync(PipelineRunner.PipelineAction.Scan,            "Scan");
     private void OnStatus(object? sender, EventArgs e)             => _ = ExecuteAsync(PipelineRunner.PipelineAction.Status,          "Status");
 

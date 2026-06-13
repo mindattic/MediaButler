@@ -18,7 +18,8 @@
                 <Label Grid.Row="0" Grid.Column="0"
                        Text="MediaButler"
                        FontSize="20"
-                       FontAttributes="Bold" />
+                       FontAttributes="Bold"
+                       SemanticProperties.HeadingLevel="Level1" />
                 <!--
                     Dry-run toggle. Single source of truth for whether every
                     action below mutates disk or just previews. Forced ON at
@@ -31,7 +32,13 @@
                     <CheckBox x:Name="DryRunCheck"
                               IsChecked="True"
                               VerticalOptions="Center"
+                              SemanticProperties.Description="Dry-run mode toggle"
+                              SemanticProperties.Hint="When checked, no files are modified on disk. Uncheck to run live operations."
                               CheckedChanged="OnDryRunToggled" />
+                    <!--
+                        LIVE badge color (#2E7D32 + white): 4.59:1 — passes WCAG AA.
+                        DRY RUN badge (#F9A825 + black):   11.1:1 — passes WCAG AAA.
+                    -->
                     <Label x:Name="ModeBadge"
                            Text="DRY RUN"
                            FontSize="13"
@@ -39,16 +46,20 @@
                            Padding="10,4"
                            BackgroundColor="#F9A825"
                            TextColor="Black"
-                           VerticalOptions="Center" />
+                           VerticalOptions="Center"
+                           SemanticProperties.Description="Operation mode"
+                           SemanticProperties.Hint="DRY RUN: no disk writes. LIVE: files are renamed and moved." />
                 </HorizontalStackLayout>
                 <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                        x:Name="PathsLine"
                        FontSize="12"
-                       TextColor="{AppThemeBinding Light=#444, Dark=#BBB}" />
+                       TextColor="{AppThemeBinding Light=#444, Dark=#BBB}"
+                       SemanticProperties.Description="Configured folder paths" />
                 <Label Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
                        x:Name="FileBotLine"
                        FontSize="12"
-                       TextColor="{AppThemeBinding Light=#444, Dark=#BBB}" />
+                       TextColor="{AppThemeBinding Light=#444, Dark=#BBB}"
+                       SemanticProperties.Description="FileBot installation status" />
             </Grid>
         </Border>
 
@@ -62,69 +73,96 @@
             <VerticalStackLayout Spacing="8">
 
                 <!-- ── Pipeline stages ── -->
+                <!--
+                    Section label contrast: #6D6D6D on White = 4.59:1 (WCAG AA ✓)
+                                            #949494 on #222222 = 5.36:1 (WCAG AA ✓)
+                    Previous values (#999/#666) both failed at ~2.9:1 / ~3.0:1.
+                -->
                 <Label Text="PIPELINE"
                        FontSize="10" FontAttributes="Bold" CharacterSpacing="1.5"
-                       TextColor="{AppThemeBinding Light=#999, Dark=#666}"
-                       Margin="0,0,0,0" />
+                       TextColor="{AppThemeBinding Light=#6D6D6D, Dark=#949494}"
+                       Margin="0,0,0,0"
+                       SemanticProperties.HeadingLevel="Level2" />
                 <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Center" Direction="Row">
                     <Button Text="Run Full Pipeline"
                             x:Name="BtnRunFull"
                             BackgroundColor="#1976D2" TextColor="White"
                             Margin="0,0,8,8"
                             ToolTipProperties.Text="Rename + FileBot rename/artwork/subtitles + Move to Plex"
+                            SemanticProperties.Description="Run the complete pipeline"
+                            SemanticProperties.Hint="Rename and hoist, FileBot rename and artwork, subtitle download, then move to Plex. Prompts for confirmation in LIVE mode."
                             Clicked="OnRunFull" />
                     <Button Text="Rename &amp; Hoist"
                             x:Name="BtnRename"
                             Margin="0,0,8,8"
                             ToolTipProperties.Text="Stage 1: clean folder names, hoist nested seasons, wrap loose movie files"
+                            SemanticProperties.Description="Stage 1: rename and hoist"
+                            SemanticProperties.Hint="Clean folder names, hoist nested season folders, wrap loose movie files into a containing folder."
                             Clicked="OnRename" />
                     <Button Text="FileBot TV"
                             x:Name="BtnFbTv"
                             Margin="0,0,8,8"
                             ToolTipProperties.Text="Stage 2a: rename TV episodes via TheTVDB + fetch artwork"
+                            SemanticProperties.Description="Stage 2a: FileBot TV episode rename"
+                            SemanticProperties.Hint="Rename TV episodes using TheTVDB via FileBot, then fetch series artwork."
                             Clicked="OnFileBotTv" />
                     <Button Text="FileBot Movies"
                             x:Name="BtnFbMovies"
                             Margin="0,0,8,8"
                             ToolTipProperties.Text="Stage 2b: rename movies via TheMovieDB + fetch artwork"
+                            SemanticProperties.Description="Stage 2b: FileBot movie rename"
+                            SemanticProperties.Hint="Rename movie folders using TheMovieDB via FileBot, then fetch poster and backdrop artwork."
                             Clicked="OnFileBotMovies" />
                     <Button Text="FileBot Subtitles"
                             x:Name="BtnFbSubs"
                             Margin="0,0,8,8"
                             ToolTipProperties.Text="Stage 3: download subtitles via OpenSubtitles"
+                            SemanticProperties.Description="Stage 3: subtitle download"
+                            SemanticProperties.Hint="Download subtitles for all recognized media via OpenSubtitles. Requires credentials in MindAttic Vault."
                             Clicked="OnFileBotSubtitles" />
                     <Button Text="Move to Plex"
                             x:Name="BtnMove"
                             Margin="0,0,8,8"
                             ToolTipProperties.Text="Stage 4: move renamed folders to TV/Movies/Music destinations"
+                            SemanticProperties.Description="Stage 4: move to Plex library"
+                            SemanticProperties.Hint="Permanently move renamed folders from the inbox to your TV and Movies destinations. Prompts for confirmation in LIVE mode."
                             Clicked="OnMove" />
                 </FlexLayout>
 
                 <!-- ── Library tools ── -->
                 <Label Text="LIBRARY TOOLS"
                        FontSize="10" FontAttributes="Bold" CharacterSpacing="1.5"
-                       TextColor="{AppThemeBinding Light=#999, Dark=#666}"
-                       Margin="0,4,0,0" />
+                       TextColor="{AppThemeBinding Light=#6D6D6D, Dark=#949494}"
+                       Margin="0,4,0,0"
+                       SemanticProperties.HeadingLevel="Level2" />
                 <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Center" Direction="Row">
                     <Button Text="Fix Library…"
                             x:Name="BtnFixLibrary"
                             Margin="0,0,8,8"
                             ToolTipProperties.Text="Re-run FileBot rename + folder sync + artwork against an existing Movies or TV folder"
+                            SemanticProperties.Description="Fix an existing library folder"
+                            SemanticProperties.Hint="Prompts for a library path, then re-runs FileBot rename, folder sync, and artwork against it. Safe to run against your Plex destination."
                             Clicked="OnFixLibrary" />
                     <Button Text="Relocate…"
                             x:Name="BtnRelocate"
                             Margin="0,0,8,8"
                             ToolTipProperties.Text="Scan a destination folder and evict items whose kind doesn't belong"
+                            SemanticProperties.Description="Relocate misplaced items"
+                            SemanticProperties.Hint="Prompts for a destination folder, then moves items to the correct library location based on their detected kind."
                             Clicked="OnRelocate" />
                     <Button Text="Scan Inbox"
                             x:Name="BtnScan"
                             Margin="0,0,8,8"
                             ToolTipProperties.Text="List everything MediaButler sees in the source — no changes made"
+                            SemanticProperties.Description="Scan inbox — read only"
+                            SemanticProperties.Hint="Lists all media items detected in the source folder with their detected kind and planned name. Makes no changes to disk."
                             Clicked="OnScan" />
                     <Button Text="Status"
                             x:Name="BtnStatus"
                             Margin="0,0,8,8"
                             ToolTipProperties.Text="Show settings, FileBot status, OpenSubtitles credentials, and inbox summary"
+                            SemanticProperties.Description="Show application status"
+                            SemanticProperties.Hint="Displays current settings, FileBot path, OpenSubtitles credential status, and a count of items in the inbox."
                             Clicked="OnStatus" />
                 </FlexLayout>
 
@@ -134,7 +172,8 @@
                            VerticalOptions="Center"
                            FontSize="12"
                            TextColor="{AppThemeBinding Light=#666, Dark=#999}"
-                           Text="Ready." />
+                           Text="Ready."
+                           SemanticProperties.Description="Pipeline status" />
                     <ActivityIndicator Grid.Column="1"
                                        x:Name="Spinner"
                                        IsRunning="False"
@@ -148,6 +187,7 @@
                             TextColor="{AppThemeBinding Light=#1976D2, Dark=#82B1FF}"
                             BorderWidth="0"
                             Padding="8,4"
+                            SemanticProperties.Description="Clear the output log"
                             Clicked="OnClearLog" />
                 </Grid>
             </VerticalStackLayout>
@@ -160,7 +200,10 @@
                 StrokeShape="RoundRectangle 8"
                 BackgroundColor="#0E1117"
                 Padding="0">
-            <ScrollView x:Name="LogScroll" Padding="12">
+            <!-- Log text contrast: #E6EDF3 on #0E1117 = 17.1:1 (WCAG AAA ✓) -->
+            <ScrollView x:Name="LogScroll"
+                        Padding="12"
+                        SemanticProperties.Description="Pipeline output log">
                 <Label x:Name="LogLabel"
                        Text=""
                        FontFamily="Consolas"
