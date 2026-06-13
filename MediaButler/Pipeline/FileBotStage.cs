@@ -89,7 +89,9 @@ public sealed class FileBotStage
         AnnounceDryRunOnce();
 
         var items = new MediaScanner(settings).Scan()
-            .Where(i => i.Kind == MediaKind.Movie)
+            // Loose movie FILES are wrapped into folders by the Rename stage;
+            // FileBot's folder-oriented rename+artwork pass skips them until then.
+            .Where(i => i.Kind == MediaKind.Movie && !i.IsFile)
             .OrderBy(i => i.MovieTitle)
             .ToList();
 
@@ -204,7 +206,7 @@ public sealed class FileBotStage
         }
 
         var items = new MediaScanner(settings).Scan()
-            .Where(i => i.Kind is MediaKind.TvSeason or MediaKind.Movie)
+            .Where(i => (i.Kind is MediaKind.TvSeason or MediaKind.Movie) && !i.IsFile)
             .ToList();
 
         if (items.Count == 0)

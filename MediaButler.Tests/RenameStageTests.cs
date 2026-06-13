@@ -136,12 +136,11 @@ public class RenameStageTests
     }
 
     [Test]
-    public void Loose_video_at_multi_season_parent_is_not_misfiled_into_a_season()
+    public void Loose_episode_at_multi_season_parent_is_filed_into_its_OWN_season()
     {
         // A multi-season parent with season subfolders PLUS a loose episode at
-        // the root. The loose video must not be tucked into Season 01 (wrong
-        // season) — it stays put, the parent is kept, and it's flagged for
-        // manual sorting. Non-video orphans (artwork/nfo) still get hoisted.
+        // the root. The loose video carries S03E07 — it must be filed into
+        // "Bones - Season 03" (its OWN season), never tucked into Season 01.
         using var tmp = new TempDir();
         var parent = tmp.MakeDir("Bones Complete Series S1-S12");
         foreach (var n in new[] { 1, 2 })
@@ -162,13 +161,38 @@ public class RenameStageTests
             // Seasons hoisted out.
             Assert.That(Directory.Exists(Path.Combine(tmp.Path, "Bones - Season 01")), Is.True);
             Assert.That(Directory.Exists(Path.Combine(tmp.Path, "Bones - Season 02")), Is.True);
-            // Loose video NOT moved into Season 01, and parent kept (not deleted).
-            Assert.That(File.Exists(looseVideo), Is.True, "loose episode must stay at the parent");
+            // Loose episode filed into ITS season, never Season 01.
+            Assert.That(File.Exists(Path.Combine(tmp.Path, "Bones - Season 03", "Bones.S03E07.stray.mkv")),
+                Is.True, "loose S03E07 must be filed into Bones - Season 03");
             Assert.That(File.Exists(Path.Combine(tmp.Path, "Bones - Season 01", "Bones.S03E07.stray.mkv")),
                 Is.False, "loose episode must not be misfiled into Season 01");
             // Non-video orphan still hoisted into the first season.
             Assert.That(File.Exists(Path.Combine(tmp.Path, "Bones - Season 01", "poster.jpg")), Is.True);
-            // Flagged for manual review.
+            // Everything filed — the parent shell is gone.
+            Assert.That(Directory.Exists(parent), Is.False, "emptied parent shell should be deleted");
+        });
+    }
+
+    [Test]
+    public void Unparseable_loose_video_at_multi_season_parent_stays_and_is_flagged()
+    {
+        // Same shape, but the loose video has NO episode marker — it cannot be
+        // safely filed, so it stays at the parent and the folder is flagged.
+        using var tmp = new TempDir();
+        var parent = tmp.MakeDir("Bones Complete Series S1-S12");
+        var sub = Path.Combine(parent, "Season 1");
+        Directory.CreateDirectory(sub);
+        File.WriteAllText(Path.Combine(sub, "ep1.mkv"), "fake");
+        var looseVideo = Path.Combine(parent, "mystery clip.mkv");
+        File.WriteAllText(looseVideo, "fake");
+
+        var report = new PipelineReport();
+        new RenameStage(SettingsFor(tmp.Path), report).Run();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Directory.Exists(Path.Combine(tmp.Path, "Bones - Season 01")), Is.True);
+            Assert.That(File.Exists(looseVideo), Is.True, "unparseable loose video must stay at the parent");
             Assert.That(report.NeedsManual,
                 Has.Some.Matches<ManualItem>(m => m.Kind == MediaKind.MultiSeasonParent));
         });

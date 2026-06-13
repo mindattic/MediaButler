@@ -13,8 +13,18 @@ public sealed class PipelineReport
     public int Renamed { get; set; }
     public int Hoisted { get; set; }
     public int EmptyDeleted { get; set; }
+
+    /// <summary>Episode dumps (per-episode folders, loose/flat episode files) filed into a canonical season folder.</summary>
+    public int Consolidated { get; set; }
+
+    /// <summary>Movies split out of multi-movie pack folders.</summary>
+    public int PackSplit { get; set; }
+
+    /// <summary>Files merged into an already-existing canonical season folder (source-side or destination-side).</summary>
+    public int MergedFiles { get; set; }
     public int TvMoved { get; set; }
     public int MoviesMoved { get; set; }
+    public int MusicMoved { get; set; }
     public int FileBotTvOk { get; set; }
     public int FileBotMoviesOk { get; set; }
     public int ArtworkOk { get; set; }

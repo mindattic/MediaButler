@@ -48,7 +48,8 @@ public static class PathGuard
         }
 
         var overlap = PathOverlaps(s.SourcePath, s.TvDestination)
-                   || PathOverlaps(s.SourcePath, s.MoviesDestination);
+                   || PathOverlaps(s.SourcePath, s.MoviesDestination)
+                   || PathOverlaps(s.SourcePath, s.MusicDestination);
         if (!overlap) return true;
 
         if (s.DryRun)

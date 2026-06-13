@@ -96,6 +96,78 @@ public sealed class LegionFallbackParser
     }
 
     /// <summary>
+    /// Best-effort classification of a single FILE name that matched no known
+    /// pattern (no year, no episode marker). Same contract as
+    /// <see cref="ClassifyAsync"/>: null on disabled / failure / "unknown" —
+    /// the caller leaves the file alone rather than renaming it wrong
+    /// (see MB-LAW-6).
+    /// </summary>
+    public async Task<LlmFileGuess?> ClassifyFileAsync(string fileName, CancellationToken ct = default)
+    {
+        if (!settings.EnableLlmFallback) return null;
+
+        var prompt = $$"""
+            Classify this media FILE name. Reply with ONLY a JSON object, no prose.
+
+            File name: {{fileName}}
+
+            Schema:
+              {
+                "kind": "movie" | "tv_episode" | "unknown",
+                "title": "<movie title or show name, properly capitalized>",
+                "year": <number or null>,
+                "season": <number or null>,
+                "episode": <number or null>
+              }
+
+            Rules:
+              - "kind"="tv_episode" when the name encodes a specific episode of a show
+                (any marker style: SxxEyy, 3x09, 1.09, episode words, absolute anime numbering).
+              - "kind"="movie" when it is a single feature film; include the release year if present.
+              - Strip release-group tags, codec tags (x264, HEVC), and resolution tags from "title".
+              - Use sentence case for the title (e.g. "Better Call Saul", "The Matrix").
+              - If unsure, use "unknown" and leave the optional fields null.
+            """;
+
+        try
+        {
+            var raw = await client.CallAsync(
+                providerId: settings.LlmProvider,
+                systemPrompt: "You are a media library classifier. Respond ONLY with the requested JSON object.",
+                userMessage: prompt,
+                maxTokens: 256,
+                temperature: 0.0,
+                ct: ct);
+
+            var json = ExtractJsonObject(raw);
+            if (json is null) return null;
+
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            var kindStr = root.TryGetProperty("kind", out var k) ? k.GetString() : null;
+            var title   = root.TryGetProperty("title",   out var t) ? t.GetString() : null;
+            var year    = root.TryGetProperty("year",    out var y) && y.ValueKind == JsonValueKind.Number ? y.GetInt32() : (int?)null;
+            var season  = root.TryGetProperty("season",  out var s) && s.ValueKind == JsonValueKind.Number ? s.GetInt32() : (int?)null;
+            var episode = root.TryGetProperty("episode", out var e) && e.ValueKind == JsonValueKind.Number ? e.GetInt32() : (int?)null;
+
+            if (string.IsNullOrWhiteSpace(title)) return null;
+            return kindStr switch
+            {
+                "movie" => new LlmFileGuess { Kind = LlmFileKind.Movie, Title = title!.Trim(), Year = year },
+                // An episode guess is only actionable when season AND episode are known.
+                "tv_episode" when season.HasValue && episode.HasValue =>
+                    new LlmFileGuess { Kind = LlmFileKind.TvEpisode, Title = title!.Trim(), Season = season, Episode = episode },
+                _ => null,
+            };
+        }
+        catch
+        {
+            // LLM failures are non-fatal — MediaButler just skips the file.
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Some providers wrap their JSON in ```json fences or prose, or echo the
     /// schema object before the real answer. Extract the first <i>balanced</i>
     /// <c>{...}</c> block by tracking brace depth — a naive first-brace to
@@ -132,6 +204,18 @@ public sealed class LegionFallbackParser
 }
 
 public enum LlmKind { Unknown, Movie, TvSeason }
+
+public enum LlmFileKind { Movie, TvEpisode }
+
+/// <summary>LLM best-guess for a single unmatched file name.</summary>
+public sealed record LlmFileGuess
+{
+    public required LlmFileKind Kind { get; init; }
+    public required string Title { get; init; }
+    public int? Year { get; init; }
+    public int? Season { get; init; }
+    public int? Episode { get; init; }
+}
 
 public sealed record LlmGuess
 {

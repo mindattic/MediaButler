@@ -37,10 +37,16 @@ public sealed class SettingsEditor
         {
             new() { Name = "Source Path",         Description = s.SourcePath,
                     Tag = (Action)(() => EditString("Source path",         v => v.SourcePath,        (v, x) => v.SourcePath = x)) },
+            new() { Name = "Extra Sources",       Description = s.ExtraSources.Length == 0 ? "(none)" : string.Join(", ", s.ExtraSources),
+                    Tag = (Action)(() => EditList("Extra source folders (comma-separated)", v => v.ExtraSources, (v, x) => v.ExtraSources = x)) },
             new() { Name = "TV Destination",      Description = s.TvDestination,
                     Tag = (Action)(() => EditString("TV destination",      v => v.TvDestination,     (v, x) => v.TvDestination = x)) },
             new() { Name = "Movies Destination",  Description = s.MoviesDestination,
                     Tag = (Action)(() => EditString("Movies destination",  v => v.MoviesDestination, (v, x) => v.MoviesDestination = x)) },
+            new() { Name = "Music Destination",   Description = string.IsNullOrWhiteSpace(s.MusicDestination) ? "(disabled — music is flagged, not moved)" : s.MusicDestination,
+                    Tag = (Action)(() => EditString("Music destination (empty to disable)", v => v.MusicDestination, (v, x) => v.MusicDestination = x)) },
+            new() { Name = "Recursive Sources",   Description = Bool(s.Recursive) + " (also process temp/incomplete container subfolders)",
+                    Tag = (Action)(() => Toggle(v => v.Recursive, (v, x) => v.Recursive = x)) },
             new() { Name = "FileBot Path",        Description = s.FileBotPath,
                     Tag = (Action)(() => EditString("FileBot path",        v => v.FileBotPath,       (v, x) => v.FileBotPath = x)) },
             new() { Name = "Subtitle Language",   Description = s.SubtitleLanguage,
@@ -61,6 +67,8 @@ public sealed class SettingsEditor
                     Tag = (Action)(() => EditString("LLM provider (claude/openai/gemini/...)", v => v.LlmProvider, (v, x) => v.LlmProvider = x)) },
             new() { Name = "Excluded Folders",    Description = string.Join(", ", s.ExcludedFolders),
                     Tag = (Action)(() => EditList("Excluded folders (comma-separated)", v => v.ExcludedFolders, (v, x) => v.ExcludedFolders = x)) },
+            new() { Name = "Open Variations File", Description = Media.VariationCatalog.ResolvePath(s) + " (movie/tv/music sections; hand-edits pin a name's category)",
+                    Tag = (Action)OpenVariationsFile },
             new() { Name = "Reset to Defaults",   Description = "overwrites " + path,
                     Tag = (Action)ResetDefaults },
             new() { Name = "Open Settings File",  Description = path,
@@ -113,6 +121,40 @@ public sealed class SettingsEditor
             Status.Print("Cancelled.", Theme.Dim);
         }
         Screen.PressAnyKey();
+    }
+
+    private void OpenVariationsFile()
+    {
+        var path = Media.VariationCatalog.ResolvePath(settings.Load());
+        if (!File.Exists(path))
+        {
+            // Materialize an empty sectioned file so the user has something to append to.
+            try
+            {
+                var dir = Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+                File.WriteAllText(path, "{\n  \"movie\": [],\n  \"tv\": [],\n  \"music\": [],\n  \"unknown\": []\n}\n");
+            }
+            catch (Exception ex)
+            {
+                Status.Print("Could not create: " + ex.Message, Theme.Err);
+                Screen.PressAnyKey();
+                return;
+            }
+        }
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            Status.Print("Could not open: " + ex.Message, Theme.Err);
+            Screen.PressAnyKey();
+        }
     }
 
     private void OpenSettingsFile()

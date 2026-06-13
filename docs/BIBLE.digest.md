@@ -5,7 +5,7 @@ code: MB
 layer: digest
 status: living
 generatedFrom: MB-§1
-updated: 2026-06-07
+updated: 2026-06-12
 ---
 
 AUTHORITATIVE — full detail in docs/BIBLE.md
@@ -16,10 +16,12 @@ AUTHORITATIVE — full detail in docs/BIBLE.md
 # MediaButler — Bible digest
 
 ## 1. The one sentence {#MB-§1}
-MediaButler watches a folder of messy torrent dumps, cleans the names locally, hands the
+MediaButler watches one or more inboxes of messy torrent dumps, cleans the names locally
+(consolidating per-episode dumps, splitting movie packs, wrapping loose files), hands the
 survivors to FileBot for episode titles and artwork, optionally fetches subtitles, and moves
-everything into a canonical Plex layout — idempotently, dry-run-first, and refusing to run when
-the source overlaps a destination.
+everything into a canonical Plex layout — idempotently, dry-run-first, refusing to run when a
+source overlaps a destination, and cataloging every naming variation it sees into a persistent,
+user-extendable corpus.
 
 ## 3. What it is NOT {#MB-§3}
 - **NOT a downloader / torrent client.** MediaButler never fetches media; it organizes what is
@@ -35,6 +37,9 @@ the source overlaps a destination.
   explicit `relocate` command touches `TvDestination`/`MoviesDestination`. See [#MB-LAW-5](#MB-§5).
 - **NOT vendor-locked to one LLM.** Fallback parsing routes through Legion; no provider SDK is
   hard-coded. See [HOUSE-LAW-4](../../MindAttic.HouseRules.md#HOUSE-LAW-4).
+- **NOT a music organizer.** Music is detected (audio extensions, catalog pins) so it is never
+  deleted as "empty" or renamed as a movie, and it can be MOVED as-is — but tagging and
+  restructuring music libraries is a different tool's job.
 
 ## 5. The Laws {#MB-§5}
 > MediaButler **inherits all org-wide laws** from
@@ -86,8 +91,9 @@ overlap guard for exactly that reason. (Verified by
 
 ### MB-LAW-6 — LLM fallback is opt-in and non-fatal {#MB-LAW-6}
 `EnableLlmFallback` is `false` by default. When on, `LegionFallbackParser` returns `null` on any
-failure (disabled, unparseable, provider error) — MediaButler skips the folder rather than rename
-it wrong. Routes through `MindAttic.Legion`; no provider SDK is hard-coded
+failure (disabled, unparseable, provider error) — MediaButler skips the folder (or loose file,
+via `ClassifyFileAsync`) rather than rename it wrong. Routes through `MindAttic.Legion`; no
+provider SDK is hard-coded
 ([HOUSE-LAW-4](../../MindAttic.HouseRules.md#HOUSE-LAW-4)). (See `MediaButler/Llm/LegionFallbackParser.cs`.)
 
 ### MB-LAW-7 — Secrets never live in settings.json {#MB-LAW-7}
@@ -100,39 +106,110 @@ not raw values. (Verified by `BuildGetSubtitlesArgs_emits_at_path_references_not
 
 ### MB-LAW-8 — Three exit codes, and `2` is actionable {#MB-LAW-8}
 Headless runs return `0` (clean), `1` (errors), or `2` (no errors but items need a human eye:
-Unknown folders, target-exists skips, Extras). Cron jobs must treat `2` as actionable, not silent
-success. (Verified by `Pipeline_returns_NeedsManual_exit_code_when_only_extras_remain`,
+Unknown folders, duplicate-rip conflicts, Extras). Multi-source runs combine per-source codes by
+severity (1 > 2 > 0). Cron jobs must treat `2` as actionable, not silent success. (Verified by
+`Pipeline_returns_NeedsManual_exit_code_when_only_extras_remain`,
 `Unknown_subcommand_returns_nonzero`,
 `Version_subcommand_prints_version_and_exits_zero`.)
 
+### MB-LAW-9 — Merge, never overwrite; duplicates are a human decision {#MB-LAW-9}
+When a season's canonical target already exists (source-side rename or destination-side move),
+files merge individually. A file whose NAME or PARSED EPISODE already exists at the target is
+left behind and flagged (exit 2) — MediaButler never silently overwrites or double-files an
+episode. Emptied shells are deleted only under the sample-aware guard: every remaining video must
+be sample-named and at most `SampleMaxBytes`, with other junk at most `EmptyDeleteSafetyBytes`.
+Sample clips never travel to the library. (Verified by
+`True_duplicate_rips_stay_behind_and_are_flagged_for_a_human`,
+`Junk_and_sample_shells_are_cleaned_up_after_consolidation`,
+`Reruns_never_touch_destinations_and_sources_converge_to_a_steady_state`.)
+
+### MB-LAW-10 — The variation catalog grows, pins, and never clobbers user edits {#MB-LAW-10}
+Every scan records each classified top-level name into
+`%APPDATA%\MindAttic\MediaButler\variations.json` (sections `movie`/`tv`/`music`/`unknown`),
+which is created as a clone of the hardcoded `MasterVariations` master list and merges new master
+entries on upgrade. The file is hand-editable: placing a name into `movie`/`tv`/`music` pins its
+category for subsequent classification (exact, case-insensitive). A file that fails to parse
+disables saving for the run — user edits are never overwritten by MediaButler. (Verified by
+`Records_classified_names_into_sections_and_persists`,
+`Hand_edited_sections_pin_classification_hints`,
+`Corrupted_file_disables_saving_so_user_edits_survive`.)
+
 ## 9. Glossary {#MB-§9}
-- **SourcePath** — the scanned inbox of messy dumps (default `M:\Torrents`).
-- **TvDestination / MoviesDestination** — the Plex-canonical output roots (`M:\TV`, `M:\Movies`).
+- **SourcePath / ExtraSources** — the scanned inboxes of messy dumps (default `M:\Torrents`);
+  with `Recursive`, excluded container subfolders (`temp`, `incomplete`, …) become inboxes too.
+- **TvDestination / MoviesDestination / MusicDestination** — the output roots (`M:\TV`,
+  `M:\Movies`; music is optional and moved as-is).
 - **Canonical name** — the idempotent target form: `Show - Season NN` / `Title (YYYY)`.
-- **Multi-season parent** — one folder holding multiple `Season N` subfolders that must be hoisted.
+- **Multi-season parent** — one folder holding multiple `Season N` subfolders (or flat episode
+  files spanning seasons) that must be hoisted/filed.
 - **Hoist** — lift nested `Season N` subfolders (or show-level artwork) up one level.
+- **Consolidate** — file a per-episode dump or loose episode file into its `{Show} - Season XX`.
+- **Pack split** — break a multi-movie folder into one `{Title} (YYYY)` folder per film.
+- **Merge** — file-level union of a duplicate season into the existing canonical folder;
+  episode collisions stay behind for a human ([#MB-LAW-9](#MB-LAW-9)).
+- **Sample** — a release group's promo clip (`...-sample.mkv`); junk under `SampleMaxBytes`,
+  never moved to the library.
 - **Extras** — `Extras`/`Specials`/`Bonus` companion content; preserved, never reorganised.
-- **Dry-run** — log-only mode; FileBot runs `--action TEST`; no disk mutation ([#MB-LAW-1](#MB-LAW-1)).
+- **Dry-run** — log-only mode; FileBot runs `--action TEST`; no disk mutation ([#MB-LAW-1](#MB-LAW-1));
+  override a persisted dry-run with `--live`.
 - **Relocate** — destination-eviction command for folders that drifted into the wrong library.
 - **FileBot** — external tool (`filebot.exe`) that renames via TheTVDB/TheMovieDB and fetches art.
 - **Needs-manual** — items the pipeline declines to touch; drives exit code `2` ([#MB-LAW-8](#MB-LAW-8)).
-- **Vault chain** — `MindAttic.Vault` credential resolution (User Secrets -> env -> providers.json).
+- **Variation catalog** — `%APPDATA%\MindAttic\MediaButler\variations.json`; the growing,
+  hand-editable corpus of naming formats, seeded from `MasterVariations` ([#MB-LAW-10](#MB-LAW-10)).
+- **Vault chain** — `MindAttic.Vault` credential resolution (env vars -> providers.json buckets).
 - **Legion** — `MindAttic.Legion`, the provider-agnostic LLM transport.
 
 ## Status index (from docs/USER_STORIES.md)
-- ✅ done: 23
-- 🟡 partial: 5
+- ✅ done: 32
+- 🟡 partial: 7
 - ⬜ planned: 1
 - 🗑️ cut: 1
 
 ## Latest amendment (amendment wins over the bible)
 
-## MB-A2 — Codex full-sync: drift correction + verified state populated (supersedes §4.2, §6)
-Reconciled BIBLE §4.2 `PipelineReport` field names against actual source: corrected `Moved` to
-`TvMoved`/`MoviesMoved` (the real split-by-kind fields in the struct). Populated BIBLE §6 with
-real build/test evidence dated 2026-06-07: `dotnet build MediaButler/MediaButler.csproj` —
-succeeded, 0 warnings, 0 errors; `dotnet test MediaButler.Tests/MediaButler.Tests.csproj` —
-Passed: 150, Failed: 0, Skipped: 0. Added note that `LandingPageTests` require Playwright browser
-binaries and skip gracefully in headless CI. No application or source code was changed.
+## MB-A3 — Real-inbox dataset: new kinds, merge semantics, variation catalog, multi-source, music (supersedes parts of §3, §4, MB-US-B3 wording)
+Driven by a full inventory of the real inboxes (`M:\Torrents`, `M:\Torrents\temp`, `D:\Downloads`,
+`D:\Downloads\temp`, 2026-06-12) and captured as the `RealWorldLibrary` test fixture. Changes:
+
+1. **New kinds.** `TvEpisode` (per-episode torrent folders like `Ahsoka.S01E01...[TGx]` and loose
+   episode files — consolidated into `{Show} - Season XX`), `MoviePack` (multi-movie folders like
+   `The Matrix 1-4 Pack ...` — split into one `{Title} (YYYY)` per film), and `Music`.
+2. **Loose root files.** The scanner now classifies loose VIDEO files at a source root (wrapped
+   into canonical folders by the Rename stage); dotfiles (`.parts` partials) and sample clips are
+   skipped entirely.
+3. **Episode parsing.** `NameParser.ParseEpisode` handles `SxxEyy` (+`E21E22`/`E25-26` spans,
+   `S01 - E01` split form), `3x09`, dotted `1.09`, and (season-context only) `Episode 05` and
+   scene codes (`criminal.minds.202`). "The Complete Collection" now counts as a multi-season
+   marker, and flat collection dumps file their loose episodes into per-season folders — this
+   REPLACES the old "loose video stays at the parent" behaviour for parseable episodes (the
+   unparseable case still stays + flags). Content-only TV detection: a year-less folder whose
+   videos all parse as episodes classifies as TV (`Battletech`).
+4. **Merge instead of dead-end.** When a season's canonical target already exists (source-side
+   rename or destination-side move), files merge individually; a file whose NAME or PARSED EPISODE
+   already exists at the target stays behind and is flagged (exit 2) — duplicate rips are a human
+   decision, never a silent overwrite. Emptied shells are deleted under a sample-aware guard:
+   sample-named videos ≤ `SampleMaxBytes` (default 300 MB) don't block deletion (refines
+   [MB-LAW-4](BIBLE.md#MB-LAW-4); MB-LAW-1/2/3 unchanged — re-runs converge: destinations are
+   invariant after run 1, the whole tree is a strict no-op from run 2).
+5. **Variation catalog.** Every scan appends newly-seen names to
+   `%APPDATA%\MindAttic\MediaButler\variations.json`, sectioned `movie`/`tv`/`music`/`unknown`.
+   The file is created as a clone of the hardcoded `MasterVariations` list (compiled from scene
+   rules, Plex/Jellyfin/Kodi/TRaSH/FileBot docs, anime fansub conventions, and the real-inbox
+   inventory) and is user-appendable: moving an entry into `movie`/`tv`/`music` pins that name's
+   category on subsequent runs. A corrupted file disables saving (user edits are never clobbered).
+   Override path: `VariationCatalogPath` setting or `MEDIABUTLER_VARIATIONS_PATH` env var.
+6. **Multi-source + recursive.** `ExtraSources` (settings) and repeatable `--source` process many
+   inboxes per run; `Recursive`/`--recursive` additionally processes excluded container subfolders
+   (`temp`, `incomplete`, ...) as inboxes. Exit codes combine by severity (1 > 2 > 0).
+7. **Music.** Audio-only folders (per `AudioExtensions`) and catalog-pinned names classify
+   `Music` — never renamed/restructured, moved AS-IS to `MusicDestination` (`--music-dest`) when
+   configured, otherwise left in place and flagged. `PathGuard` covers the music destination.
+8. **CLI.** New flags: `--live` (overrides persisted DryRun; `--dry-run` still wins),
+   `--subtitles` (force-enable per run), `-r|--recursive`, `--music-dest|--musicDest`, and
+   camelCase aliases `--tvDest`/`--moviesDest`/`--movieDest`.
+
+Verified by `RealWorldLibraryPipelineTests.*`, `EpisodeParsingTests.*`, `VariationCatalogTests.*`
+(196 tests passing, 2026-06-12).
 
 

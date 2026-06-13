@@ -17,17 +17,33 @@ public class BaseSettings : CommandSettings
     [CommandOption("-n|--dry-run")]
     public bool DryRun { get; init; }
 
-    [Description("Override SourcePath for this run.")]
+    [Description("Force LIVE mode for this invocation (overrides a persisted DryRun=true). Ignored when --dry-run is also given.")]
+    [CommandOption("--live")]
+    public bool Live { get; init; }
+
+    [Description("Override the source inbox(es) for this run. Repeatable: every --source is processed in order; the persisted SourcePath/ExtraSources are ignored when any is given.")]
     [CommandOption("--source <PATH>")]
-    public string? Source { get; init; }
+    public string[]? Source { get; init; }
+
+    [Description("Force-enable subtitle fetching for this invocation (overrides the persisted EnableSubtitles).")]
+    [CommandOption("--subtitles")]
+    public bool Subtitles { get; init; }
+
+    [Description("Process container subfolders (temp, incomplete, ...) inside each source as inboxes too. Accepts an optional explicit value: --recursive or --recursive=true/false.")]
+    [CommandOption("-r|--recursive [true|false]")]
+    public FlagValue<bool?>? Recursive { get; init; }
 
     [Description("Override TvDestination for this run.")]
-    [CommandOption("--tv-dest <PATH>")]
+    [CommandOption("--tv-dest|--tvDest <PATH>")]
     public string? TvDest { get; init; }
 
     [Description("Override MoviesDestination for this run.")]
-    [CommandOption("--movies-dest <PATH>")]
+    [CommandOption("--movies-dest|--moviesDest|--movieDest <PATH>")]
     public string? MoviesDest { get; init; }
+
+    [Description("Override MusicDestination for this run (music folders are moved as-is, never renamed).")]
+    [CommandOption("--music-dest|--musicDest <PATH>")]
+    public string? MusicDest { get; init; }
 
     [Description("Print only the final summary and errors.")]
     [CommandOption("-q|--quiet")]
@@ -46,9 +62,26 @@ public class BaseSettings : CommandSettings
     /// <summary>Overlay parsed flags onto a freshly-loaded settings object.</summary>
     public void ApplyTo(MediaButlerSettings s)
     {
+        // --dry-run wins over --live: when in doubt, mutate nothing.
+        if (Live) s.DryRun = false;
         if (DryRun) s.DryRun = true;
-        if (!string.IsNullOrWhiteSpace(Source))     s.SourcePath        = Source.Trim();
+        if (Subtitles) s.EnableSubtitles = true;
+        var sources = (Source ?? Array.Empty<string>())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .ToArray();
+        if (sources.Length > 0)
+        {
+            // Any explicit --source replaces BOTH the primary and the extras —
+            // "process exactly these inboxes this run".
+            s.SourcePath   = sources[0];
+            s.ExtraSources = sources.Skip(1).ToArray();
+        }
+        // FlagValue: bare "--recursive" sets IsSet with a null value (= true);
+        // "--recursive=false" carries an explicit value.
+        if (Recursive is { IsSet: true }) s.Recursive = Recursive.Value ?? true;
         if (!string.IsNullOrWhiteSpace(TvDest))     s.TvDestination     = TvDest.Trim();
         if (!string.IsNullOrWhiteSpace(MoviesDest)) s.MoviesDestination = MoviesDest.Trim();
+        if (!string.IsNullOrWhiteSpace(MusicDest))  s.MusicDestination  = MusicDest.Trim();
     }
 }

@@ -31,14 +31,42 @@ public static class NameParser
         @"\bSeasons?\s+\d{1,2}\s*(?:-|to)\s*\d{1,2}\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    // "Complete Series"
+    // "Complete Series", "The Complete Collection" — both signal an all-seasons dump.
     private static readonly Regex CompleteSeries = new(
-        @"\bComplete\s+Series\b",
+        @"\b(?:The\s+)?Complete\s+(?:Series|Collection)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     // Episode marker — used to reject "S01E01" patterns when looking for season-only names
     private static readonly Regex EpisodeMarker = new(
         @"\bS\d{1,2}E\d{1,2}\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    // SxxEyy with optional span: "S01E01", "s01e04", "S04E21E22", "S04E25-26",
+    // and the split "S01 - E01" shape from flat complete-collection dumps.
+    private static readonly Regex EpisodeSxxEyy = new(
+        @"\bS(\d{1,2})\s*[-. _]*\s*E(\d{1,3})(?:\s*[-–]\s*E?(\d{1,3})|E(\d{1,3}))?\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    // "3x09" — season x episode.
+    private static readonly Regex EpisodeNxNN = new(
+        @"\b(\d{1,2})x(\d{2,3})\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    // "1.09" — dotted season.episode (e.g. "Battle tech - 1.09 - Road To Camelot").
+    // Runs against the RAW name (dots survive), so audio tags like "5.1" (one
+    // digit after the dot) and "x265.10bit" (digit before the match) can't hit.
+    private static readonly Regex EpisodeDotted = new(
+        @"(?<!\d)(\d{1,2})\.(\d{2})(?!\d)",
+        RegexOptions.Compiled);
+
+    // "Episode 05" — bare episode files inside an already-identified season folder.
+    private static readonly Regex EpisodeWord = new(
+        @"\bEpisode\s*(\d{1,3})\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    // "sample" as its own token in a file stem ("ahsoka...-sample", "Sample.mkv").
+    private static readonly Regex SampleToken = new(
+        @"(?:^|[\W_])sample(?:[\W_]|$)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     // Captures a single Season N or S0N (NOT followed by E\d). Allows leading zero.
@@ -270,6 +298,90 @@ public static class NameParser
     public static bool LooksLikeEpisodeFile(string fileName) => EpisodeMarker.IsMatch(fileName);
 
     /// <summary>
+    /// True when the name carries a "sample" token — promo clips bundled by
+    /// release groups ("ahsoka.s01e04...-sample.mkv", "Sample\..."). Callers
+    /// should pair this with a size ceiling before treating a file as junk.
+    /// </summary>
+    public static bool IsSampleName(string fileOrFolderName) =>
+        SampleToken.IsMatch(Path.GetFileNameWithoutExtension(fileOrFolderName));
+
+    /// <summary>
+    /// Parse an episode marker out of a folder or file name. Handles, in order:
+    /// <c>SxxEyy</c> (with <c>E21E22</c> / <c>E25-26</c> spans and the split
+    /// <c>S01 - E01</c> shape), <c>3x09</c>, and dotted <c>1.09</c>. Returns
+    /// null when no marker is found. <c>Show</c> is the cleaned text before the
+    /// marker and may be empty (e.g. <c>S01 - E01 - Nice Face.mkv</c>).
+    /// </summary>
+    public static EpisodeInfo? ParseEpisode(string name)
+    {
+        var stem = Path.GetFileNameWithoutExtension(name);
+        var n = Normalize(stem);
+
+        var m = EpisodeSxxEyy.Match(n);
+        if (m.Success)
+        {
+            var end = m.Groups[3].Success ? int.Parse(m.Groups[3].Value)
+                    : m.Groups[4].Success ? int.Parse(m.Groups[4].Value)
+                    : (int?)null;
+            return new EpisodeInfo(
+                CleanShowName(n[..m.Index]),
+                int.Parse(m.Groups[1].Value),
+                int.Parse(m.Groups[2].Value),
+                end);
+        }
+
+        m = EpisodeNxNN.Match(n);
+        if (m.Success)
+        {
+            return new EpisodeInfo(
+                CleanShowName(n[..m.Index]),
+                int.Parse(m.Groups[1].Value),
+                int.Parse(m.Groups[2].Value),
+                null);
+        }
+
+        // Dotted form runs on the RAW stem — Normalize would turn "1.09" into
+        // "1 09" and lose the marker.
+        m = EpisodeDotted.Match(stem);
+        if (m.Success)
+        {
+            var rawShow = stem[..m.Index];
+            return new EpisodeInfo(
+                CleanShowName(Normalize(rawShow)),
+                int.Parse(m.Groups[1].Value),
+                int.Parse(m.Groups[2].Value),
+                null);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Episode detection for a file already known to live in season
+    /// <paramref name="season"/>. Tries <see cref="ParseEpisode"/> first, then
+    /// the season-context-only shapes: <c>Episode 05</c> and the 3-digit scene
+    /// code (<c>criminal.minds.202</c> → S02E02, only when the leading digits
+    /// equal the season). Used to detect duplicate episodes when merging two
+    /// dumps of the same season. Returns null when nothing matches.
+    /// </summary>
+    public static int? ParseEpisodeNumberInSeason(string fileName, int season)
+    {
+        var parsed = ParseEpisode(fileName);
+        if (parsed is not null)
+            return parsed.Season == season ? parsed.Episode : null;
+
+        var n = Normalize(Path.GetFileNameWithoutExtension(fileName));
+        var m = EpisodeWord.Match(n);
+        if (m.Success) return int.Parse(m.Groups[1].Value);
+
+        // 3-digit (or 4-digit for seasons >= 10) scene code: {season}{ep:D2}.
+        m = Regex.Match(n, $@"(?<!\d){season}(\d{{2}})(?!\d)");
+        if (m.Success) return int.Parse(m.Groups[1].Value);
+
+        return null;
+    }
+
+    /// <summary>
     /// True when <paramref name="normalized"/> begins with <paramref name="override_"/>
     /// (followed by end-of-string, space, or open-paren). The override's only job
     /// is to shield the year-shaped number it contains from being mistaken for the
@@ -316,3 +428,8 @@ public static class NameParser
         return true;
     }
 }
+
+/// <summary>An episode marker recovered from a folder or file name.</summary>
+/// <param name="Show">Cleaned text before the marker; may be empty.</param>
+/// <param name="EpisodeEnd">Second episode of a span (<c>S04E21E22</c>, <c>S04E25-26</c>), else null.</param>
+public sealed record EpisodeInfo(string Show, int Season, int Episode, int? EpisodeEnd);

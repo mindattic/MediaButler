@@ -10,11 +10,36 @@ public sealed class MediaButlerSettings
     /// <summary>Root folder MediaButler scans for messy torrent dumps.</summary>
     public string SourcePath { get; set; } = @"M:\Torrents";
 
+    /// <summary>
+    /// Additional inbox roots processed after <see cref="SourcePath"/> on every
+    /// pipeline/scan run (e.g. <c>M:\Torrents\temp</c>, <c>D:\Downloads</c>).
+    /// Each is validated and processed exactly like the primary source. CLI
+    /// <c>--source</c> flags replace BOTH this list and <see cref="SourcePath"/>.
+    /// </summary>
+    public string[] ExtraSources { get; set; } = Array.Empty<string>();
+
     /// <summary>Where renamed TV shows are moved at the end of the pipeline.</summary>
     public string TvDestination { get; set; } = @"M:\TV";
 
     /// <summary>Where renamed movies are moved at the end of the pipeline.</summary>
     public string MoviesDestination { get; set; } = @"M:\Movies";
+
+    /// <summary>
+    /// Where music folders (recognised via the variation catalog's
+    /// <c>music</c> section) are moved as-is. Empty (the default) disables
+    /// music moves — music items are left in place and flagged instead.
+    /// MediaButler never renames or restructures music content.
+    /// </summary>
+    public string MusicDestination { get; set; } = "";
+
+    /// <summary>
+    /// When true, container subfolders of each source whose names appear in
+    /// <see cref="ExcludedFolders"/> (e.g. <c>temp</c>, <c>incomplete</c>) are
+    /// processed as their own inboxes too, recursively — so
+    /// <c>--source M:\Torrents --recursive</c> also organizes
+    /// <c>M:\Torrents\temp</c>.
+    /// </summary>
+    public bool Recursive { get; set; }
 
     /// <summary>Absolute path to the FileBot executable.</summary>
     public string FileBotPath { get; set; } = @"C:\Program Files\FileBot\filebot.exe";
@@ -94,6 +119,38 @@ public sealed class MediaButlerSettings
     /// recommended).
     /// </summary>
     public long EmptyDeleteSafetyBytes { get; set; } = 1L * 1024 * 1024; // 1 MB
+
+    /// <summary>
+    /// Extensions that mark a folder as MUSIC when it holds no recognised
+    /// video: a folder of .mp3/.flac files classifies as
+    /// <see cref="Media.MediaKind.Music"/> instead of Empty (which would have
+    /// put it on the delete path). Music folders move as-is to
+    /// <see cref="MusicDestination"/> when one is configured.
+    /// </summary>
+    public string[] AudioExtensions { get; set; } =
+        [".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".wma", ".ape", ".alac", ".aiff", ".dsf"];
+
+    /// <summary>
+    /// Ceiling for treating a "sample"-named video as junk. Release groups
+    /// bundle short promo clips ("...-sample.mkv", "Sample\..."); when a
+    /// consolidated episode/movie shell is deleted, sample-named videos under
+    /// this size don't block the delete. A sample-named video LARGER than this
+    /// is treated as real media and keeps the folder alive for manual review.
+    /// </summary>
+    public long SampleMaxBytes { get; set; } = 300L * 1024 * 1024; // 300 MB
+
+    /// <summary>
+    /// Subtitle sidecar extensions that travel with a video during episode
+    /// consolidation and season merges.
+    /// </summary>
+    public string[] SubtitleExtensions { get; set; } = [".srt", ".sub", ".idx", ".ass", ".ssa"];
+
+    /// <summary>
+    /// Override location of the naming-variation catalog. Empty (the default)
+    /// resolves to <c>%APPDATA%\MindAttic\MediaButler\variations.json</c>.
+    /// Tests point this at a temp file to stay hermetic.
+    /// </summary>
+    public string VariationCatalogPath { get; set; } = "";
 
     /// <summary>Show-level artwork file names Plex looks for at the show root.</summary>
     public string[] ShowLevelArtFiles { get; set; } =

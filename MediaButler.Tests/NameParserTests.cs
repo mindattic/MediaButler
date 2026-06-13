@@ -75,7 +75,8 @@ public class NameParserTests
     [TestCase("Bones Complete Series S1-S12 x264 406p + English Subs (MP4)", "Bones")]
     [TestCase("Breaking Bad (2008) Season 1-5 S01-S05 (1080p BluRay x265 ...)", "Breaking Bad")]
     [TestCase("The Following 2013 Seasons 1 to 3 Complete 720p WEB x264 [i_c]", "The Following")]
-    [TestCase("The Sopranos - The Complete Series (Season 1, 2, 3, 4, 5 & 6) + Extras", "The Sopranos - The")]
+    // "The Complete Series/Collection" is part of the range marker, not the show name.
+    [TestCase("The Sopranos - The Complete Series (Season 1, 2, 3, 4, 5 & 6) + Extras", "The Sopranos")]
     public void ParseMultiSeasonParent_recovers_show_name(string input, string expectedPrefix)
     {
         var show = NameParser.ParseMultiSeasonParent(input);

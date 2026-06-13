@@ -24,4 +24,24 @@ public enum MediaKind
     /// flags it in the final report so the user can decide what to do.
     /// </summary>
     Extras,
+
+    /// <summary>
+    /// A single-episode dump: a per-episode torrent folder
+    /// ("Ahsoka.S01E01...[TGx]") or a loose episode file at the source root.
+    /// The Rename stage consolidates these into the canonical
+    /// "{Show} - Season XX" folder.
+    /// </summary>
+    TvEpisode,
+
+    /// <summary>
+    /// One folder holding several distinct movies ("The Matrix 1-4 Pack ...").
+    /// The Rename stage splits each video into its own "{Title} (YYYY)" folder.
+    /// </summary>
+    MoviePack,
+
+    /// <summary>
+    /// Music content, recognised via the user-curated variation catalog.
+    /// MediaButler does not organize music yet — left in place and flagged.
+    /// </summary>
+    Music,
 }

@@ -76,6 +76,9 @@ public sealed class MoveStage
                     case MediaKind.Movie:
                         MoveMovie(item);
                         break;
+                    case MediaKind.Music:
+                        MoveMusic(item);
+                        break;
                     case MediaKind.Extras:
                     case MediaKind.Unknown:
                         // Already flagged by RenameStage as needing manual review.
@@ -109,8 +112,25 @@ public sealed class MoveStage
 
         if (Directory.Exists(seasonRoot) && Directory.EnumerateFileSystemEntries(seasonRoot).Any())
         {
-            Status.Line("  [skip - target exists with content]", Theme.Dim);
-            report.RecordManual(item.FullPath, item.Kind, $"target {seasonRoot} already has content");
+            // The destination already has this season (an earlier inbox run or
+            // a partial library) — merge file-by-file. Files whose name or
+            // parsed episode already exists at the destination stay behind and
+            // surface as a human decision; everything else moves.
+            var res = SeasonMerger.MergeFiles(item.FullPath, seasonRoot, item.SeasonNumber.Value, settings, report);
+            report.MergedFiles += res.Moved;
+            Status.Line(settings.DryRun
+                ? $"  [dry: merge {res.Moved} file(s) -> {seasonRoot}]"
+                : $"  [merged {res.Moved} file(s) -> {seasonRoot}]",
+                settings.DryRun ? Theme.Active : Theme.Ok);
+            AuditLog.Record(settings, settings.DryRun, "merge-season", item.FullPath, seasonRoot, item.Kind);
+
+            if (res.FullyMerged && !settings.DryRun)
+            {
+                if (SeasonMerger.TryDeleteShell(item.FullPath, settings, out var reason))
+                    report.TvMoved++;
+                else
+                    report.RecordManual(item.FullPath, item.Kind, $"merged into {seasonRoot} but shell kept — {reason}");
+            }
             return;
         }
 
@@ -155,6 +175,17 @@ public sealed class MoveStage
             return;
         }
 
+        // Loose movie FILES are wrapped into a folder by the Rename stage; a
+        // bare `move` run that never renamed can still see one here. Folder
+        // moves on a file path would throw, so surface it instead.
+        if (item.IsFile)
+        {
+            Status.Item(item.OriginalName);
+            Status.Line("  [skip - loose file; run rename first]", Theme.Dim);
+            report.RecordManual(item.FullPath, item.Kind, "loose movie file — run the rename stage to wrap it into a folder first");
+            return;
+        }
+
         var folderName = NameParser.FormatMovieFolder(item.MovieTitle, item.MovieYear);
         var target     = Path.Combine(settings.MoviesDestination, SanitizeForFs(folderName));
 
@@ -178,6 +209,52 @@ public sealed class MoveStage
         Status.Line($"  -> {target}", Theme.Ok);
         AuditLog.Record(settings, settings.DryRun, "move", item.FullPath, target, item.Kind);
         report.MoviesMoved++;
+    }
+
+    /// <summary>
+    /// Move a music folder AS-IS to <see cref="MediaButlerSettings.MusicDestination"/>.
+    /// MediaButler never renames or restructures music content — tagging is a
+    /// different tool's job. With no destination configured the folder is left
+    /// in place and flagged.
+    /// </summary>
+    private void MoveMusic(MediaItem item)
+    {
+        Status.Item(item.OriginalName);
+
+        if (string.IsNullOrWhiteSpace(settings.MusicDestination))
+        {
+            Status.Line("  [music - no MusicDestination configured; left in place]", Theme.Dim);
+            report.RecordManual(item.FullPath, item.Kind, "music — set MusicDestination (or --music-dest) to move it");
+            return;
+        }
+
+        if (item.IsFile)
+        {
+            Status.Line("  [skip - loose music file; move the folder instead]", Theme.Dim);
+            report.RecordManual(item.FullPath, item.Kind, "loose music file — move it into a folder first");
+            return;
+        }
+
+        var target = Path.Combine(settings.MusicDestination, SanitizeForFs(item.OriginalName));
+        if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any())
+        {
+            Status.Line("  [skip - target exists with content]", Theme.Dim);
+            report.RecordManual(item.FullPath, item.Kind, $"target {target} already has content");
+            return;
+        }
+
+        if (settings.DryRun)
+        {
+            Status.Line($"  [dry: -> {target}]", Theme.Active);
+            report.MusicMoved++;
+            return;
+        }
+
+        EnsureDir(settings.MusicDestination);
+        SafeMoveDirectory(item.FullPath, target);
+        Status.Line($"  -> {target}", Theme.Ok);
+        AuditLog.Record(settings, settings.DryRun, "move", item.FullPath, target, item.Kind);
+        report.MusicMoved++;
     }
 
     /// <summary>

@@ -4,7 +4,7 @@ project: MediaButler
 code: MB
 layer: stories
 status: living
-updated: 2026-06-07
+updated: 2026-06-12
 ---
 
 # MediaButler — User Stories
@@ -39,10 +39,13 @@ updated: 2026-06-07
 - **MB-US-B2 ✅** As an operator, re-running on an already-canonical library is a no-op, so the
   pipeline is idempotent. *(verified by `Idempotent_run_no_ops_when_folder_already_canonical`,
   `Pipeline_re_runs_are_idempotent_on_an_already_organized_library`.)* See [#MB-LAW-2](BIBLE.md#MB-LAW-2).
-- **MB-US-B3 ✅** As an operator, multi-season parents have their seasons hoisted and counted, and
-  loose video at the parent is not misfiled into a season. *(verified by
+- **MB-US-B3 ✅** As an operator, multi-season parents have their seasons hoisted and counted;
+  a loose episode at the parent is filed into its OWN season (never a wrong one), and an
+  unparseable loose video stays put and is flagged. *(verified by
   `Multi_season_parent_hoists_seasons_and_records_count`,
-  `Loose_video_at_multi_season_parent_is_not_misfiled_into_a_season`.)*
+  `Loose_episode_at_multi_season_parent_is_filed_into_its_OWN_season`,
+  `Unparseable_loose_video_at_multi_season_parent_stays_and_is_flagged`.)*
+  Reworded per MB-A3 in [AMENDMENTS.md](AMENDMENTS.md); original in the audit log.
 - **MB-US-B4 ✅** As an operator, an empty disguised folder is deleted, but only below the byte
   safety floor — a large folder with an unknown video extension is surfaced for manual review
   instead. *(verified by `Empty_disguised_folder_is_deleted`,
@@ -94,11 +97,61 @@ updated: 2026-06-07
   `Short_dash_v_resolves_to_version_subcommand`,
   `Dash_v_in_any_argv_position_still_resolves_to_version`.)*
 
+## Epic I — Real-inbox conversion contract (MB-A3)
+- **MB-US-I1 ✅** As an operator, every naming variation inventoried from my real inboxes
+  (scene-dotted movies, YTS brackets, duplicated years, per-episode folders, flat complete
+  collections, website prefixes, `3x09`/`1.09`/`Episode 05`/scene-code episode files, multi-movie
+  packs, loose root files) classifies and converts to its Plex-canonical target. *(verified by
+  `Scanner_classifies_every_real_world_variation_as_expected`,
+  `Full_local_pipeline_lands_every_tv_season_at_plex_canonical_paths`,
+  `Full_local_pipeline_lands_every_movie_at_plex_canonical_paths`,
+  `ParseEpisode_handles_every_real_world_marker_shape`.)*
+- **MB-US-I2 ✅** As an operator, per-episode torrent folders are consolidated into one
+  `{Show} - Season XX` folder, sample clips and nfo/txt junk are cleaned up, and no sample ever
+  reaches the library. *(verified by `Junk_and_sample_shells_are_cleaned_up_after_consolidation`.)*
+- **MB-US-I3 ✅** As an operator, multi-movie packs split into one canonical folder per film.
+  *(verified by `Matrix_pack_is_split_into_four_distinct_movies`.)*
+- **MB-US-I4 ✅** As an operator, duplicate rips of the same episodes merge when complementary and
+  stay behind flagged (exit 2) when they truly collide — never silently overwritten or
+  double-filed. *(verified by `True_duplicate_rips_stay_behind_and_are_flagged_for_a_human`,
+  `ParseEpisodeNumberInSeason_resolves_context_only_shapes`.)*
+- **MB-US-I5 ✅** As an operator, partial-download dotfiles (`.parts`) are never touched.
+  *(verified by `Dot_parts_partial_download_file_is_ignored_entirely`.)*
+- **MB-US-I6 ✅** As an operator, re-runs never touch the destinations and the whole tree reaches
+  a strict no-op steady state. *(verified by
+  `Reruns_never_touch_destinations_and_sources_converge_to_a_steady_state`,
+  `Dry_run_over_all_sources_mutates_nothing_anywhere`.)*
+
+## Epic J — Variation catalog & multi-source
+- **MB-US-J1 ✅** As an operator, every run grows a persistent, hand-editable variation catalog at
+  `%APPDATA%\MindAttic\MediaButler\variations.json` (sections: movie/tv/music/unknown), seeded as
+  a clone of the hardcoded master list; moving an entry between sections pins its category, and a
+  corrupted file is never overwritten. *(verified by
+  `Records_classified_names_into_sections_and_persists`,
+  `Hand_edited_sections_pin_classification_hints`,
+  `Corrupted_file_disables_saving_so_user_edits_survive`,
+  `Recording_a_name_twice_does_not_duplicate_it`.)*
+- **MB-US-J2 ✅** As an operator, music is detected (audio-only folders, or catalog pins) and is
+  never deleted as "empty" nor renamed — it moves as-is to MusicDestination when configured.
+  *(verified by `Audio_only_folder_is_detected_as_music_without_any_pin`,
+  `Scanner_consults_music_pins_so_a_music_folder_is_not_deleted_as_empty`.)*
+- **MB-US-J3 ✅** As an operator, one CLI call converts ALL my inboxes:
+  `mediabutler run --source M:\Torrents --source D:\Downloads --recursive --tv-dest M:\TV
+  --movies-dest M:\Movies --music-dest M:\Music --subtitles --live` — flat collections, loose
+  episodes, and every season land correctly across sources. *(verified by
+  `Killing_Eve_flat_collection_carries_parsed_loose_episodes`,
+  `Full_local_pipeline_lands_every_tv_season_at_plex_canonical_paths`.)*
+
 ## Epic F — LLM long tail
 - **MB-US-F1 🟡** As an operator, I can enable an LLM fallback so unclassifiable folders get a
   best-guess from a configured Legion provider, off by default. The fallback's behaviour
   (opt-in, non-fatal, JSON extraction) is implemented; there is no test that drives a live or
   mocked Legion call yet — downgraded to 🟡 until one exists. See [#MB-LAW-6](BIBLE.md#MB-LAW-6).
+- **MB-US-F2 🟡** As an operator, loose FILES that match no known pattern (no year, no episode
+  marker) get a Legion best-guess (`ClassifyFileAsync`: movie → wrapped as `{Title} (YYYY)`,
+  episode → consolidated into `{Show} - Season XX`), opt-in via the same `EnableLlmFallback`
+  switch and non-fatal on any failure. Implemented in `MediaScanner.TryLlmClassifyFileAsync`;
+  🟡 for the same reason as MB-US-F1 (no mocked Legion test yet). See [#MB-LAW-6](BIBLE.md#MB-LAW-6).
 
 ## Epic G — GUI shell
 - **MB-US-G1 🟡** As a desktop user, I can drive the pipeline from a MAUI window with a live log
@@ -117,5 +170,9 @@ updated: 2026-06-07
    [docs/rfc/0001-llm-fallback-test-strategy.md](rfc/0001-llm-fallback-test-strategy.md)).
 
 ### Audit log
-(No stories have been changed from their original spec yet. When a story's ask changes, the
-original wording is preserved here verbatim, marked "(original spec — audit log)".)
+- **MB-US-B3 (original spec — audit log, superseded by MB-A3 in [AMENDMENTS.md](AMENDMENTS.md)):** "As an
+  operator, multi-season parents have their seasons hoisted and counted, and loose video at the
+  parent is not misfiled into a season. *(verified by
+  `Multi_season_parent_hoists_seasons_and_records_count`,
+  `Loose_video_at_multi_season_parent_is_not_misfiled_into_a_season`.)*" — the loose-video rule
+  evolved: parseable episodes are now filed into their OWN season; only unparseable ones stay.

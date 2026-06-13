@@ -129,6 +129,11 @@ public class CliEndToEndTests
         };
         foreach (var a in args) psi.ArgumentList.Add(a);
 
+        // Keep the spawned CLI from appending fixture names into the
+        // developer's real %APPDATA% variation catalog.
+        psi.Environment["MEDIABUTLER_VARIATIONS_PATH"] =
+            Path.Combine(Path.GetTempPath(), "mediabutler-test-variations-" + Guid.NewGuid().ToString("N") + ".json");
+
         using var proc = Process.Start(psi)!;
         var stdout = proc.StandardOutput.ReadToEnd();
         var stderr = proc.StandardError.ReadToEnd();

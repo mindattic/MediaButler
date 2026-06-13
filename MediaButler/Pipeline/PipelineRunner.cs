@@ -31,25 +31,25 @@ public sealed class PipelineRunner
     }
 
     /// <summary>Run every stage in order: rename → FileBot (TV + movies + subs + artwork) → move.</summary>
-    public int RunFull(MediaButlerSettings s) => RunStage(s, report =>
+    public int RunFull(MediaButlerSettings s) => RunAcrossSources(s, src => RunStage(src, report =>
     {
-        new RenameStage(s, report).Run();
-        var fb = FileBotClient.TryCreate(s);
+        new RenameStage(src, report).Run();
+        var fb = FileBotClient.TryCreate(src);
         if (fb is null)
-            Status.Print("FileBot not found at " + s.FileBotPath + " — skipping FileBot stages.", Theme.Err);
+            Status.Print("FileBot not found at " + src.FileBotPath + " — skipping FileBot stages.", Theme.Err);
         else
-            new FileBotStage(s, fb, report).Run();
-        new MoveStage(s, report).Run();
-    });
+            new FileBotStage(src, fb, report).Run();
+        new MoveStage(src, report).Run();
+    }));
 
     public int RunRename(MediaButlerSettings s) =>
-        RunStage(s, report => new RenameStage(s, report).Run());
+        RunAcrossSources(s, src => RunStage(src, report => new RenameStage(src, report).Run()));
 
     public int RunFileBotTv(MediaButlerSettings s) =>
-        RunWithFileBot(s, (fb, report) => new FileBotStage(s, fb, report).RunTv());
+        RunAcrossSources(s, src => RunWithFileBot(src, (fb, report) => new FileBotStage(src, fb, report).RunTv()));
 
     public int RunFileBotMovies(MediaButlerSettings s) =>
-        RunWithFileBot(s, (fb, report) => new FileBotStage(s, fb, report).RunMovies());
+        RunAcrossSources(s, src => RunWithFileBot(src, (fb, report) => new FileBotStage(src, fb, report).RunMovies()));
 
     public int RunFileBotSubtitles(MediaButlerSettings s)
     {
@@ -58,11 +58,109 @@ public sealed class PipelineRunner
             Status.Print("Subtitles are disabled in Settings. Enable EnableSubtitles to use this command.", Theme.Dim);
             return 0;
         }
-        return RunWithFileBot(s, (fb, report) => new FileBotStage(s, fb, report).RunSubtitles());
+        return RunAcrossSources(s, src => RunWithFileBot(src, (fb, report) => new FileBotStage(src, fb, report).RunSubtitles()));
     }
 
     public int RunMove(MediaButlerSettings s) =>
-        RunStage(s, report => new MoveStage(s, report).Run());
+        RunAcrossSources(s, src => RunStage(src, report => new MoveStage(src, report).Run()));
+
+    /// <summary>
+    /// Every inbox the pipeline should process: the primary
+    /// <see cref="MediaButlerSettings.SourcePath"/> plus any
+    /// <see cref="MediaButlerSettings.ExtraSources"/>, deduplicated, in order.
+    /// </summary>
+    internal static IReadOnlyList<string> EffectiveSources(MediaButlerSettings s)
+    {
+        var list = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void Add(string src)
+        {
+            if (string.IsNullOrWhiteSpace(src)) return;
+            var trimmed = src.Trim();
+            if (seen.Add(Path.TrimEndingDirectorySeparator(trimmed))) list.Add(trimmed);
+        }
+
+        foreach (var src in new[] { s.SourcePath }.Concat(s.ExtraSources)) Add(src);
+
+        // --recursive: container subfolders (the ExcludedFolders set — temp,
+        // incomplete, ...) become inboxes of their own, recursively. The scan
+        // of a parent source skips them as children, so each is processed
+        // exactly once, as a root.
+        if (s.Recursive)
+        {
+            var containers = new HashSet<string>(s.ExcludedFolders, StringComparer.OrdinalIgnoreCase);
+            for (var i = 0; i < list.Count; i++)
+            {
+                if (!Directory.Exists(list[i])) continue;
+                IEnumerable<string> subs;
+                try { subs = Directory.EnumerateDirectories(list[i]).ToList(); }
+                catch { continue; }
+                foreach (var sub in subs)
+                {
+                    var name = Path.GetFileName(sub);
+                    if (name.StartsWith('.')) continue;
+                    if (containers.Contains(name)) Add(sub);
+                }
+            }
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// Run a single-source stage body once per effective source. Exit codes
+    /// combine by severity: any 1 (errors) wins, then 2 (needs manual), then 0.
+    /// The settings instance is cloned per source so the body can't leak a
+    /// mutated SourcePath into the caller's view.
+    /// </summary>
+    private static int RunAcrossSources(MediaButlerSettings s, Func<MediaButlerSettings, int> body)
+    {
+        var sources = EffectiveSources(s);
+        var worst = ExitOk;
+        foreach (var src in sources)
+        {
+            if (sources.Count > 1)
+            {
+                AnsiConsole.WriteLine();
+                Status.Print($"==== Source: {src} ====", Theme.Header);
+            }
+            var perSource = Clone(s);
+            perSource.SourcePath = src;
+            perSource.ExtraSources = Array.Empty<string>();
+            worst = CombineExit(worst, body(perSource));
+        }
+        return worst;
+    }
+
+    internal static int CombineExit(int a, int b) =>
+        a == ExitErrors || b == ExitErrors ? ExitErrors : Math.Max(a, b);
+
+    private static MediaButlerSettings Clone(MediaButlerSettings s) => new()
+    {
+        SourcePath            = s.SourcePath,
+        ExtraSources          = s.ExtraSources,
+        TvDestination         = s.TvDestination,
+        MoviesDestination     = s.MoviesDestination,
+        MusicDestination      = s.MusicDestination,
+        Recursive             = false, // sources are already expanded by the caller
+        AudioExtensions       = s.AudioExtensions,
+        FileBotPath           = s.FileBotPath,
+        SubtitleLanguage      = s.SubtitleLanguage,
+        EnableSubtitles       = s.EnableSubtitles,
+        RenameEpisodes        = s.RenameEpisodes,
+        RenameMovies          = s.RenameMovies,
+        FetchArtwork          = s.FetchArtwork,
+        DryRun                = s.DryRun,
+        EnableLlmFallback     = s.EnableLlmFallback,
+        LlmProvider           = s.LlmProvider,
+        ExcludedFolders       = s.ExcludedFolders,
+        VideoExtensions       = s.VideoExtensions,
+        EmptyDeleteSafetyBytes = s.EmptyDeleteSafetyBytes,
+        SampleMaxBytes        = s.SampleMaxBytes,
+        SubtitleExtensions    = s.SubtitleExtensions,
+        VariationCatalogPath  = s.VariationCatalogPath,
+        ShowLevelArtFiles     = s.ShowLevelArtFiles,
+        TitleYearOverrides    = s.TitleYearOverrides,
+    };
 
     public int RunRelocate(MediaButlerSettings s)
     {
@@ -77,14 +175,14 @@ public sealed class PipelineRunner
         return RunStage(s, report => new RelocateStage(s, report).Run(), guardPaths: false);
     }
 
-    public int RunScan(MediaButlerSettings s)
+    public int RunScan(MediaButlerSettings s) => RunAcrossSources(s, src =>
     {
-        if (!Directory.Exists(s.SourcePath))
+        if (!Directory.Exists(src.SourcePath))
         {
-            Status.Print("Source path not found: " + s.SourcePath, Theme.Err);
+            Status.Print("Source path not found: " + src.SourcePath, Theme.Err);
             return 1;
         }
-        var items = new MediaScanner(s).Scan().ToList();
+        var items = new MediaScanner(src).Scan().ToList();
         foreach (var grp in items.GroupBy(i => i.Kind).OrderBy(g => g.Key.ToString()))
         {
             Status.Print($"{grp.Key} ({grp.Count()}):", Theme.Header);
@@ -94,15 +192,17 @@ public sealed class PipelineRunner
                 {
                     MediaKind.Movie             => $" -> {NameParser.FormatMovieFolder(it.MovieTitle ?? "?", it.MovieYear)}",
                     MediaKind.TvSeason          => $" -> {NameParser.FormatSeasonFolder(it.ShowName ?? "?", it.SeasonNumber ?? 0)}",
-                    MediaKind.MultiSeasonParent => $" ({it.Seasons.Count} season(s), show='{it.ShowName ?? "?"}')",
+                    MediaKind.TvEpisode         => $" -> {NameParser.FormatSeasonFolder(it.ShowName ?? "?", it.SeasonNumber ?? 0)} (episode {it.EpisodeNumber})",
+                    MediaKind.MoviePack         => $" ({it.PackMovies.Count} movie(s) to split)",
+                    MediaKind.MultiSeasonParent => $" ({it.Seasons.Count} season folder(s), {it.LooseEpisodes.Count} loose episode(s), show='{it.ShowName ?? "?"}')",
                     _                           => "",
                 };
                 Status.Print($"  {it.OriginalName}{detail}", Theme.Dim);
             }
         }
-        Status.Summary($"Total: {items.Count} root folder(s).", Theme.Normal);
+        Status.Summary($"Total: {items.Count} root item(s).", Theme.Normal);
         return 0;
-    }
+    });
 
     public int ShowStatus(MediaButlerSettings s)
     {
@@ -110,8 +210,16 @@ public sealed class PipelineRunner
         Status.Print("Mode         : " + (s.DryRun ? "DRY RUN" : "LIVE"), s.DryRun ? Theme.Active : Theme.Ok);
         var sourceOk = Directory.Exists(s.SourcePath);
         Status.Print("Source       : " + s.SourcePath + " " + (sourceOk ? "[ok]" : "[MISSING]"), sourceOk ? Theme.Ok : Theme.Err);
+        foreach (var extra in s.ExtraSources)
+        {
+            var ok = Directory.Exists(extra);
+            Status.Print("Extra source : " + extra + " " + (ok ? "[ok]" : "[MISSING]"), ok ? Theme.Ok : Theme.Err);
+        }
+        Status.Print("Variations   : " + VariationCatalog.ResolvePath(s), Theme.Normal);
         Status.Print("TV dest      : " + s.TvDestination, Theme.Normal);
         Status.Print("Movies dest  : " + s.MoviesDestination, Theme.Normal);
+        Status.Print("Music dest   : " + (string.IsNullOrWhiteSpace(s.MusicDestination) ? "(disabled)" : s.MusicDestination), Theme.Normal);
+        Status.Print("Recursive    : " + (s.Recursive ? "true (container subfolders become inboxes)" : "false"), Theme.Normal);
         var fb = FileBotClient.TryLocate(s.FileBotPath);
         Status.Print("FileBot      : " + (fb ?? "NOT FOUND"), fb is null ? Theme.Err : Theme.Ok);
 
@@ -182,6 +290,9 @@ public sealed class PipelineRunner
         Status.Summary($"Mode             : {(s.DryRun ? "DRY RUN" : "LIVE")}", s.DryRun ? Theme.Active : Theme.Ok);
         Status.Summary($"Renamed locally  : {r.Renamed}", Theme.Normal);
         Status.Summary($"Hoisted seasons  : {r.Hoisted}", Theme.Normal);
+        Status.Summary($"Episodes filed   : {r.Consolidated}", Theme.Normal);
+        Status.Summary($"Pack movies split: {r.PackSplit}", Theme.Normal);
+        Status.Summary($"Merged files     : {r.MergedFiles}", Theme.Normal);
         Status.Summary($"Empty deleted    : {r.EmptyDeleted}", Theme.Normal);
         Status.Summary($"FileBot TV ok    : {r.FileBotTvOk}", Theme.Normal);
         Status.Summary($"FileBot Movies ok: {r.FileBotMoviesOk}", Theme.Normal);
@@ -189,6 +300,7 @@ public sealed class PipelineRunner
         Status.Summary($"Subtitles ok     : {r.SubtitlesOk}", Theme.Normal);
         Status.Summary($"Moved to TV      : {r.TvMoved}", Theme.Ok);
         Status.Summary($"Moved to Movies  : {r.MoviesMoved}", Theme.Ok);
+        Status.Summary($"Moved to Music   : {r.MusicMoved}", Theme.Ok);
         Status.Summary($"Errors           : {r.Errors.Count}", r.Errors.Count > 0 ? Theme.Err : Theme.Dim);
         Status.Summary($"Needs manual fix : {r.NeedsManual.Count}", r.NeedsManual.Count > 0 ? Theme.Active : Theme.Dim);
 

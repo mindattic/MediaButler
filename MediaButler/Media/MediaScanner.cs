@@ -15,6 +15,7 @@ public sealed class MediaScanner
     private readonly HashSet<string> excluded;
     private readonly HashSet<string> videoExts;
     private readonly LegionFallbackParser? llmFallback;
+    private readonly VariationCatalog catalog;
     // Cache HasAnyVideo results per scan. A multi-season parent classify
     // ends up asking for the same subtree twice (once for the Empty check,
     // again for HasMultipleSeasonSubfolders / BuildMultiSeasonParent),
@@ -27,6 +28,7 @@ public sealed class MediaScanner
         excluded   = new HashSet<string>(settings.ExcludedFolders, StringComparer.OrdinalIgnoreCase);
         videoExts  = new HashSet<string>(settings.VideoExtensions, StringComparer.OrdinalIgnoreCase);
         llmFallback = settings.EnableLlmFallback ? new LegionFallbackParser(settings) : null;
+        catalog    = VariationCatalog.Load(settings);
     }
 
     /// <summary>
@@ -39,17 +41,40 @@ public sealed class MediaScanner
     /// </summary>
     public IEnumerable<MediaItem> Scan()
     {
-        foreach (var dir in TopLevelDirs())
+        try
         {
-            var item = ClassifyByRegex(dir);
-            if (item.Kind == MediaKind.Unknown && llmFallback is not null)
+            foreach (var dir in TopLevelDirs())
             {
-                // No SynchronizationContext on the console / Task.Run threads that
-                // drive the pipeline, so blocking here can't deadlock.
-                var refined = TryLlmClassifyAsync(dir, CancellationToken.None).GetAwaiter().GetResult();
-                if (refined is not null) item = refined;
+                var item = ClassifyByRegex(dir);
+                if (item.Kind == MediaKind.Unknown && llmFallback is not null)
+                {
+                    // No SynchronizationContext on the console / Task.Run threads that
+                    // drive the pipeline, so blocking here can't deadlock.
+                    var refined = TryLlmClassifyAsync(dir, CancellationToken.None).GetAwaiter().GetResult();
+                    if (refined is not null) item = refined;
+                }
+                catalog.Record(item.OriginalName, item.Kind);
+                yield return item;
             }
-            yield return item;
+
+            foreach (var item in LooseRootFiles())
+            {
+                var resolved = item;
+                if (item.Kind == MediaKind.Unknown && llmFallback is not null)
+                {
+                    var refined = TryLlmClassifyFileAsync(item, CancellationToken.None).GetAwaiter().GetResult();
+                    if (refined is not null) resolved = refined;
+                }
+                catalog.Record(resolved.OriginalName, resolved.Kind);
+                yield return resolved;
+            }
+        }
+        finally
+        {
+            // Every run grows the variation corpus, even when the caller stops
+            // enumerating early. Catalog writes are best-effort telemetry and
+            // deliberately also happen in dry-run (like the audit log).
+            catalog.Save();
         }
     }
 
@@ -61,17 +86,70 @@ public sealed class MediaScanner
     /// </summary>
     public async IAsyncEnumerable<MediaItem> ScanAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
     {
-        foreach (var dir in TopLevelDirs())
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            var item = ClassifyByRegex(dir);
-            if (item.Kind == MediaKind.Unknown && llmFallback is not null)
+            foreach (var dir in TopLevelDirs())
             {
-                var refined = await TryLlmClassifyAsync(dir, ct).ConfigureAwait(false);
-                if (refined is not null) item = refined;
+                ct.ThrowIfCancellationRequested();
+                var item = ClassifyByRegex(dir);
+                if (item.Kind == MediaKind.Unknown && llmFallback is not null)
+                {
+                    var refined = await TryLlmClassifyAsync(dir, ct).ConfigureAwait(false);
+                    if (refined is not null) item = refined;
+                }
+                catalog.Record(item.OriginalName, item.Kind);
+                yield return item;
             }
-            yield return item;
+
+            foreach (var item in LooseRootFiles())
+            {
+                ct.ThrowIfCancellationRequested();
+                var resolved = item;
+                if (item.Kind == MediaKind.Unknown && llmFallback is not null)
+                {
+                    var refined = await TryLlmClassifyFileAsync(item, ct).ConfigureAwait(false);
+                    if (refined is not null) resolved = refined;
+                }
+                catalog.Record(resolved.OriginalName, resolved.Kind);
+                yield return resolved;
+            }
         }
+        finally
+        {
+            catalog.Save();
+        }
+    }
+
+    /// <summary>
+    /// Legion fallback for a loose FILE the regex parsers couldn't place —
+    /// "file renames that don't match any known pattern". Maps the LLM's
+    /// best-guess into the same shapes the regex path produces (a wrappable
+    /// Movie or a consolidatable TvEpisode); null on any failure so the file
+    /// is left alone (MB-LAW-6).
+    /// </summary>
+    private async Task<MediaItem?> TryLlmClassifyFileAsync(MediaItem item, CancellationToken ct)
+    {
+        if (llmFallback is null) return null;
+        var guess = await llmFallback.ClassifyFileAsync(item.OriginalName, ct).ConfigureAwait(false);
+        if (guess is null) return null;
+
+        return guess.Kind switch
+        {
+            LlmFileKind.Movie => item with
+            {
+                Kind = MediaKind.Movie,
+                MovieTitle = guess.Title,
+                MovieYear = guess.Year,
+            },
+            LlmFileKind.TvEpisode when guess is { Season: not null, Episode: not null } => item with
+            {
+                Kind = MediaKind.TvEpisode,
+                ShowName = guess.Title,
+                SeasonNumber = guess.Season,
+                EpisodeNumber = guess.Episode,
+            },
+            _ => null,
+        };
     }
 
     private IEnumerable<string> TopLevelDirs()
@@ -117,13 +195,45 @@ public sealed class MediaScanner
         if (NameParser.LooksLikeExtras(name))
             return new MediaItem { FullPath = fullPath, OriginalName = name, Kind = MediaKind.Extras };
 
-        // Empty? (no video files anywhere underneath)
+        // User-curated catalog pin. Checked BEFORE the Empty test: a music
+        // folder holds no recognised VIDEO files and would otherwise classify
+        // Empty — and the Rename stage would try to delete it.
+        var hint = catalog.LookupHint(name);
+        if (hint == VariationCatalog.Hint.Music)
+            return new MediaItem { FullPath = fullPath, OriginalName = name, Kind = MediaKind.Music };
+
+        // Empty? (no video files anywhere underneath) — but a folder full of
+        // AUDIO is music, not an empty shell on the delete path.
         if (!HasAnyVideo(fullPath))
+        {
+            if (HasAnyAudio(fullPath))
+                return new MediaItem { FullPath = fullPath, OriginalName = name, Kind = MediaKind.Music };
             return new MediaItem { FullPath = fullPath, OriginalName = name, Kind = MediaKind.Empty };
+        }
+
+        // A movie pin skips every TV-shaped check; a TV pin skips the movie path.
+        if (hint == VariationCatalog.Hint.Movie)
+            return ClassifyMoviePath(fullPath, name);
 
         // Multi-season? Look at name first, then structure.
         if (NameParser.LooksLikeMultiSeason(name) || HasSeasonSubfolder(fullPath))
             return BuildMultiSeasonParent(fullPath, name);
+
+        // Per-episode torrent folder ("Ahsoka.S01E01...[TGx]")?
+        if (NameParser.LooksLikeEpisodeFile(name) &&
+            NameParser.ParseEpisode(name) is { } folderEp &&
+            !string.IsNullOrWhiteSpace(folderEp.Show))
+        {
+            return new MediaItem
+            {
+                FullPath = fullPath,
+                OriginalName = name,
+                Kind = MediaKind.TvEpisode,
+                ShowName = folderEp.Show,
+                SeasonNumber = folderEp.Season,
+                EpisodeNumber = folderEp.Episode,
+            };
+        }
 
         // Single season?
         var single = NameParser.ParseSingleSeason(name);
@@ -139,21 +249,204 @@ public sealed class MediaScanner
             };
         }
 
+        // A TV pin on a folder with no recognisable season/episode marker:
+        // surface for manual review instead of guessing a movie.
+        if (hint == VariationCatalog.Hint.Tv)
+            return ClassifyTvByContent(fullPath, name)
+                ?? new MediaItem { FullPath = fullPath, OriginalName = name, Kind = MediaKind.Unknown };
+
         // Movie? (video file present + no season marker)
         if (!NameParser.HasAnySeasonMarker(name))
+            return ClassifyMoviePath(fullPath, name);
+
+        return new MediaItem { FullPath = fullPath, OriginalName = name, Kind = MediaKind.Unknown };
+    }
+
+    /// <summary>
+    /// The movie-shaped endgame for a folder: first check for a multi-movie
+    /// pack ("The Matrix 1-4 Pack 1999-2021 ..."), then — when the folder name
+    /// itself carries no release year — check whether the CONTENT is actually
+    /// episodes ("Battletech" holding "Battle tech - 1.09 - ....avi"), and only
+    /// then settle on Movie.
+    /// </summary>
+    private MediaItem ClassifyMoviePath(string fullPath, string name)
+    {
+        var movie = NameParser.ParseMovie(name, settings.TitleYearOverrides);
+
+        var pack = TryBuildMoviePack(fullPath, name);
+        if (pack is not null) return pack;
+
+        if (movie.Year is null && ClassifyTvByContent(fullPath, name) is { } tv)
+            return tv;
+
+        return new MediaItem
         {
-            var movie = NameParser.ParseMovie(name, settings.TitleYearOverrides);
+            FullPath = fullPath,
+            OriginalName = name,
+            Kind = MediaKind.Movie,
+            MovieTitle = movie.Title,
+            MovieYear = movie.Year,
+        };
+    }
+
+    /// <summary>
+    /// Detect a folder holding SEVERAL distinct movies: two or more non-sample
+    /// videos at the top level, every one carrying its own release year, with
+    /// at least two distinct (title, year) pairs. Returns null when the folder
+    /// looks like a normal single movie.
+    /// </summary>
+    private MediaItem? TryBuildMoviePack(string fullPath, string name)
+    {
+        var videos = TopLevelVideos(fullPath);
+        if (videos.Count < 2) return null;
+
+        var children = new List<MoviePackChild>();
+        foreach (var file in videos)
+        {
+            var stem = Path.GetFileNameWithoutExtension(file);
+            var parsed = NameParser.ParseMovie(stem, settings.TitleYearOverrides);
+            if (parsed.Year is null || string.IsNullOrWhiteSpace(parsed.Title)) return null;
+            children.Add(new MoviePackChild { FilePath = file, Title = parsed.Title, Year = parsed.Year });
+        }
+
+        var distinct = children.Select(c => (c.Title.ToUpperInvariant(), c.Year)).Distinct().Count();
+        if (distinct < 2) return null; // CD1/CD2-style split of ONE movie — not a pack
+
+        return new MediaItem
+        {
+            FullPath = fullPath,
+            OriginalName = name,
+            Kind = MediaKind.MoviePack,
+            PackMovies = children,
+        };
+    }
+
+    /// <summary>
+    /// Content-based TV detection for folders whose NAME says nothing useful
+    /// ("Battletech"): when every non-sample top-level video parses as an
+    /// episode, classify by the seasons found — one season → TvSeason, several
+    /// → MultiSeasonParent carrying the files as <see cref="LooseEpisode"/>s.
+    /// The show name comes from the folder (it's what we rename), not the files.
+    /// </summary>
+    private MediaItem? ClassifyTvByContent(string fullPath, string name)
+    {
+        var videos = TopLevelVideos(fullPath);
+        if (videos.Count == 0) return null;
+
+        var episodes = new List<LooseEpisode>();
+        foreach (var file in videos)
+        {
+            var ep = NameParser.ParseEpisode(Path.GetFileName(file));
+            if (ep is null) return null;
+            episodes.Add(new LooseEpisode { FilePath = file, SeasonNumber = ep.Season, EpisodeNumber = ep.Episode });
+        }
+
+        var show = NameParser.CleanShowName(NameParser.Normalize(name));
+        if (string.IsNullOrWhiteSpace(show)) return null;
+
+        var seasons = episodes.Select(e => e.SeasonNumber).Distinct().ToList();
+        if (seasons.Count == 1)
+        {
             return new MediaItem
             {
                 FullPath = fullPath,
                 OriginalName = name,
-                Kind = MediaKind.Movie,
-                MovieTitle = movie.Title,
-                MovieYear = movie.Year,
+                Kind = MediaKind.TvSeason,
+                ShowName = show,
+                SeasonNumber = seasons[0],
             };
         }
 
-        return new MediaItem { FullPath = fullPath, OriginalName = name, Kind = MediaKind.Unknown };
+        return new MediaItem
+        {
+            FullPath = fullPath,
+            OriginalName = name,
+            Kind = MediaKind.MultiSeasonParent,
+            ShowName = show,
+            LooseEpisodes = episodes,
+            OrphanFilesAtParent = SafeTopLevelFiles(fullPath),
+        };
+    }
+
+    /// <summary>Top-level non-sample video files of a folder (never throws).</summary>
+    private List<string> TopLevelVideos(string fullPath)
+    {
+        var result = new List<string>();
+        foreach (var f in SafeTopLevelFiles(fullPath))
+        {
+            var fname = Path.GetFileName(f);
+            if (!videoExts.Contains(Path.GetExtension(f))) continue;
+            if (NameParser.IsSampleName(fname)) continue;
+            result.Add(f);
+        }
+        return result;
+    }
+
+    private static IReadOnlyList<string> SafeTopLevelFiles(string fullPath)
+    {
+        try { return Directory.EnumerateFiles(fullPath).ToList(); }
+        catch (UnauthorizedAccessException) { return Array.Empty<string>(); }
+        catch (DirectoryNotFoundException)  { return Array.Empty<string>(); }
+        catch (IOException)                 { return Array.Empty<string>(); }
+    }
+
+    /// <summary>
+    /// Classify loose FILES at the source root — torrent clients drop bare
+    /// movie/episode files next to the folders ("Frankenstein 2025 ... .mkv").
+    /// Dotfiles (".....parts" partial-download markers), non-video files, and
+    /// sample clips are skipped entirely; everything else classifies as a
+    /// to-be-wrapped Movie, a to-be-consolidated TvEpisode, or Unknown.
+    /// </summary>
+    private IEnumerable<MediaItem> LooseRootFiles()
+    {
+        if (!Directory.Exists(settings.SourcePath)) yield break;
+        foreach (var file in SafeTopLevelFiles(settings.SourcePath))
+        {
+            var name = Path.GetFileName(file);
+            if (name.StartsWith('.')) continue;
+            if (!videoExts.Contains(Path.GetExtension(file))) continue;
+            if (NameParser.IsSampleName(name)) continue;
+            yield return ClassifyLooseFile(file, name);
+        }
+    }
+
+    private MediaItem ClassifyLooseFile(string file, string name)
+    {
+        var hint = catalog.LookupHint(name);
+        if (hint == VariationCatalog.Hint.Music)
+            return new MediaItem { FullPath = file, OriginalName = name, Kind = MediaKind.Music, IsFile = true };
+
+        if (hint != VariationCatalog.Hint.Movie &&
+            NameParser.ParseEpisode(name) is { } ep &&
+            !string.IsNullOrWhiteSpace(ep.Show))
+        {
+            return new MediaItem
+            {
+                FullPath = file,
+                OriginalName = name,
+                Kind = MediaKind.TvEpisode,
+                ShowName = ep.Show,
+                SeasonNumber = ep.Season,
+                EpisodeNumber = ep.Episode,
+                IsFile = true,
+            };
+        }
+
+        var movie = NameParser.ParseMovie(Path.GetFileNameWithoutExtension(name), settings.TitleYearOverrides);
+        if (hint == VariationCatalog.Hint.Movie || movie.Year is not null)
+        {
+            return new MediaItem
+            {
+                FullPath = file,
+                OriginalName = name,
+                Kind = MediaKind.Movie,
+                MovieTitle = movie.Title,
+                MovieYear = movie.Year,
+                IsFile = true,
+            };
+        }
+
+        return new MediaItem { FullPath = file, OriginalName = name, Kind = MediaKind.Unknown, IsFile = true };
     }
 
     /// <summary>Best-effort LLM classification of a folder; returns null on any failure.</summary>
@@ -238,6 +531,21 @@ public sealed class MediaScanner
             }
         }
 
+        // Flat complete-collection dumps ("Killing Eve - The Complete
+        // Collection (2018-2022)") keep every episode loose at the parent with
+        // names like "S01 - E01 - Nice Face.mkv". Parse those now so the Rename
+        // stage can file each into its "{Show} - Season XX" folder instead of
+        // dead-ending on "no season subfolders to hoist".
+        var looseEpisodes = new List<LooseEpisode>();
+        foreach (var f in orphanFiles)
+        {
+            var fname = Path.GetFileName(f);
+            if (!videoExts.Contains(Path.GetExtension(f))) continue;
+            if (NameParser.IsSampleName(fname)) continue;
+            if (NameParser.ParseEpisode(fname) is { } ep)
+                looseEpisodes.Add(new LooseEpisode { FilePath = f, SeasonNumber = ep.Season, EpisodeNumber = ep.Episode });
+        }
+
         return new MediaItem
         {
             FullPath = fullPath,
@@ -246,6 +554,7 @@ public sealed class MediaScanner
             ShowName = show,
             Seasons = seasons,
             OrphanFilesAtParent = orphanFiles,
+            LooseEpisodes = looseEpisodes,
         };
     }
 
@@ -268,6 +577,23 @@ public sealed class MediaScanner
                 var subName = Path.GetFileName(sub);
                 if (NameParser.ParseNestedSeasonName(subName) is not null && HasAnyVideo(sub))
                     return true;
+            }
+        }
+        catch (UnauthorizedAccessException) { }
+        catch (DirectoryNotFoundException)  { }
+        catch (IOException)                 { }
+        return false;
+    }
+
+    private bool HasAnyAudio(string fullPath)
+    {
+        var audioExts = new HashSet<string>(settings.AudioExtensions, StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var f in Directory.EnumerateFiles(fullPath, "*", SearchOption.AllDirectories))
+            {
+                var ext = Path.GetExtension(f);
+                if (!string.IsNullOrEmpty(ext) && audioExts.Contains(ext)) return true;
             }
         }
         catch (UnauthorizedAccessException) { }
