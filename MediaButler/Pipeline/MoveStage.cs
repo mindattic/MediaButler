@@ -59,10 +59,11 @@ public sealed class MoveStage
 
         // Stable order — process all seasons of a show together so the first
         // season seeds show-level art and subsequent ones dedupe against it.
-        var ordered = items
+        IEnumerable<MediaItem> ordered = items
             .OrderBy(i => i.Kind == MediaKind.Movie ? 1 : 0)
             .ThenBy(i => i.ShowName ?? i.MovieTitle ?? i.OriginalName)
             .ThenBy(i => i.SeasonNumber ?? 0);
+        if (settings.Limit.HasValue) ordered = ordered.Take(settings.Limit.Value);
 
         foreach (var item in ordered)
         {

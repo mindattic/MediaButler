@@ -50,6 +50,7 @@ public sealed class FileBotStage
             .OrderBy(i => i.ShowName)
             .ThenBy(i => i.SeasonNumber)
             .ToList();
+        if (settings.Limit.HasValue) items = items.Take(settings.Limit.Value).ToList();
 
         if (items.Count == 0)
         {
@@ -94,6 +95,7 @@ public sealed class FileBotStage
             .Where(i => i.Kind == MediaKind.Movie && !i.IsFile)
             .OrderBy(i => i.MovieTitle)
             .ToList();
+        if (settings.Limit.HasValue) items = items.Take(settings.Limit.Value).ToList();
 
         if (items.Count == 0)
         {
@@ -208,6 +210,7 @@ public sealed class FileBotStage
         var items = new MediaScanner(settings).Scan()
             .Where(i => (i.Kind is MediaKind.TvSeason or MediaKind.Movie) && !i.IsFile)
             .ToList();
+        if (settings.Limit.HasValue) items = items.Take(settings.Limit.Value).ToList();
 
         if (items.Count == 0)
         {

@@ -45,6 +45,10 @@ public class BaseSettings : CommandSettings
     [CommandOption("--music-dest|--musicDest <PATH>")]
     public string? MusicDest { get; init; }
 
+    [Description("Cap the number of items each stage processes. Useful for smoke-testing a new config without running the whole inbox.")]
+    [CommandOption("--limit <N>")]
+    public int? Limit { get; init; }
+
     [Description("Print only the final summary and errors.")]
     [CommandOption("-q|--quiet")]
     public bool Quiet { get; init; }
@@ -83,5 +87,6 @@ public class BaseSettings : CommandSettings
         if (!string.IsNullOrWhiteSpace(TvDest))     s.TvDestination     = TvDest.Trim();
         if (!string.IsNullOrWhiteSpace(MoviesDest)) s.MoviesDestination = MoviesDest.Trim();
         if (!string.IsNullOrWhiteSpace(MusicDest))  s.MusicDestination  = MusicDest.Trim();
+        if (Limit.HasValue && Limit.Value > 0) s.Limit = Limit;
     }
 }

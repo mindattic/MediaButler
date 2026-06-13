@@ -45,6 +45,7 @@ public sealed class RenameStage
 
         // Snapshot first — we mutate the directory tree as we go.
         var items = scanner.Scan().ToList();
+        if (settings.Limit.HasValue) items = items.Take(settings.Limit.Value).ToList();
         foreach (var item in items)
         {
             try

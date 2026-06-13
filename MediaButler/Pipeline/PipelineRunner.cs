@@ -160,6 +160,7 @@ public sealed class PipelineRunner
         VariationCatalogPath  = s.VariationCatalogPath,
         ShowLevelArtFiles     = s.ShowLevelArtFiles,
         TitleYearOverrides    = s.TitleYearOverrides,
+        Limit                 = s.Limit,
     };
 
     public int RunRelocate(MediaButlerSettings s)

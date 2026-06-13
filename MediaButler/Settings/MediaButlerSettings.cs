@@ -81,6 +81,13 @@ public sealed class MediaButlerSettings
     public bool DryRun { get; set; } = false;
 
     /// <summary>
+    /// When set, each stage processes at most this many items before stopping.
+    /// Useful for smoke-testing a new configuration without running the whole
+    /// inbox. Null (the default) means unlimited.
+    /// </summary>
+    public int? Limit { get; set; }
+
+    /// <summary>
     /// When true, folders the regex parser can't classify are sent to an LLM
     /// (via MindAttic.Legion) for a best-guess at show/movie/season. Off by
     /// default to avoid surprise API calls; turn on after confirming credentials
