@@ -88,9 +88,12 @@ public sealed class RealWorldLibrary : IDisposable
 
         // ---------------- M:\Torrents\temp ----------------
         LooseFile(TorrentsTemp, ".b43df67a93863ea91f2f773f00361072da771dd3.parts");
+        LooseFile(TorrentsTemp, "Anora 2024 1080p WEB-DL HEVC x265 5.1 BONE.mkv");
         LooseFile(TorrentsTemp, "Frankenstein 2025 1080p WEB-DL HEVC x265 5.1 BONE.mkv");
         LooseFile(TorrentsTemp, "Nosferatu 2024 1080p WEB-DL HEVC x265 5.1 BONE.mkv");
 
+        Dir(TorrentsTemp, "Akira (1988) (1080p Hybrid x265 HEVC 10bit EAC3 7.1 SAMPA)",
+            "Akira.1988.1080p.Hybrid.x265.HEVC.10bit.EAC3.7.1.SAMPA.mkv");
         Dir(TorrentsTemp, "Alien Romulus (2024) [1080p] [WEBRip] [5.1] [YTS.MX]",
             "Alien.Romulus.2024.1080p.WEBRip.x264.AAC5.1-[YTS.MX].mp4");
         Dir(TorrentsTemp, "Better Call Saul - Season 6 (2022)",
@@ -137,6 +140,8 @@ public sealed class RealWorldLibrary : IDisposable
         Dir(TorrentsTemp, "Elementary Season 7 Mp4 1080p",
             "Elementary S07E01.mp4",
             "Read Me.txt");
+        Dir(TorrentsTemp, "Furiosa A Mad Max Saga (2024) [1080p] [WEBRip] [5.1] [YTS.MX]",
+            "Furiosa.A.Mad.Max.Saga.2024.1080p.WEBRip.x264.AAC5.1-[YTS.MX].mp4");
         Dir(TorrentsTemp, "Hot Fuzz (2007) [1080p]",
             "Hot.Fuzz.2007.1080p.BRrip.x264.GAZ.YIFY.mp4");
         Dir(TorrentsTemp, "Interstellar (2014) (2014) [1080p]",
@@ -149,11 +154,17 @@ public sealed class RealWorldLibrary : IDisposable
             "Kingdom S01E01 Episode 1.mkv");
         Dir(TorrentsTemp, "Knives.Out.2019.1080p.BluRay.x264.Atmos.TrueHD7.1-HDChina",
             "Knives.Out.2019.1080p.BluRay.x264.Atmos.TrueHD7.1-HDChina.mkv");
+        Dir(TorrentsTemp, "Poor Things (2023) [1080p] [WEBRip] [5.1] [YTS.MX]",
+            "Poor.Things.2023.1080p.WEBRip.x264.AAC5.1-[YTS.MX].mp4");
+        Dir(TorrentsTemp, "The Gorge (2025) [1080p] [WEBRip] [5.1] [YTS.MX]",
+            "The.Gorge.2025.1080p.WEBRip.x264.AAC5.1-[YTS.MX].mp4");
         Dir(TorrentsTemp, "The Matrix 1-4 Pack 1999-2021 REMASTERED 1080p BluRay HEVC x265 5.1 BONE",
             "The Matrix 1999 REMASTERED 1080p BluRay HEVC x265 5.1 BONE.mkv",
             "The Matrix Reloaded 2003 REMASTERED 1080p BluRay HEVC x265 5.1 BONE.mkv",
             "The Matrix Resurrections 2021 1080p BluRay HEVC x265 5.1 BONE.mkv",
             "The Matrix Revolutions 2003 REMASTERED 1080p BluRay HEVC x265 5.1 BONE.mkv");
+        Dir(TorrentsTemp, "Tron Ares (2025) [1080p] [WEBRip] [5.1] [YTS.LT]",
+            "Tron.Ares.2025.1080p.WEBRip.x264.AAC5.1-[YTS.LT].mp4");
         Dir(TorrentsTemp, "Tron.Legacy.2010.RERIP.PROPER.1080p.BluRay.H264.AAC-LAMA[TGx]",
             "Tron.Legacy.2010.RERIP.PROPER.1080p.BluRay.H264.AAC-LAMA.mp4",
             "Tron.Legacy.2010.RERIP.PROPER.1080p.BluRay.H264.AAC-LAMA.mp4.nfo",

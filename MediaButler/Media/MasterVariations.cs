@@ -93,6 +93,15 @@ public static class MasterVariations
         "The Matrix 1-4 Pack 1999-2021 REMASTERED 1080p BluRay HEVC x265 5.1 BONE",
         "The.Hunger.Games.Mockingjay.Part.1.2014.Multi.2160p.UHD.BluRay.x265.HDR.Atmos.7.1.[En+Hi]-DTOne",
         "Frankenstein 2025 1080p WEB-DL HEVC x265 5.1 BONE.mkv",
+        // 2026-06-12 dry-run additions
+        "Akira (1988) (1080p Hybrid x265 HEVC 10bit EAC3 7.1 SAMPA)",
+        "Anora 2024 1080p WEB-DL HEVC x265 5.1 BONE.mkv",
+        "Furiosa A Mad Max Saga (2024) [1080p] [WEBRip] [5.1] [YTS.MX]",
+        "Nosferatu 2024 1080p WEB-DL HEVC x265 5.1 BONE.mkv",
+        "Poor Things (2023) [1080p] [WEBRip] [5.1] [YTS.MX]",
+        "The Gorge (2025) [1080p] [WEBRip] [5.1] [YTS.MX]",
+        "Three Flavours Cornetto Trilogy REMASTERED Shaun Of The Dead 2004, Hot Fuzz 2007, The Worlds End 2013 1080p (Multi) BluRay HEVC H265 5.1 BONE",
+        "Tron Ares (2025) [1080p] [WEBRip] [5.1] [YTS.LT]",
     ];
 
     public static readonly string[] Tv =
@@ -147,6 +156,16 @@ public static class MasterVariations
         "criminal.minds.202.hdtv.xvid-xor.mkv",
         "Criminal Minds 3x09 Episode Title_xvid.avi",
         "Criminal.Minds.S04E25-26.mkv",
+        // 2026-06-12 dry-run additions
+        "[www.protorrent.co.uk] Criminal Minds Season 6",
+        "[www.protorrent.co.uk].Criminal Minds Season 4",
+        "Criminal Minds Season 2",
+        "Criminal Minds Season 3 Complete WEB x264 [i_c]",
+        "Criminal Minds Season 4 Complete WEB x264 [i_c]",
+        "Criminal Minds Season 5 Complete WEB x264 [i_c]",
+        "Elementary Season 3 Complete 1080p WEB-DL [rartv]",
+        "Elementary Season 3 Complete 720p WEB-DL x264 [NOSUB] [i_c]",
+        "Fallout - Season 2",
     ];
 
     public static readonly string[] Music =

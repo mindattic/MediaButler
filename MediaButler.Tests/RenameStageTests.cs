@@ -199,6 +199,46 @@ public class RenameStageTests
     }
 
     [Test]
+    public void Loose_movie_file_is_wrapped_in_folder_and_renamed_to_canonical()
+    {
+        using var tmp = new TempDir();
+        File.WriteAllText(Path.Combine(tmp.Path, "Frankenstein 2025 1080p WEB-DL HEVC x265 5.1 BONE.mkv"), "fake");
+
+        var report = new PipelineReport();
+        new RenameStage(SettingsFor(tmp.Path), report).Run();
+
+        var folder = Path.Combine(tmp.Path, "Frankenstein (2025)");
+        Assert.Multiple(() =>
+        {
+            Assert.That(Directory.Exists(folder), Is.True, "wrapper folder must be created");
+            Assert.That(File.Exists(Path.Combine(folder, "Frankenstein (2025).mkv")), Is.True,
+                "file must be renamed to match the folder");
+            Assert.That(File.Exists(Path.Combine(tmp.Path, "Frankenstein 2025 1080p WEB-DL HEVC x265 5.1 BONE.mkv")),
+                Is.False, "original loose file must be gone");
+            Assert.That(report.Renamed, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void Loose_movie_file_wrap_dry_run_leaves_disk_untouched_but_counts_rename()
+    {
+        using var tmp = new TempDir();
+        File.WriteAllText(Path.Combine(tmp.Path, "Nosferatu 2024 1080p WEB-DL HEVC x265 5.1 BONE.mkv"), "fake");
+
+        var report = new PipelineReport();
+        new RenameStage(SettingsFor(tmp.Path, dryRun: true), report).Run();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(Path.Combine(tmp.Path, "Nosferatu 2024 1080p WEB-DL HEVC x265 5.1 BONE.mkv")),
+                Is.True, "dry run must not move the file");
+            Assert.That(Directory.Exists(Path.Combine(tmp.Path, "Nosferatu (2024)")),
+                Is.False, "dry run must not create the wrapper folder");
+            Assert.That(report.Renamed, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public void Extras_folder_is_left_in_place_and_flagged()
     {
         using var tmp = new TempDir();

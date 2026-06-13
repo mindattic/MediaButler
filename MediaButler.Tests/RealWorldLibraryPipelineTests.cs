@@ -68,9 +68,15 @@ public class RealWorldLibraryPipelineTests
         ("T",  "The.Devil.Wears.Prada.2006.2160p.WEB-DL.x265.10bit.HDR.DTS-HD.MA.5.1-SWTYBLZ", MediaKind.Movie, "The Devil Wears Prada", null),
         ("T",  "Weapons (2025) [1080p] [WEBRip] [5.1] [YTS.MX]",                  MediaKind.Movie, "Weapons", null),
 
-        ("TT", "Frankenstein 2025 1080p WEB-DL HEVC x265 5.1 BONE.mkv",           MediaKind.Movie, "Frankenstein", null),
-        ("TT", "Nosferatu 2024 1080p WEB-DL HEVC x265 5.1 BONE.mkv",              MediaKind.Movie, "Nosferatu", null),
+        ("TT", "Akira (1988) (1080p Hybrid x265 HEVC 10bit EAC3 7.1 SAMPA)",        MediaKind.Movie, "Akira", null),
         ("TT", "Alien Romulus (2024) [1080p] [WEBRip] [5.1] [YTS.MX]",            MediaKind.Movie, "Alien Romulus", null),
+        ("TT", "Anora 2024 1080p WEB-DL HEVC x265 5.1 BONE.mkv",                  MediaKind.Movie, "Anora", null),
+        ("TT", "Frankenstein 2025 1080p WEB-DL HEVC x265 5.1 BONE.mkv",           MediaKind.Movie, "Frankenstein", null),
+        ("TT", "Furiosa A Mad Max Saga (2024) [1080p] [WEBRip] [5.1] [YTS.MX]",   MediaKind.Movie, "Furiosa A Mad Max Saga", null),
+        ("TT", "Nosferatu 2024 1080p WEB-DL HEVC x265 5.1 BONE.mkv",              MediaKind.Movie, "Nosferatu", null),
+        ("TT", "Poor Things (2023) [1080p] [WEBRip] [5.1] [YTS.MX]",              MediaKind.Movie, "Poor Things", null),
+        ("TT", "The Gorge (2025) [1080p] [WEBRip] [5.1] [YTS.MX]",                MediaKind.Movie, "The Gorge", null),
+        ("TT", "Tron Ares (2025) [1080p] [WEBRip] [5.1] [YTS.LT]",                MediaKind.Movie, "Tron Ares", null),
         ("TT", "Better Call Saul - Season 6 (2022)",                              MediaKind.TvSeason, "Better Call Saul", 6),
         ("TT", "Better Call Saul Season 3 Complete 720p HDTV x264 [i_c]",         MediaKind.TvSeason, "Better Call Saul", 3),
         ("TT", "Better.Call.Saul.Season 3 Complete..720p.HDTV.x264.[FREDDY1714]", MediaKind.TvSeason, "Better Call Saul", 3),
@@ -81,6 +87,11 @@ public class RealWorldLibraryPipelineTests
         ("TT", "Criminal Minds Season 1 Complete WEB x264 [i_c]",                 MediaKind.TvSeason, "Criminal Minds", 1),
         ("TT", "Criminal Minds Season 2",                                         MediaKind.TvSeason, "Criminal Minds", 2),
         ("TT", "Criminal Minds Season 2 Complete WEB x264 [i_c]",                 MediaKind.TvSeason, "Criminal Minds", 2),
+        ("TT", "Criminal Minds Season 3 Complete WEB x264 [i_c]",                 MediaKind.TvSeason, "Criminal Minds", 3),
+        ("TT", "Criminal Minds Season 4 Complete WEB x264 [i_c]",                 MediaKind.TvSeason, "Criminal Minds", 4),
+        ("TT", "Criminal Minds Season 5 Complete WEB x264 [i_c]",                 MediaKind.TvSeason, "Criminal Minds", 5),
+        ("TT", "Elementary Season 3 Complete 1080p WEB-DL [rartv]",               MediaKind.TvSeason, "Elementary", 3),
+        ("TT", "Elementary Season 3 Complete 720p WEB-DL x264 [NOSUB] [i_c]",     MediaKind.TvSeason, "Elementary", 3),
         ("TT", "Elementary Season 7 Mp4 1080p",                                   MediaKind.TvSeason, "Elementary", 7),
         ("TT", "Hot Fuzz (2007) [1080p]",                                         MediaKind.Movie, "Hot Fuzz", null),
         ("TT", "Interstellar (2014) (2014) [1080p]",                              MediaKind.Movie, "Interstellar", null),
@@ -266,14 +277,20 @@ public class RealWorldLibraryPipelineTests
             "Oppenheimer (2023)",
             "The Devil Wears Prada (2006)",
             "Weapons (2025)",
+            "Akira (1988)",
             "Alien Romulus (2024)",
             "Blade Runner 2049 (2017)",
+            "Furiosa A Mad Max Saga (2024)",
             "Hot Fuzz (2007)",
             "Interstellar (2014)",          // duplicated year collapsed
             "Knives Out (2019)",
+            "Poor Things (2023)",
+            "The Gorge (2025)",
+            "Tron Ares (2025)",
             "Tron Legacy (2010)",
-            "Frankenstein (2025)",          // loose root file, wrapped
-            "Nosferatu (2024)",             // loose root file, wrapped
+            "Anora (2024)",                 // loose root file, wrapped + renamed
+            "Frankenstein (2025)",          // loose root file, wrapped + renamed
+            "Nosferatu (2024)",             // loose root file, wrapped + renamed
             "The Matrix (1999)",            // pack split x4
             "The Matrix Reloaded (2003)",
             "The Matrix Resurrections (2021)",

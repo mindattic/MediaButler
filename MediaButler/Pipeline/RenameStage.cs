@@ -318,11 +318,13 @@ public sealed class RenameStage
 
         var folderName = NameParser.FormatMovieFolder(item.MovieTitle, item.MovieYear);
         var target = Path.Combine(settings.SourcePath, folderName);
-        var dest = Path.Combine(target, item.OriginalName);
+        var ext = Path.GetExtension(item.OriginalName);
+        var renamedFile = folderName + ext;
+        var dest = Path.Combine(target, renamedFile);
 
         if (settings.DryRun)
         {
-            Status.Line($"  [dry: -> {folderName}\\]", Theme.Active);
+            Status.Line($"  [dry: -> {folderName}\\{renamedFile}]", Theme.Active);
             AuditLog.Record(settings, settings.DryRun, "wrap", item.FullPath, dest, item.Kind);
             report.Renamed++;
             return;
@@ -332,11 +334,11 @@ public sealed class RenameStage
         if (File.Exists(dest))
         {
             Status.Line($"  [skip - target file exists in {folderName}]", Theme.Dim);
-            report.RecordManual(item.FullPath, item.Kind, $"target {folderName} already holds {item.OriginalName}");
+            report.RecordManual(item.FullPath, item.Kind, $"target {folderName} already holds {renamedFile}");
             return;
         }
         File.Move(item.FullPath, dest);
-        Status.Line($"  -> {folderName}\\", Theme.Ok);
+        Status.Line($"  -> {folderName}\\{renamedFile}", Theme.Ok);
         AuditLog.Record(settings, settings.DryRun, "wrap", item.FullPath, dest, item.Kind);
         report.Renamed++;
     }
