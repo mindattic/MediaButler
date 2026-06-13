@@ -107,6 +107,29 @@ public partial class MainPage : ContentPage
     private string LabelFor(string action) =>
         settings.Load().DryRun ? action + " [DRY RUN]" : action + " [LIVE]";
 
+    private async void OnFixLibrary(object? sender, EventArgs e)
+    {
+        var folder = await DisplayPromptAsync(
+            "Fix Library Folder",
+            "Library folder to fix (e.g. M:\\Movies  or  M:\\TV\\Criminal Minds):",
+            initialValue: "",
+            maxLength: 260,
+            keyboard: Keyboard.Text);
+        if (string.IsNullOrWhiteSpace(folder)) return;
+
+        var kind = await DisplayActionSheetAsync(
+            "Content type in this folder:",
+            cancel: "Cancel",
+            destruction: null,
+            "Movies", "TV Shows");
+        if (kind is null or "Cancel") return;
+
+        var action = kind == "Movies"
+            ? PipelineRunner.PipelineAction.FixLibraryMovies
+            : PipelineRunner.PipelineAction.FixLibraryTv;
+        await ExecuteAsync(action, $"Fix Library ({kind})", folder);
+    }
+
     private async void OnRelocate(object? sender, EventArgs e)
     {
         var s = settings.Load();
@@ -117,10 +140,10 @@ public partial class MainPage : ContentPage
             maxLength: 260,
             keyboard: Keyboard.Text);
         if (string.IsNullOrWhiteSpace(folder)) return;
-        await ExecuteAsync(PipelineRunner.PipelineAction.Relocate, "Relocate", folder);
+        await ExecuteAsync(PipelineRunner.PipelineAction.Relocate, LabelFor("Relocate"), folder);
     }
 
-    private async Task ExecuteAsync(PipelineRunner.PipelineAction action, string label, string? relocateOverride = null)
+    private async Task ExecuteAsync(PipelineRunner.PipelineAction action, string label, string? folderOverride = null)
     {
         if (busy) return;
         busy = true;
@@ -134,7 +157,7 @@ public partial class MainPage : ContentPage
 
         try
         {
-            var report = await Task.Run(() => runner.Run(action, line => MainThread.BeginInvokeOnMainThread(() => AppendLine(line)), relocateOverride));
+            var report = await Task.Run(() => runner.Run(action, line => MainThread.BeginInvokeOnMainThread(() => AppendLine(line)), folderOverride));
             if (IsPipelineAction(action))
             {
                 AppendLine(PipelineRunner.FormatReport(settings.Load(), report));
@@ -164,7 +187,9 @@ public partial class MainPage : ContentPage
           or PipelineRunner.PipelineAction.FileBotMovies
           or PipelineRunner.PipelineAction.FileBotSubtitles
           or PipelineRunner.PipelineAction.Move
-          or PipelineRunner.PipelineAction.Relocate;
+          or PipelineRunner.PipelineAction.Relocate
+          or PipelineRunner.PipelineAction.FixLibraryMovies
+          or PipelineRunner.PipelineAction.FixLibraryTv;
 
     private void SetButtonsEnabled(bool enabled)
     {
@@ -174,6 +199,7 @@ public partial class MainPage : ContentPage
         BtnFbMovies.IsEnabled    = enabled;
         BtnFbSubs.IsEnabled      = enabled;
         BtnMove.IsEnabled        = enabled;
+        BtnFixLibrary.IsEnabled  = enabled;
         BtnRelocate.IsEnabled    = enabled;
         BtnScan.IsEnabled        = enabled;
         BtnStatus.IsEnabled      = enabled;

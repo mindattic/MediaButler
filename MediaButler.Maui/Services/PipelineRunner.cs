@@ -38,6 +38,8 @@ public sealed class PipelineRunner
         FileBotSubtitles,
         Move,
         Relocate,
+        FixLibraryMovies,
+        FixLibraryTv,
         Status,
         Scan,
     }
@@ -47,7 +49,7 @@ public sealed class PipelineRunner
     /// Always called from a background thread; the sink itself must marshal to
     /// the UI thread (use <c>MainThread.BeginInvokeOnMainThread</c>).
     /// </summary>
-    public PipelineReport Run(PipelineAction action, Action<string> onLine, string? relocateOverridePath = null)
+    public PipelineReport Run(PipelineAction action, Action<string> onLine, string? folderOverride = null)
     {
         var report = new PipelineReport();
         lock (consoleLock)
@@ -60,7 +62,7 @@ public sealed class PipelineRunner
                 Console.SetOut(writer);
                 Console.SetError(writer);
                 Status.Verbosity = Verbosity.Normal;
-                Execute(action, report, relocateOverridePath);
+                Execute(action, report, folderOverride);
                 writer.Flush();
             }
             finally
@@ -73,7 +75,7 @@ public sealed class PipelineRunner
         return report;
     }
 
-    private void Execute(PipelineAction action, PipelineReport report, string? relocateOverridePath)
+    private void Execute(PipelineAction action, PipelineReport report, string? folderOverride)
     {
         var s = settings.Load();
 
@@ -94,8 +96,9 @@ public sealed class PipelineRunner
                 break;
 
             case PipelineAction.FileBotTv:
-                if (!ValidatePaths(s)) return;
+                // FileBot renames in-place; path guard only guards source→dest moves (not applicable here).
                 {
+                    if (!Directory.Exists(s.SourcePath)) { Console.WriteLine("Source path not found: " + s.SourcePath); return; }
                     var fb = FileBotClient.TryCreate(s);
                     if (fb is null) { Console.WriteLine("FileBot not found at " + s.FileBotPath); return; }
                     new FileBotStage(s, fb, report).RunTv();
@@ -103,8 +106,8 @@ public sealed class PipelineRunner
                 break;
 
             case PipelineAction.FileBotMovies:
-                if (!ValidatePaths(s)) return;
                 {
+                    if (!Directory.Exists(s.SourcePath)) { Console.WriteLine("Source path not found: " + s.SourcePath); return; }
                     var fb = FileBotClient.TryCreate(s);
                     if (fb is null) { Console.WriteLine("FileBot not found at " + s.FileBotPath); return; }
                     new FileBotStage(s, fb, report).RunMovies();
@@ -130,8 +133,30 @@ public sealed class PipelineRunner
                 new MoveStage(s, report).Run();
                 break;
 
+            case PipelineAction.FixLibraryMovies:
+            case PipelineAction.FixLibraryTv:
+                if (string.IsNullOrWhiteSpace(folderOverride))
+                {
+                    Console.WriteLine("No library folder supplied.");
+                    return;
+                }
+                s.SourcePath   = folderOverride.Trim();
+                s.NoGuard      = true;
+                s.ExtraSources = Array.Empty<string>();
+                s.Recursive    = false;
+                if (!Directory.Exists(s.SourcePath)) { Console.WriteLine("Folder not found: " + s.SourcePath); return; }
+                {
+                    var fb = FileBotClient.TryCreate(s);
+                    if (fb is null) { Console.WriteLine("FileBot not found at " + s.FileBotPath); return; }
+                    if (action == PipelineAction.FixLibraryMovies)
+                        new FileBotStage(s, fb, report).RunMovies();
+                    else
+                        new FileBotStage(s, fb, report).RunTv();
+                }
+                break;
+
             case PipelineAction.Relocate:
-                if (!string.IsNullOrWhiteSpace(relocateOverridePath)) s.SourcePath = relocateOverridePath.Trim();
+                if (!string.IsNullOrWhiteSpace(folderOverride)) s.SourcePath = folderOverride.Trim();
                 if (!Directory.Exists(s.SourcePath))
                 {
                     Console.WriteLine("Source path not found: " + s.SourcePath);
