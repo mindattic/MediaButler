@@ -166,10 +166,14 @@ every other MindAttic app uses.
 ## Build and run
 
 ```powershell
-dotnet build MediaButler.slnx
+dotnet build MediaButler/MediaButler.csproj
 dotnet run --project MediaButler              # interactive menu
 dotnet run --project MediaButler -- --dry-run # force dry-run for the session
 ```
+
+The `mb.cmd` shim at the repo root is equivalent to `dotnet run --project MediaButler -- %*`.
+
+The `MediaButler.Maui` shell and `MediaButler.Maui.UiTests` are Windows-desktop only and not part of the headless test gate.
 
 ## Tests
 
