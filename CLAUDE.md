@@ -22,7 +22,7 @@ Org-wide laws live in `D:/Projects/MindAttic/MindAttic.HouseRules.md` (`#HOUSE-L
 - A fact lives in exactly one layer; cross-reference by stable ID, never by line number.
 - Mark a story/law ✅ only when a build or test **proves** it ([HOUSE-LAW-8](../MindAttic.HouseRules.md#HOUSE-LAW-8));
   otherwise 🟡/⬜.
-- After editing any `docs/*.md`, run `pwsh tools/codex.ps1 digest` then `pwsh tools/codex.ps1 doctor`.
+- After editing any `docs/*.md`, run `powershell -File tools/codex.ps1 digest` then `powershell -File tools/codex.ps1 doctor`.
   `doctor` must pass (it validates front-matter, unique/resolving IDs, ✅-story test tokens, cited
   paths, and digest freshness).
 - Whole-number versioning only ([HOUSE-LAW-1](../MindAttic.HouseRules.md#HOUSE-LAW-1)).

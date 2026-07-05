@@ -100,9 +100,9 @@ public static class NameParser
     // Add entries when a new tag turns up before the year in a real-inbox folder name.
     private static readonly Regex TrailingJunk = new(
         // Release flags
-        @"\s+(?:Complete|COMPLETE|EXTENDED|REMASTERED|PROPER|REPACK|READNFO|Upscale|MultiSubs|" +
+        @"\s+(?:Complete|COMPLETE|EXTENDED|REMASTERED|PROPER|REPACK|READNFO|UNRATED|Upscale|MultiSubs|" +
         // Source / quality tier
-        @"WEBSCREENER|TELESYNC|Telesync|DCPRip|DVDRip|iMAX|IMAX|SDR|Hybrid|UHD|" +
+        @"WEBSCREENER|TELESYNC|Telesync|DCPRip|DCPRiP|DVDRip|iMAX|IMAX|SDR|Hybrid|UHD|" +
         // Web / optical sources
         @"WEBRip|WEB-DL|WEB|HDTV|BluRay|Bluray|BrRip|BRrip|BDRip|REMUX|BDREMUX|" +
         // Resolution

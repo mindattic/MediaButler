@@ -1,6 +1,27 @@
 namespace MediaButler.Settings;
 
 /// <summary>
+/// What MoveStage does when a movie's destination folder already exists with
+/// content. Serialized as a string in settings.json (case-insensitive read).
+/// </summary>
+[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
+public enum DuplicateMovieAction
+{
+    /// <summary>
+    /// The copy with the larger primary video file wins; the smaller copy is
+    /// deleted (audit-logged). When either side has no video to compare, falls
+    /// back to <see cref="Flag"/> — a wrong guess here destroys media.
+    /// </summary>
+    KeepLargest,
+
+    /// <summary>
+    /// Classic MB-LAW-9 behaviour: never touch either copy — the incoming
+    /// folder stays in the source and surfaces as needs-manual (exit 2).
+    /// </summary>
+    Flag,
+}
+
+/// <summary>
 /// User-editable MediaButler configuration. Lives at
 /// <c>%APPDATA%\MindAttic\MediaButler\settings.json</c> via
 /// <see cref="MindAttic.Vault.Settings.JsonSettingsStore{T}"/>.
@@ -154,6 +175,15 @@ public sealed class MediaButlerSettings
     /// </summary>
     public string[] AudioExtensions { get; set; } =
         [".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".wma", ".ape", ".alac", ".aiff", ".dsf"];
+
+    /// <summary>
+    /// Duplicate-movie policy: what to do when a movie's destination folder
+    /// already exists with content. <see cref="DuplicateMovieAction.KeepLargest"/>
+    /// (default) keeps whichever copy has the larger primary video and deletes
+    /// the other; <see cref="DuplicateMovieAction.Flag"/> restores the classic
+    /// leave-both-and-ask behaviour. CLI: <c>--duplicates keep-largest|flag</c>.
+    /// </summary>
+    public DuplicateMovieAction DuplicateMovieAction { get; set; } = DuplicateMovieAction.KeepLargest;
 
     /// <summary>
     /// Ceiling for treating a "sample"-named video as junk. Release groups

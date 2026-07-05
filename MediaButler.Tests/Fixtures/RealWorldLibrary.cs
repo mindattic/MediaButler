@@ -1,7 +1,8 @@
 namespace MediaButler.Tests.Fixtures;
 
 /// <summary>
-/// Mirror of the user's REAL inboxes as inventoried on 2026-06-12:
+/// Mirror of the user's REAL inboxes as inventoried on 2026-06-12 (plus the
+/// 2026-07-04 re-inventory of <c>M:\Torrents</c>):
 /// <c>M:\Torrents</c>, <c>M:\Torrents\temp</c>, <c>D:\Downloads</c>, and
 /// <c>D:\Downloads\temp</c>. Every distinct naming variation found on disk is
 /// represented (episode lists are trimmed — the shapes matter, not the counts).
@@ -28,6 +29,9 @@ namespace MediaButler.Tests.Fixtures;
 ///         RERIP/PROPER, DTS-HD.MA.5.1 dots, "Part.1" titles, [En+Hi] tags</item>
 ///   <item>Movie multi-pack ("The Matrix 1-4 Pack 1999-2021 ...")</item>
 ///   <item>Loose movie FILES at the source root + a ".parts" partial-download dotfile</item>
+///   <item>2026-07-04: dotted group names (MP4-BEN.THE.MEN), UNRATED/HDR10+/MULTi.FRE.LAT,
+///         mixed-case DCPRiP, roman-numeral sequel (Mortal Kombat II), numeric sequel with
+///         paren year + iTA tags (The Devil Wears Prada 2), TV season among movies (The Bear S05)</item>
 /// </list>
 /// </summary>
 public sealed class RealWorldLibrary : IDisposable
@@ -85,6 +89,26 @@ public sealed class RealWorldLibrary : IDisposable
             "YTSYifyUP... (TOR).txt",
             @"Subs\English (SDH).eng.srt",
             @"Subs\Español (Latinoamérica).spa.srt");
+
+        // ---- 2026-07-04 re-inventory of M:\Torrents ----
+        // New shapes: dotted release-group with dots INSIDE the group name
+        // (MP4-BEN.THE.MEN), UNRATED/HDR10+/MULTi.FRE.LAT tag runs, mixed-case
+        // DCPRiP, roman-numeral sequel, numeric sequel + paren year + iTA scene
+        // tags, and a TV season dropped into a "movies" batch.
+        Dir(Torrents, "Obsession.2026.2160p.iT.WEB-DL.UNRATED.DV.HDR10+.MULTi.FRE.LAT.DDP5.1.Atmos.H265.MP4-BEN.THE.MEN",
+            "Obsession.2026.2160p.iT.WEB-DL.UNRATED.DV.HDR10+.MULTi[Ben The Men].mp4");
+        Dir(Torrents, "Project.Hail.Mary.2026.PROPER.HDR.2160p.WEB.h265-GRACE",
+            "Project.Hail.Mary.2026.PROPER.HDR.2160p.WEB.h265-GRACE.mkv",
+            "project.hail.mary.2026.proper.hdr.2160p.web.h265-grace.nfo");
+        Dir(Torrents, "The.Bear.S05.2160p.DSNP.WEB-DL.DV.HDR.DDP5.1.H265.MP4-BEN.THE.MEN",
+            "The.Bear.S05E01.2160p.DSNP.WEB-DL.DV.HDR[Ben The Men].mp4",
+            "The.Bear.S05E02.2160p.DSNP.WEB-DL.DV.HDR[Ben The Men].mp4");
+        LooseFile(Torrents, "Masters.of.the.Universe.2026.2160p.WEB-DL.DDP5.1.H.265-TGS.mkv");
+        LooseFile(Torrents, "Mortal.Kombat.II.2026.1080p.DCPRip.x264-FS.mkv");
+        LooseFile(Torrents, "Scary Movie 2026 1080p DCPRiP x264-FS.mkv");
+        LooseFile(Torrents, "Star.Wars.The.Mandalorian.And.Grogu.2026.1080p.DCPRiP.x264-FS.mkv");
+        LooseFile(Torrents, "The Devil Wears Prada 2 (2026) 2160p H265 HDR DV iTA EnG Sub iTA-MIRCrew.mkv");
+        LooseFile(Torrents, "The.Sheep.Detectives.2026.1080p.WEBRip.10Bit.DDP5.1.x265-NeoNoir.mkv");
 
         // ---------------- M:\Torrents\temp ----------------
         LooseFile(TorrentsTemp, ".b43df67a93863ea91f2f773f00361072da771dd3.parts");

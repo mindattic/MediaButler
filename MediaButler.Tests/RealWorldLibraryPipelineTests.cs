@@ -67,6 +67,16 @@ public class RealWorldLibraryPipelineTests
         ("T",  "Oppenheimer.2023.1080p.BluRay.DD5.1.x264-GalaxyRG[TGx]",          MediaKind.Movie, "Oppenheimer", null),
         ("T",  "The.Devil.Wears.Prada.2006.2160p.WEB-DL.x265.10bit.HDR.DTS-HD.MA.5.1-SWTYBLZ", MediaKind.Movie, "The Devil Wears Prada", null),
         ("T",  "Weapons (2025) [1080p] [WEBRip] [5.1] [YTS.MX]",                  MediaKind.Movie, "Weapons", null),
+        // 2026-07-04 re-inventory
+        ("T",  "Obsession.2026.2160p.iT.WEB-DL.UNRATED.DV.HDR10+.MULTi.FRE.LAT.DDP5.1.Atmos.H265.MP4-BEN.THE.MEN", MediaKind.Movie, "Obsession", null),
+        ("T",  "Project.Hail.Mary.2026.PROPER.HDR.2160p.WEB.h265-GRACE",          MediaKind.Movie, "Project Hail Mary", null),
+        ("T",  "The.Bear.S05.2160p.DSNP.WEB-DL.DV.HDR.DDP5.1.H265.MP4-BEN.THE.MEN", MediaKind.TvSeason, "The Bear", 5),
+        ("T",  "Masters.of.the.Universe.2026.2160p.WEB-DL.DDP5.1.H.265-TGS.mkv",  MediaKind.Movie, "Masters of the Universe", null),
+        ("T",  "Mortal.Kombat.II.2026.1080p.DCPRip.x264-FS.mkv",                  MediaKind.Movie, "Mortal Kombat II", null),
+        ("T",  "Scary Movie 2026 1080p DCPRiP x264-FS.mkv",                       MediaKind.Movie, "Scary Movie", null),
+        ("T",  "Star.Wars.The.Mandalorian.And.Grogu.2026.1080p.DCPRiP.x264-FS.mkv", MediaKind.Movie, "Star Wars The Mandalorian And Grogu", null),
+        ("T",  "The Devil Wears Prada 2 (2026) 2160p H265 HDR DV iTA EnG Sub iTA-MIRCrew.mkv", MediaKind.Movie, "The Devil Wears Prada 2", null),
+        ("T",  "The.Sheep.Detectives.2026.1080p.WEBRip.10Bit.DDP5.1.x265-NeoNoir.mkv", MediaKind.Movie, "The Sheep Detectives", null),
 
         ("TT", "Akira (1988) (1080p Hybrid x265 HEVC 10bit EAC3 7.1 SAMPA)",        MediaKind.Movie, "Akira", null),
         ("TT", "Alien Romulus (2024) [1080p] [WEBRip] [5.1] [YTS.MX]",            MediaKind.Movie, "Alien Romulus", null),
@@ -211,6 +221,11 @@ public class RealWorldLibraryPipelineTests
                 "loki.s02e06.hdr.2160p.web.h265-testpre.mkv",
             }),
             ("Battletech", 1, new[] { "Battle tech - 1.09 - Road To Camelot.avi" }),
+            ("The Bear", 5, new[]
+            {
+                "The.Bear.S05E01.2160p.DSNP.WEB-DL.DV.HDR[Ben The Men].mp4",
+                "The.Bear.S05E02.2160p.DSNP.WEB-DL.DV.HDR[Ben The Men].mp4",
+            }),
             ("Better Call Saul", 2, new[] { "Better Call Saul S02E01 Switch (1080p x265 10bit Joy).mkv" }),
             ("Better Call Saul", 3, new[] { "Better Call Saul S03E01 Mabel.mkv", "Better Call Saul S03E02 Witness.mkv" }),
             ("Better Call Saul", 6, new[] { "Better Call Saul - S06E01 - Wine and Roses.mkv" }),
@@ -298,6 +313,15 @@ public class RealWorldLibraryPipelineTests
             "The Hunger Games Catching Fire (2013)",
             "The Hunger Games Mockingjay Part 1 (2014)",
             "The Hunger Games Mockingjay Part 2 (2015)",
+            // 2026-07-04 re-inventory
+            "Obsession (2026)",
+            "Project Hail Mary (2026)",
+            "Masters of the Universe (2026)",                // loose root file, wrapped + renamed
+            "Mortal Kombat II (2026)",                       // roman-numeral sequel survives cleaning
+            "Scary Movie (2026)",
+            "Star Wars The Mandalorian And Grogu (2026)",
+            "The Devil Wears Prada 2 (2026)",                // numeric sequel + paren year + iTA tags
+            "The Sheep Detectives (2026)",
         };
 
         Assert.Multiple(() =>

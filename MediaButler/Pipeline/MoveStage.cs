@@ -194,8 +194,7 @@ public sealed class MoveStage
 
         if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any())
         {
-            Status.Line("  [skip - target exists with content]", Theme.Dim);
-            report.RecordManual(item.FullPath, item.Kind, $"target {target} already has content");
+            ResolveDuplicateMovie(item, target);
             return;
         }
 
@@ -211,6 +210,95 @@ public sealed class MoveStage
         AuditLog.Record(settings, settings.DryRun, "move", item.FullPath, target, item.Kind);
         report.MoviesMoved++;
     }
+
+    /// <summary>
+    /// A movie's canonical destination already exists with content. Under
+    /// <see cref="DuplicateMovieAction.KeepLargest"/> the copy with the larger
+    /// primary video wins: incoming larger → the destination's video files are
+    /// deleted and the incoming folder merges in (existing artwork is kept);
+    /// incoming smaller or equal → the incoming folder is deleted. Both paths
+    /// audit-log the loser. With no video on either side to compare — or under
+    /// <see cref="DuplicateMovieAction.Flag"/> — nothing is touched and the
+    /// item surfaces as needs-manual (classic MB-LAW-9).
+    /// </summary>
+    private void ResolveDuplicateMovie(MediaItem item, string target)
+    {
+        var incoming = PrimaryVideo(item.FullPath);
+        var existing = PrimaryVideo(target);
+
+        if (settings.DuplicateMovieAction == DuplicateMovieAction.Flag ||
+            incoming is null || existing is null)
+        {
+            Status.Line("  [skip - target exists with content]", Theme.Dim);
+            report.RecordManual(item.FullPath, item.Kind, $"target {target} already has content");
+            return;
+        }
+
+        if (incoming.Length > existing.Length)
+        {
+            if (settings.DryRun)
+            {
+                Status.Line($"  [dry: duplicate — incoming {Gb(incoming.Length)} replaces {Gb(existing.Length)} at {target}]", Theme.Active);
+                report.MoviesMoved++;
+                return;
+            }
+
+            // Incoming wins: clear the destination's video files, merge the
+            // incoming folder in. Non-video collisions (artwork the FileBot
+            // pass already fetched at the destination) keep the existing copy.
+            var videoExts = new HashSet<string>(settings.VideoExtensions, StringComparer.OrdinalIgnoreCase);
+            foreach (var f in Directory.EnumerateFiles(target).Where(f => videoExts.Contains(Path.GetExtension(f))).ToList())
+                File.Delete(f);
+            foreach (var f in Directory.EnumerateFiles(item.FullPath))
+            {
+                var dest = Path.Combine(target, Path.GetFileName(f));
+                if (!File.Exists(dest)) File.Move(f, dest);
+            }
+            if (!Directory.EnumerateFileSystemEntries(item.FullPath).Any())
+                Directory.Delete(item.FullPath);
+            else
+                report.RecordManual(item.FullPath, item.Kind, $"replaced video at {target}; leftover non-video files kept for review");
+
+            Status.Line($"  [duplicate — incoming {Gb(incoming.Length)} replaced {Gb(existing.Length)}] -> {target}", Theme.Ok);
+            AuditLog.Record(settings, settings.DryRun, "duplicate-replace", item.FullPath, target, item.Kind);
+            report.MoviesMoved++;
+            return;
+        }
+
+        if (settings.DryRun)
+        {
+            Status.Line($"  [dry: duplicate — existing {Gb(existing.Length)} kept; incoming {Gb(incoming.Length)} would be deleted]", Theme.Active);
+            return;
+        }
+
+        Directory.Delete(item.FullPath, recursive: true);
+        Status.Line($"  [duplicate — existing {Gb(existing.Length)} kept; incoming {Gb(incoming.Length)} deleted]", Theme.Ok);
+        AuditLog.Record(settings, settings.DryRun, "duplicate-discard", item.FullPath, target, item.Kind);
+    }
+
+    /// <summary>
+    /// Largest non-sample video file directly inside <paramref name="folder"/>,
+    /// or null when there is none. The largest file is "the movie"; smaller
+    /// videos (samples, extras) don't decide a duplicate contest.
+    /// </summary>
+    private FileInfo? PrimaryVideo(string folder)
+    {
+        var videoExts = new HashSet<string>(settings.VideoExtensions, StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            return Directory.EnumerateFiles(folder)
+                .Where(f => videoExts.Contains(Path.GetExtension(f)))
+                .Where(f => !NameParser.IsSampleName(Path.GetFileName(f)))
+                .Select(f => new FileInfo(f))
+                .OrderByDescending(f => f.Length)
+                .FirstOrDefault();
+        }
+        catch (DirectoryNotFoundException) { return null; }
+        catch (UnauthorizedAccessException) { return null; }
+        catch (IOException) { return null; }
+    }
+
+    private static string Gb(long bytes) => $"{bytes / (1024.0 * 1024 * 1024):F1} GB";
 
     /// <summary>
     /// Move a music folder AS-IS to <see cref="MediaButlerSettings.MusicDestination"/>.

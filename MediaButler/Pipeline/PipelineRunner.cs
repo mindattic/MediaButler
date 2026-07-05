@@ -157,6 +157,7 @@ public sealed class PipelineRunner
         VideoExtensions       = s.VideoExtensions,
         EmptyDeleteSafetyBytes = s.EmptyDeleteSafetyBytes,
         SampleMaxBytes        = s.SampleMaxBytes,
+        DuplicateMovieAction  = s.DuplicateMovieAction,
         SubtitleExtensions    = s.SubtitleExtensions,
         VariationCatalogPath  = s.VariationCatalogPath,
         ShowLevelArtFiles     = s.ShowLevelArtFiles,

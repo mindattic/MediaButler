@@ -64,6 +64,10 @@ app.Configure(config =>
     config.AddCommand<StatusCommand>("status")
         .WithExample("status");
 
+    config.AddCommand<McpCommand>("mcp")
+        .WithDescription("Serve the Model Context Protocol over stdio (tools: scan, status, run).")
+        .WithExample("mcp");
+
     config.AddCommand<VersionCommand>("version");
 });
 

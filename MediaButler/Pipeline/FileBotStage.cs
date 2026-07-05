@@ -208,6 +208,14 @@ public sealed class FileBotStage
             bumpOk(true);
             return;
         }
+        if (dryRun && result.LooksLikeTestPass)
+        {
+            // FileBot exits 1 for --action TEST even when every file matched;
+            // the [TEST] plan lines are the success signal in dry-run.
+            Status.Inline($"  [dry {label} ok]", Theme.Ok);
+            bumpOk(true);
+            return;
+        }
         var detail = result.LastInterestingLine();
         Status.Inline($"  [{label}: exit {result.ExitCode}]", Theme.Err);
         if (!string.IsNullOrWhiteSpace(detail))

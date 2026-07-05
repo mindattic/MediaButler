@@ -436,6 +436,18 @@ public sealed class FileBotResult
         StdErr.Contains("Processed 0 files", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// True when a <c>--action TEST</c> invocation matched files and printed its
+    /// rename plan. FileBot (verified on 5.2.1) exits 1 for TEST even when every
+    /// file matched — "[TEST] from [a] to [b]" per file plus "Processed 8 files" —
+    /// because nothing was actually renamed on disk. Callers must treat this as
+    /// success in dry-run only; a live MOVE never emits [TEST] lines.
+    /// </summary>
+    public bool LooksLikeTestPass =>
+        !LooksLikeNoOp &&
+        (StdOut.Contains("[TEST] from [", StringComparison.Ordinal) ||
+         StdErr.Contains("[TEST] from [", StringComparison.Ordinal));
+
+    /// <summary>
     /// Last meaningful line emitted by FileBot. Prefers stderr on failure
     /// (where FileBot writes its diagnostic) and falls back to stdout. Used
     /// to give the user the actual reason behind a non-zero exit instead of

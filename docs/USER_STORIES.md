@@ -4,7 +4,7 @@ project: MediaButler
 code: MB
 layer: stories
 status: living
-updated: 2026-06-13
+updated: 2026-07-04
 ---
 
 # MediaButler — User Stories
@@ -88,6 +88,18 @@ updated: 2026-06-13
   rename; illegal path characters are sanitized. *(verified by `IsCrossVolume_returns_false_for_same_drive`,
   `SafeMoveDirectory_renames_a_folder_when_target_is_on_the_same_drive`,
   `SanitizeForFs_*` cases in `MoveStageTests`.)*
+- **MB-US-D3 ✅** As an operator, when a movie's destination folder already has content, the
+  duplicate is auto-resolved by the `duplicateMovieAction` policy: `KeepLargest` (default) keeps
+  whichever copy has the larger primary video and deletes the other (audit-logged; existing
+  artwork survives a replacement); `flag` restores the classic leave-both-and-ask behaviour; and
+  with no comparable video on either side it always falls back to flagging. Overridable per run
+  via `--duplicates keep-largest|flag`. *(verified by
+  `KeepLargest_incoming_larger_replaces_the_destination_video_and_keeps_artwork`,
+  `KeepLargest_incoming_smaller_is_discarded_and_the_destination_untouched`,
+  `Flag_leaves_both_copies_and_surfaces_needs_manual`,
+  `KeepLargest_without_a_comparable_video_falls_back_to_flagging`,
+  `KeepLargest_dry_run_mutates_nothing_in_either_direction`,
+  `Duplicates_cli_flag_overlays_the_persisted_setting`.)* See [MB-A6](AMENDMENTS.md).
 
 ## Epic E — Safety & operability
 - **MB-US-E1 ✅** As an operator, dry-run prints `[dry: -> target]` and mutates nothing on disk.
@@ -109,6 +121,21 @@ updated: 2026-06-13
   version and exits zero. *(verified by `Bare_double_dash_version_resolves_to_version_subcommand`,
   `Short_dash_v_resolves_to_version_subcommand`,
   `Dash_v_in_any_argv_position_still_resolves_to_version`.)*
+- **MB-US-E6 ✅** As a cron job, a dry-run over well-formed media exits clean: FileBot's
+  exit-1-on-`--action TEST` quirk is recognised as a pass (the `[TEST]` plan lines are the
+  success signal), so false errors never mask real ones. *(verified by
+  `LooksLikeTestPass_detects_dry_run_plan_lines_despite_exit_1`,
+  `LooksLikeTestPass_is_false_when_nothing_was_processed`,
+  `LooksLikeTestPass_is_false_for_real_failures`.)* See [MB-A5](AMENDMENTS.md).
+- **MB-US-E7 ✅** As an agent host (Claude Code, Claude Desktop), I can drive MediaButler over
+  the Model Context Protocol: `mediabutler mcp` serves stdio JSON-RPC with `scan` (read-only
+  classification), `status` (config snapshot), and `run` (pipeline; dry-run by default, mutation
+  only on explicit `dryRun=false`) — the same engine as the CLI and menu (HOUSE-LAW-6).
+  *(verified by `Initialize_reports_server_info_and_tools_capability`,
+  `ToolsList_exposes_scan_status_run_with_safe_run_default`,
+  `Scan_tool_classifies_a_movie_folder`,
+  `Run_tool_defaults_to_dry_run_and_mutates_nothing`,
+  `Unknown_tool_reports_isError_instead_of_a_protocol_fault`.)* See [MB-A6](AMENDMENTS.md).
 
 ## Epic I — Real-inbox conversion contract (MB-A3)
 - **MB-US-I1 ✅** As an operator, every naming variation inventoried from my real inboxes

@@ -49,6 +49,10 @@ public class BaseSettings : CommandSettings
     [CommandOption("--limit <N>")]
     public int? Limit { get; init; }
 
+    [Description("Duplicate-movie policy when the destination folder already has content: keep-largest (default; the copy with the larger primary video wins, the other is deleted) or flag (leave both, surface for a human — classic behaviour).")]
+    [CommandOption("--duplicates <keep-largest|flag>")]
+    public string? Duplicates { get; init; }
+
     [Description("Bypass the source/destination overlap safety check. Use when pointing a command at a destination folder to repair an existing library (e.g. hoist --source M:\\Movies --no-guard).")]
     [CommandOption("--no-guard")]
     public bool NoGuard { get; init; }
@@ -93,5 +97,15 @@ public class BaseSettings : CommandSettings
         if (!string.IsNullOrWhiteSpace(MusicDest))  s.MusicDestination  = MusicDest.Trim();
         if (Limit.HasValue && Limit.Value > 0) s.Limit = Limit;
         if (NoGuard) s.NoGuard = true;
+        if (!string.IsNullOrWhiteSpace(Duplicates))
+        {
+            s.DuplicateMovieAction = Duplicates.Trim().Replace("-", "").ToLowerInvariant() switch
+            {
+                "keeplargest" => DuplicateMovieAction.KeepLargest,
+                "flag"        => DuplicateMovieAction.Flag,
+                var other     => throw new InvalidOperationException(
+                    $"Unknown --duplicates value '{other}': use keep-largest or flag."),
+            };
+        }
     }
 }

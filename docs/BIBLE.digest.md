@@ -5,7 +5,7 @@ code: MB
 layer: digest
 status: living
 generatedFrom: MB-§1
-updated: 2026-06-13
+updated: 2026-07-04
 ---
 
 AUTHORITATIVE — full detail in docs/BIBLE.md
@@ -161,33 +161,39 @@ disables saving for the run — user edits are never overwritten by MediaButler.
 - **Legion** — `MindAttic.Legion`, the provider-agnostic LLM transport.
 
 ## Status index (from docs/USER_STORIES.md)
-- ✅ done: 34
+- ✅ done: 37
 - 🟡 partial: 7
 - ⬜ planned: 1
 - 🗑️ cut: 1
 
 ## Latest amendment (amendment wins over the bible)
 
-## MB-A4 — MovieCollection: classify and hoist collection husks (supersedes §4.1)
+## MB-A6 — Duplicate-movie policy and the MCP front door (refines MB-LAW-9; extends HOUSE-LAW-6)
 
-Adds `MediaKind.MovieCollection` to the scanner and pipeline.
+**Duplicate-movie policy.** MB-LAW-9's "duplicates are a human decision" default proved wrong for
+movies in practice (2026-07-04: a 29.6 GB PROPER arrived for a film whose 11.5 GB copy was already
+filed, and the pipeline parked it in the inbox). New setting `duplicateMovieAction`:
 
-**Problem.** A folder like `Studio.Ghibli/` holding `Spirited.Away.2001/`, `Howl's.Moving.Castle.2004/`, etc. is a "collection husk" — it contains no top-level video files, only movie sub-directories. The scanner previously classified it as `Movie` (title "Studio Ghibli", year null) and FileBot failed with exit 3 (no database match). The sub-folders were never processed.
+- **`KeepLargest` (default).** When a movie's destination folder already has content, the copy
+  with the larger primary video (largest non-sample video file) wins. Incoming larger → the
+  destination's video files are deleted and the incoming folder merges in (existing artwork
+  survives; non-video name collisions keep the destination's copy). Incoming smaller or equal →
+  the incoming folder is deleted. Both directions audit-log the loser (`duplicate-replace` /
+  `duplicate-discard`). With **no comparable video on either side, it always falls back to
+  flagging** — a wrong guess destroys media. Dry-run logs the decision and mutates nothing.
+- **`Flag`.** The classic MB-LAW-9 behaviour: leave both copies, surface needs-manual (exit 2).
 
-**Classification rule.** A folder with no top-level video files whose ≥ 2 direct sub-directories each (a) parse with a release year via `NameParser.ParseMovie` and (b) contain at least one video file is classified as `MediaKind.MovieCollection`. Detection occurs before `ClassifyMoviePath` in `MediaScanner.ClassifyByRegex`.
+CLI: `--duplicates keep-largest|flag` on every pipeline command overlays the persisted setting.
+Episode/season duplicates are UNCHANGED — MB-LAW-9's merge-and-flag contract still governs TV.
 
-**Pipeline behaviour.**
-- `RenameStage.ProcessItem`: calls `HoistMovieCollection` — moves each parseable sub-dir to the source root as `{Title} (YYYY)/`, then deletes the now-empty husk. Sub-dirs without a parseable year are flagged for manual review.
-- `RenameStage.HoistMovieCollections` (public): pre-pass entry point for `FileBotStage.RunMovies` — scans for all `MovieCollection` items and hoists them so FileBot can process each film individually.
-- `FileBotStage.RunMovies`: calls `new RenameStage(settings, report).HoistMovieCollections()` before the main scan, ensuring the `filebot-movies` standalone command also handles collection husks.
-- `PipelineReport.CollectionHoisted`: counter incremented per hoisted sub-dir; displayed in the pipeline summary as `Collection hoist`.
+**MCP front door.** `mediabutler mcp` serves the Model Context Protocol over stdio
+(newline-delimited JSON-RPC 2.0): tools `scan` (read-only classification of the inboxes, JSON per
+item), `status` (config snapshot), `run` (full pipeline; **dryRun=true by default** — an agent
+must pass `dryRun=false` explicitly to mutate, and MB-LAW-1 governs as usual). One engine, many
+front doors (HOUSE-LAW-6): the MCP layer dispatches into the same `PipelineRunner`/`MediaScanner`
+as the CLI and menu. stdout carries protocol frames only; pipeline narration is rebound to stderr
+and returned inside tool results. Register with `claude mcp add mediabutler -- mediabutler mcp`.
 
-**Test isolation fix.** `MediaScannerTests.SettingsFor` and `RenameStageTests.SettingsFor` now generate a per-test `VariationCatalogPath` (temp GUID file) to prevent catalog cross-contamination between tests that reuse the same folder names.
-
-Verified by `Collection_husk_with_two_year_folders_classifies_as_MovieCollection`,
-`MovieCollection_hoist_moves_sub_folders_to_source_root_and_deletes_husk`,
-`MovieCollection_hoist_dry_run_leaves_disk_untouched_but_counts_hoisted`,
-`HoistMovieCollections_pre_pass_hoists_collection_and_leaves_normal_movies_untouched`
-(207 tests passing, 2026-06-13).
+Verified by `DuplicateMovieActionTests.*` and `McpServerTests.*` (2026-07-04).
 
 

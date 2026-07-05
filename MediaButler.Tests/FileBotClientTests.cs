@@ -174,6 +174,36 @@ public class FileBotClientTests
     }
 
     [Test]
+    public void LooksLikeTestPass_detects_dry_run_plan_lines_despite_exit_1()
+    {
+        // FileBot 5.2.1 exits 1 for --action TEST even when every file matched
+        // (observed live 2026-07-04: The Bear S05, 8/8 episodes matched, exit 1).
+        var r = new FileBotResult
+        {
+            ExitCode = 1,
+            StdOut = "Rename episodes using [TheTVDB] with [Airdate Order]\n" +
+                     "[TEST] from [M:\\Torrents\\The.Bear.S05\\The.Bear.S05E01.mp4] to [M:\\Torrents\\The.Bear.S05\\The Bear - S05E01 - Soda.mp4]\n" +
+                     "Processed 8 files",
+            StdErr = "",
+        };
+        Assert.That(r.LooksLikeTestPass, Is.True);
+    }
+
+    [Test]
+    public void LooksLikeTestPass_is_false_when_nothing_was_processed()
+    {
+        var r = new FileBotResult { ExitCode = 1, StdOut = "Processed 0 files", StdErr = "" };
+        Assert.That(r.LooksLikeTestPass, Is.False);
+    }
+
+    [Test]
+    public void LooksLikeTestPass_is_false_for_real_failures()
+    {
+        var r = new FileBotResult { ExitCode = 3, StdOut = "", StdErr = "Failure (×_×)⌒☆" };
+        Assert.That(r.LooksLikeTestPass, Is.False);
+    }
+
+    [Test]
     public void LastInterestingLine_prefers_stderr_over_stdout()
     {
         var r = new FileBotResult

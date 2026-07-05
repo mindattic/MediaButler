@@ -22,9 +22,11 @@ Built on `MindAttic.Vault` for settings (`%APPDATA%\MindAttic\MediaButler\settin
 - [What it does](#what-it-does)
 - [Library cleanup: `relocate`](#library-cleanup-relocate)
 - [Safety](#safety)
+- [Duplicate movies](#duplicate-movies)
 - [Configuration](#configuration)
 - [OpenSubtitles credentials](#opensubtitles-credentials)
 - [LLM fallback parsing](#llm-fallback-parsing)
+- [MCP server (agents)](#mcp-server-agents)
 - [Why a console app and not PowerShell](#why-a-console-app-and-not-powershell)
 - [Build and run](#build-and-run)
 - [Tests](#tests)
@@ -92,9 +94,35 @@ source-vs-destination guard doesn't apply.
   library.
 - **Idempotent operations.** Re-running the pipeline on an already-clean
   library is a no-op: canonical folder names (`Better Call Saul - Season 05`,
-  `Heat (1995)`) round-trip through the parser without changing. Targets
-  that already exist with content are skipped and recorded as
-  needs-manual.
+  `Heat (1995)`) round-trip through the parser without changing. TV seasons
+  that already exist at the target merge file-by-file (colliding episodes
+  stay behind, flagged); duplicate movies resolve per the
+  [duplicate policy](#duplicate-movies).
+
+## Duplicate movies
+
+When a movie's destination folder already exists with content, the
+`duplicateMovieAction` setting decides what happens:
+
+- **`KeepLargest`** (default) — the copy with the larger primary video file
+  (the largest non-sample video) wins. If the incoming rip is larger, the
+  destination's video is replaced and the existing artwork is kept; if the
+  incoming rip is smaller or equal, it is deleted from the inbox. Either way
+  the loser is recorded in the audit log (`duplicate-replace` /
+  `duplicate-discard`). If either side has no video to compare, MediaButler
+  refuses to guess and flags the item instead.
+- **`Flag`** — the classic behaviour: leave both copies untouched and
+  surface the conflict as needs-manual (exit code `2`).
+
+Override per run with `--duplicates keep-largest|flag`:
+
+```powershell
+mediabutler run --duplicates flag       # nothing is ever auto-deleted this run
+mediabutler move --duplicates keep-largest
+```
+
+TV episode duplicates are unaffected: colliding episodes always stay behind
+for a human (see [Safety](#safety)).
 
 ## Configuration
 
@@ -110,6 +138,7 @@ managed through the in-app Settings menu. Defaults:
 | `subtitleLanguage`  | `en`                                          |
 | `enableSubtitles`   | `false` (needs OpenSubtitles login)           |
 | `dryRun`            | `false`                                       |
+| `duplicateMovieAction` | `KeepLargest` (or `Flag`; see [Duplicate movies](#duplicate-movies)) |
 | `excludedFolders`   | `temp`, `.temp`, `incomplete`, `complete`, `_unsorted` |
 
 ## OpenSubtitles credentials
@@ -154,6 +183,28 @@ same `%APPDATA%\MindAttic\LLM\providers.json` keyring every other MindAttic
 project reads from. If the provider key isn't configured, the fallback is
 skipped silently and the folder is surfaced in the final report's
 "Needs manual fix" list.
+
+## MCP server (agents)
+
+`mediabutler mcp` serves the [Model Context Protocol](https://modelcontextprotocol.io)
+over stdio, so agent hosts (Claude Code, Claude Desktop, anything MCP-aware)
+can drive MediaButler directly:
+
+| Tool     | What it does                                                        |
+| -------- | ------------------------------------------------------------------- |
+| `scan`   | Read-only classification of every inbox item, as JSON (kind + canonical target). |
+| `status` | Configuration snapshot: sources, destinations, mode, duplicate policy, FileBot availability. |
+| `run`    | The full pipeline. **Dry-run by default** — pass `dryRun: false` to actually organize. Returns the pipeline log and exit code. |
+
+Register it with Claude Code:
+
+```powershell
+claude mcp add mediabutler -- mediabutler mcp
+```
+
+It's the same engine as the CLI and interactive menu — one engine, many
+front doors. stdout carries protocol frames only; pipeline narration goes
+to stderr and rides inside tool results.
 
 ## Why a console app and not PowerShell
 

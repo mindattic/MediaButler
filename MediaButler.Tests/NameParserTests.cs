@@ -115,6 +115,14 @@ public class NameParserTests
     [TestCase("The.Roast.of.Tom.Brady.2024",                                                        "The Roast of Tom Brady",       2024)]
     [TestCase("Once 2007",                                                                          "Once",                          2007)]
     [TestCase("Prospect.2018.1080p.BluRay.x264-VETO[EtHD]",                                         "Prospect",                      2018)]
+    // 2026-07-04 real-inbox shapes
+    [TestCase("Obsession.2026.2160p.iT.WEB-DL.UNRATED.DV.HDR10+.MULTi.FRE.LAT.DDP5.1.Atmos.H265.MP4-BEN.THE.MEN", "Obsession",           2026)]
+    [TestCase("Project.Hail.Mary.2026.PROPER.HDR.2160p.WEB.h265-GRACE",                             "Project Hail Mary",             2026)]
+    [TestCase("Mortal.Kombat.II.2026.1080p.DCPRip.x264-FS",                                         "Mortal Kombat II",              2026)]
+    [TestCase("Scary Movie 2026 1080p DCPRiP x264-FS",                                              "Scary Movie",                   2026)]
+    [TestCase("Star.Wars.The.Mandalorian.And.Grogu.2026.1080p.DCPRiP.x264-FS",                      "Star Wars The Mandalorian And Grogu", 2026)]
+    [TestCase("The Devil Wears Prada 2 (2026) 2160p H265 HDR DV iTA EnG Sub iTA-MIRCrew",           "The Devil Wears Prada 2",       2026)]
+    [TestCase("The.Sheep.Detectives.2026.1080p.WEBRip.10Bit.DDP5.1.x265-NeoNoir",                   "The Sheep Detectives",          2026)]
     public void ParseMovie_extracts_title_and_year(string input, string expectedTitle, int expectedYear)
     {
         var (title, year) = NameParser.ParseMovie(input);
@@ -207,6 +215,20 @@ public class NameParserTests
         Assert.Multiple(() =>
         {
             Assert.That(title, Is.EqualTo(input));
+            Assert.That(year,  Is.Null);
+        });
+    }
+
+    // Year-less names must still shed the 2026-07-04 inbox tags: mixed-case
+    // DCPRiP (case-sensitive list needs each real form) and UNRATED.
+    [TestCase("Scary.Movie.DCPRiP.x264-FS",  "Scary Movie")]
+    [TestCase("Obsession.UNRATED.2160p.WEB", "Obsession")]
+    public void ParseMovie_strips_new_junk_tags_when_no_year_anchors_the_title(string input, string expectedTitle)
+    {
+        var (title, year) = NameParser.ParseMovie(input);
+        Assert.Multiple(() =>
+        {
+            Assert.That(title, Is.EqualTo(expectedTitle));
             Assert.That(year,  Is.Null);
         });
     }
