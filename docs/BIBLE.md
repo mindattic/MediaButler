@@ -4,7 +4,7 @@ project: MediaButler
 code: MB
 layer: bible
 status: living
-updated: 2026-06-12
+updated: 2026-07-17
 ---
 
 # MediaButler — Project Bible
@@ -38,9 +38,19 @@ user-extendable corpus.
   (default `claude`). Off by default. See [#MB-LAW-6](#MB-§5).
 - **Plex-ready output.** TV becomes `M:\TV\<Show>\Season XX\episodes`, movies become
   `M:\Movies\<Title> (YYYY)\`. Per-season artwork hoists to the show root and deduplicates.
-- **Merge, never overwrite.** A second dump of the same season merges file-by-file into the
+- **Merge, never overwrite (TV).** A second dump of the same season merges file-by-file into the
   existing canonical folder; a file whose name or parsed episode already exists at the target
   stays behind and is flagged — duplicate rips are a human decision. See [#MB-LAW-9](#MB-§5).
+- **KeepLargest for movies.** When a movie's destination folder already has content, the copy with
+  the larger primary video wins by default (`duplicateMovieAction: KeepLargest`); the smaller copy
+  is deleted. Set `duplicateMovieAction: Flag` to restore the manual-review behaviour. See
+  [#MB-LAW-9](#MB-§5).
+- **Reboot-safe TV routing.** When a TV show is rebooted under the same name, MediaButler routes
+  year-tagged content to `ShowName (YEAR)\Season NN` automatically — once the user renames the
+  existing library folder to include its own year. See [#MB-LAW-4](#MB-§5).
+- **MCP front door.** `mediabutler mcp` exposes the pipeline over the Model Context Protocol
+  (stdio, JSON-RPC 2.0): tools `scan`, `status`, and `run` (dry-run by default). Same engine as
+  the CLI. Register with `claude mcp add mediabutler -- mediabutler mcp`.
 - **Every variation is cataloged.** Each scan appends newly-seen names into
   `%APPDATA%\MindAttic\MediaButler\variations.json` (sections `movie`/`tv`/`music`/`unknown`),
   created as a clone of the hardcoded `MasterVariations` list. The file is hand-editable: moving
@@ -101,7 +111,7 @@ user-extendable corpus.
    unclassifiable folder or loose file --(EnableLlmFallback)--> LegionFallbackParser
                                                       -> MindAttic.Legion -> provider
 
-   Front doors (same DI graph): Spectre.Console.Cli subcommands  +  MediaButler.Maui shell
+   Front doors (same DI graph): Spectre.Console.Cli subcommands  +  MediaButler.Maui shell  +  MCP (stdio JSON-RPC)
    Settings:   %APPDATA%\MindAttic\MediaButler\settings.json   (via MindAttic.Vault)
    Variations: %APPDATA%\MindAttic\MediaButler\variations.json (clone of MasterVariations + discoveries)
 ```
@@ -122,19 +132,20 @@ user-extendable corpus.
 - **`MediaItem`** (`MediaButler/Media/MediaItem.cs`) — one classified top-level entry (folder OR
   loose file, `IsFile`) under a source: `FullPath`, `OriginalName`, `Kind`, plus movie
   (`MovieTitle`/`MovieYear`), TV (`ShowName`/`SeasonNumber`/`EpisodeNumber`/`Seasons`/
-  `OrphanFilesAtParent`/`LooseEpisodes`), or pack (`PackMovies`) fields.
+  `OrphanFilesAtParent`/`LooseEpisodes`/`TvYear`), or pack (`PackMovies`) fields. `TvYear` holds
+  the series-premiere year parsed from the source folder name, used for reboot disambiguation.
 - **`SeasonChild`** (`MediaButler/Media/MediaItem.cs`) — a nested season subfolder inside a
   multi-season parent (`FullPath`, `SeasonNumber`).
 - **`LooseEpisode` / `MoviePackChild`** (`MediaButler/Media/MediaItem.cs`) — a flat episode file
   keyed by parsed season/episode; a movie file inside a multi-movie pack.
 - **`MediaKind`** (`MediaButler/Media/MediaKind.cs`) — `Unknown` | `Movie` | `TvSeason` |
-  `MultiSeasonParent` | `Empty` | `Extras` | `TvEpisode` | `MoviePack` | `Music`.
+  `MultiSeasonParent` | `Empty` | `Extras` | `TvEpisode` | `MoviePack` | `MovieCollection` | `Music`.
 - **`MediaButlerSettings`** (`MediaButler/Settings/MediaButlerSettings.cs`) — user config:
   `SourcePath`, `ExtraSources`, `Recursive`, `TvDestination`, `MoviesDestination`,
   `MusicDestination`, `FileBotPath`, subtitle/artwork toggles, `DryRun`,
   `EnableLlmFallback`/`LlmProvider`, `ExcludedFolders`, `VideoExtensions`, `AudioExtensions`,
   `SubtitleExtensions`, `EmptyDeleteSafetyBytes`, `SampleMaxBytes`, `ShowLevelArtFiles`,
-  `TitleYearOverrides`, `VariationCatalogPath`.
+  `TitleYearOverrides`, `VariationCatalogPath`, `duplicateMovieAction` (`KeepLargest` | `Flag`).
 - **`VariationCatalog`** (`MediaButler/Media/VariationCatalog.cs`) — the persistent naming-
   variation corpus + category pins; seeded from **`MasterVariations`**
   (`MediaButler/Media/MasterVariations.cs`).
@@ -143,8 +154,9 @@ user-extendable corpus.
 - **`SubtitleCredentials`** (`MediaButler/Settings/SubtitleCredentials.cs`) — OpenSubtitles
   user/password resolved via the Vault chain; `IsComplete` gates whether creds are passed.
 - **`PipelineReport`** (`MediaButler/Pipeline/PipelineReport.cs`) — running tallies (`Renamed`,
-  `Hoisted`, `Consolidated`, `PackSplit`, `MergedFiles`, `EmptyDeleted`, `TvMoved`, `MoviesMoved`,
-  `MusicMoved`, `Errors`, `NeedsManual`, ...) that produce the consolidated summary.
+  `Hoisted`, `CollectionHoisted`, `Consolidated`, `PackSplit`, `MergedFiles`, `EmptyDeleted`,
+  `TvMoved`, `MoviesMoved`, `MusicMoved`, `Errors`, `NeedsManual`, ...) that produce the
+  consolidated summary.
 - **`LlmGuess` / `LlmFileGuess`** (`MediaButler/Llm/LegionFallbackParser.cs`) — the LLM fallback's
   parsed answers for folders and loose files respectively.
 
@@ -162,16 +174,24 @@ user-extendable corpus.
   refusal (warn in dry-run, hard refuse live); covers TV, Movies, and Music destinations.
 - **`RenameStage.Run()`** (`MediaButler/Pipeline/RenameStage.cs`) — local clean + hoist +
   empty-delete + episode consolidation (`TvEpisode` → `{Show} - Season XX`) + pack splitting
-  (`MoviePack` → one folder per film) + loose-movie wrapping + duplicate-season merge.
+  (`MoviePack` → one folder per film) + collection hoisting (`MovieCollection` husk → one
+  `{Title} (YYYY)/` per sub-dir at source root) + loose-movie wrapping + duplicate-season merge.
 - **`SeasonMerger`** (`MediaButler/Pipeline/SeasonMerger.cs`) — episode-aware file-level merge into
   an existing canonical season folder + sample-aware shell cleanup (shared by Rename and Move).
 - **`FileBotStage`** (`MediaButler/Pipeline/FileBotStage.cs`) — drives `filebot.exe` for TV, movies,
   subtitles, and artwork via `FileBotClient` (`MediaButler/FileBot/FileBotClient.cs`).
 - **`MoveStage.Run()`** (`MediaButler/Pipeline/MoveStage.cs`) — cross-volume move to Plex layout,
-  `SanitizeForFs`, show-art hoist, destination-side season merge, music move-as-is.
+  `SanitizeForFs`, show-art hoist, destination-side season merge, music move-as-is. Reboot
+  disambiguation: routes to `ShowName (TvYear)\Season NN` when `IsShowDisambiguated` finds an
+  existing year-tagged folder in the TV destination; applies `duplicateMovieAction` for movie
+  destination collisions (`KeepLargest` by default).
 - **`RelocateStage.Run()`** (`MediaButler/Pipeline/RelocateStage.cs`) — destination eviction.
 - **`LegionFallbackParser.ClassifyAsync()` / `ClassifyFileAsync()`**
   (`MediaButler/Llm/LegionFallbackParser.cs`) — LLM long-tail for folders and unmatched files.
+- **`McpServer`** (`MediaButler/Mcp/McpServer.cs`) — serves the Model Context Protocol over stdio
+  (newline-delimited JSON-RPC 2.0): tools `scan` (classification JSON), `status` (config snapshot),
+  `run` (full pipeline; `dryRun=true` by default). Dispatches into the same `PipelineRunner` as
+  the CLI (HOUSE-LAW-6). Invoked via `mediabutler mcp`.
 - **`AuditLog`** (`MediaButler/Pipeline/AuditLog.cs`) — append-only record of mutations.
 
 ## 5. The Laws {#MB-§5}
@@ -209,10 +229,15 @@ refusal to a warning. (Verified by `PathGuardTests.PathOverlaps_*`.)
 A folder with zero recognised video files is deleted only if it holds at most
 `EmptyDeleteSafetyBytes` (default 1 MB); anything larger is surfaced as needs-manual.
 `Extras`/`Specials`/`Bonus` are classified `Extras`, left in place, and flagged — never deleted or
-renamed as movies. (Verified by `Empty_disguised_folder_is_deleted`,
+renamed as movies. **Reboot routing:** a TV season whose parsed `TvYear` is set is routed to
+`ShowName (TvYear)\Season NN` in `MoveStage` when `IsShowDisambiguated` confirms an existing
+year-tagged folder in `TvDestination`; otherwise the bare `ShowName\Season NN` path is used,
+preserving backward-compatible behaviour for year-less shows. (Verified by
+`Empty_disguised_folder_is_deleted`,
 `Empty_size_guard_refuses_to_delete_a_folder_that_exceeds_the_threshold`,
 `Extras_folder_is_left_in_place_and_flagged`,
-`Extras_folder_without_video_is_classified_Extras_not_Empty`.)
+`Extras_folder_without_video_is_classified_Extras_not_Empty`,
+`ParseSingleSeason_extracts_tv_year`.)
 
 ### MB-LAW-5 — Only `relocate` touches a destination {#MB-LAW-5}
 Every pipeline stage operates on `SourcePath`. `relocate` is the sole stage that intentionally
@@ -245,16 +270,26 @@ severity (1 > 2 > 0). Cron jobs must treat `2` as actionable, not silent success
 `Unknown_subcommand_returns_nonzero`,
 `Version_subcommand_prints_version_and_exits_zero`.)
 
-### MB-LAW-9 — Merge, never overwrite; duplicates are a human decision {#MB-LAW-9}
-When a season's canonical target already exists (source-side rename or destination-side move),
-files merge individually. A file whose NAME or PARSED EPISODE already exists at the target is
-left behind and flagged (exit 2) — MediaButler never silently overwrites or double-files an
+### MB-LAW-9 — Merge, never overwrite; duplicates are a human decision (TV) or policy-resolved (movies) {#MB-LAW-9}
+**TV:** When a season's canonical target already exists (source-side rename or destination-side
+move), files merge individually. A file whose NAME or PARSED EPISODE already exists at the target
+is left behind and flagged (exit 2) — MediaButler never silently overwrites or double-files an
 episode. Emptied shells are deleted only under the sample-aware guard: every remaining video must
 be sample-named and at most `SampleMaxBytes`, with other junk at most `EmptyDeleteSafetyBytes`.
-Sample clips never travel to the library. (Verified by
-`True_duplicate_rips_stay_behind_and_are_flagged_for_a_human`,
+Sample clips never travel to the library.
+
+**Movies:** `duplicateMovieAction` (default `KeepLargest`) resolves destination collisions
+automatically. `KeepLargest` compares the largest non-sample video on each side; the larger copy
+wins (incoming larger → destination videos deleted, folder merged; incoming smaller → incoming
+deleted). Artwork and non-video files on the surviving side are preserved. When no comparable
+video exists on either side, falls back to `Flag` (no guess that could destroy media).
+`Flag` restores the TV-style leave-and-flag behaviour for movies. Both directions are audit-logged
+(`duplicate-replace` / `duplicate-discard`). Dry-run logs the decision and mutates nothing.
+
+(Verified by `True_duplicate_rips_stay_behind_and_are_flagged_for_a_human`,
 `Junk_and_sample_shells_are_cleaned_up_after_consolidation`,
-`Reruns_never_touch_destinations_and_sources_converge_to_a_steady_state`.)
+`Reruns_never_touch_destinations_and_sources_converge_to_a_steady_state`,
+`DuplicateMovieActionTests.*`.)
 
 ### MB-LAW-10 — The variation catalog grows, pins, and never clobbers user edits {#MB-LAW-10}
 Every scan records each classified top-level name into
@@ -268,26 +303,25 @@ disables saving for the run — user edits are never overwritten by MediaButler.
 `Corrupted_file_disables_saving_so_user_edits_survive`.)
 
 ## 6. Verified state {#MB-§6}
-> Build/test evidence recorded 2026-06-12 — see [#MB-§8](#MB-§8) for the bar.
+> Latest evidence 2026-07-17 — see [#MB-§8](#MB-§8) for the bar.
 
-- **Build (2026-06-12):** `dotnet build MediaButler/MediaButler.csproj` — **succeeded, 0 warnings,
-  0 errors** (net10.0-windows, assembly version 2.0.0; references MindAttic.Vault +
-  MindAttic.Legion resolved cleanly).
-- **Core tests (2026-06-12):** `dotnet test MediaButler.Tests/MediaButler.Tests.csproj` — **Passed:
-  196, Failed: 0, Skipped: 0** (NUnit). Suite covers `NameParserTests`, `EpisodeParsingTests`,
+- **Build (2026-07-17):** `dotnet build MediaButler.Tests/MediaButler.Tests.csproj` — **succeeded,
+  0 warnings, 0 errors** (net10.0-windows; covers main project and all tests).
+- **Core tests (2026-07-17):** `dotnet test MediaButler.Tests/MediaButler.Tests.csproj` — **Passed:
+  245, Failed: 0, Skipped: 0** (NUnit). Suite covers `NameParserTests`, `EpisodeParsingTests`,
   `VariationCatalogTests`, `MediaScannerTests`, `RenameStageTests`, `MoveStageTests`,
   `RelocateStageTests`, `PathGuardTests`, `SubtitleCredentialsTests`, `FileBotClientTests`,
-  `CliEndToEndTests`, `PathologicalLibraryPipelineTests`, `RealWorldLibraryPipelineTests`.
-- **Real-disk verification (2026-06-12):** `mediabutler scan` over the four real inboxes
-  (`M:\Torrents`, `M:\Torrents\temp`, `D:\Downloads`, `D:\Downloads\temp`) classified **all 54
-  top-level items with zero Unknown**; a full `run --dry-run` exercised FileBot `--action TEST`
-  end-to-end (TheTVDB SSL failures on some lookups were surfaced per-folder and did not abort the
-  pipeline).
-- **Proven working (✅):** everything from the 2026-06-07 list, plus: per-episode folder
-  consolidation, movie-pack splitting, loose-file wrapping, flat-collection season filing,
-  content-only TV detection, episode-aware duplicate merge, sample/junk shell cleanup,
-  multi-source + recursive processing, music detection (audio/catalog), the variation catalog
-  (seeded, growing, pinning, corruption-safe).
+  `CliEndToEndTests`, `PathologicalLibraryPipelineTests`, `RealWorldLibraryPipelineTests`,
+  `DuplicateMovieActionTests`, `McpServerTests`, `LooksLikeTestPassTests`.
+- **Real-disk verification (2026-07-17):** Full `run --live` over `M:\Torrents` with `--subtitles`;
+  all items classified and moved correctly including the LHOTP 2026 reboot (routed to
+  `M:\TV\Little House on the Prairie (2026)\Season 01`). 1974 original in
+  `M:\TV\Little House on the Prairie (1974)\` and nine flat `Season X` folders reorganised.
+  Zero Unknown items.
+- **Proven working (✅):** everything from previous verified state, plus: movie-collection husk
+  hoisting (`MovieCollection`), dry-run FileBot TEST-pass detection (`FileBotResult.LooksLikeTestPass`),
+  `KeepLargest` / `Flag` duplicate-movie policy, MCP front door (`mediabutler mcp`),
+  reboot/same-name TV disambiguation (year-tagged staging + `IsShowDisambiguated` routing).
 - **Partial (🟡):** the MAUI shell (`MediaButler.Maui`) and its UI smoke tests run only on
   Windows desktop and are not part of the headless `MediaButler.Tests` gate; treated as 🟡 until
   proven in this environment. Live FileBot/OpenSubtitles/LLM paths require external binaries and

@@ -76,10 +76,15 @@ refusal to a warning. (Verified by `PathGuardTests.PathOverlaps_*`.)
 A folder with zero recognised video files is deleted only if it holds at most
 `EmptyDeleteSafetyBytes` (default 1 MB); anything larger is surfaced as needs-manual.
 `Extras`/`Specials`/`Bonus` are classified `Extras`, left in place, and flagged — never deleted or
-renamed as movies. (Verified by `Empty_disguised_folder_is_deleted`,
+renamed as movies. **Reboot routing:** a TV season whose parsed `TvYear` is set is routed to
+`ShowName (TvYear)\Season NN` in `MoveStage` when `IsShowDisambiguated` confirms an existing
+year-tagged folder in `TvDestination`; otherwise the bare `ShowName\Season NN` path is used,
+preserving backward-compatible behaviour for year-less shows. (Verified by
+`Empty_disguised_folder_is_deleted`,
 `Empty_size_guard_refuses_to_delete_a_folder_that_exceeds_the_threshold`,
 `Extras_folder_is_left_in_place_and_flagged`,
-`Extras_folder_without_video_is_classified_Extras_not_Empty`.)
+`Extras_folder_without_video_is_classified_Extras_not_Empty`,
+`ParseSingleSeason_extracts_tv_year`.)
 
 ### MB-LAW-5 — Only `relocate` touches a destination {#MB-LAW-5}
 Every pipeline stage operates on `SourcePath`. `relocate` is the sole stage that intentionally
@@ -112,16 +117,26 @@ severity (1 > 2 > 0). Cron jobs must treat `2` as actionable, not silent success
 `Unknown_subcommand_returns_nonzero`,
 `Version_subcommand_prints_version_and_exits_zero`.)
 
-### MB-LAW-9 — Merge, never overwrite; duplicates are a human decision {#MB-LAW-9}
-When a season's canonical target already exists (source-side rename or destination-side move),
-files merge individually. A file whose NAME or PARSED EPISODE already exists at the target is
-left behind and flagged (exit 2) — MediaButler never silently overwrites or double-files an
+### MB-LAW-9 — Merge, never overwrite; duplicates are a human decision (TV) or policy-resolved (movies) {#MB-LAW-9}
+**TV:** When a season's canonical target already exists (source-side rename or destination-side
+move), files merge individually. A file whose NAME or PARSED EPISODE already exists at the target
+is left behind and flagged (exit 2) — MediaButler never silently overwrites or double-files an
 episode. Emptied shells are deleted only under the sample-aware guard: every remaining video must
 be sample-named and at most `SampleMaxBytes`, with other junk at most `EmptyDeleteSafetyBytes`.
-Sample clips never travel to the library. (Verified by
-`True_duplicate_rips_stay_behind_and_are_flagged_for_a_human`,
+Sample clips never travel to the library.
+
+**Movies:** `duplicateMovieAction` (default `KeepLargest`) resolves destination collisions
+automatically. `KeepLargest` compares the largest non-sample video on each side; the larger copy
+wins (incoming larger → destination videos deleted, folder merged; incoming smaller → incoming
+deleted). Artwork and non-video files on the surviving side are preserved. When no comparable
+video exists on either side, falls back to `Flag` (no guess that could destroy media).
+`Flag` restores the TV-style leave-and-flag behaviour for movies. Both directions are audit-logged
+(`duplicate-replace` / `duplicate-discard`). Dry-run logs the decision and mutates nothing.
+
+(Verified by `True_duplicate_rips_stay_behind_and_are_flagged_for_a_human`,
 `Junk_and_sample_shells_are_cleaned_up_after_consolidation`,
-`Reruns_never_touch_destinations_and_sources_converge_to_a_steady_state`.)
+`Reruns_never_touch_destinations_and_sources_converge_to_a_steady_state`,
+`DuplicateMovieActionTests.*`.)
 
 ### MB-LAW-10 — The variation catalog grows, pins, and never clobbers user edits {#MB-LAW-10}
 Every scan records each classified top-level name into
@@ -168,26 +183,6 @@ disables saving for the run — user edits are never overwritten by MediaButler.
 
 ## Latest amendment (amendment wins over the bible)
 
-## MB-A8 — TrailingJunk: language codes and iT streaming platform (extends NameParser)
-
-**Gap.** Language codes (`ITA`, `iTA`, `ENG`, `EnG`, `FRE`, `LAT`) and the iTunes streaming code
-(`iT`) were absent from `TrailingJunk`. In the common case they appear after a resolution or
-source token and are consumed by `.*$`. But scene packs sometimes pre-tag language before quality
-tokens (e.g. `Show.ITA.S01.1080p...`), leaving the code in the show-name segment where
-`CleanShowName` would preserve it as part of the title.
-
-**Fix.** Added two new comment-grouped lines to `NameParser.TrailingJunk`:
-- Streaming platform codes: `iT` appended to the existing group.
-- Language/subtitle codes: `ITA|iTA|ENG|EnG|FRE|LAT` as a new group.
-
-The regex is deliberately case-sensitive (see existing comment), so `FRE` cannot match `Fre` inside
-`Frequency`, `ITA` cannot match `Ita` inside `Italian`, etc. — false positives on English words are
-not a concern for the all-caps/mixed-case forms added here.
-
-**Real-world corpus.** `Little.House.on.the.Prairie.2026.S01.1080p.NF.WEB-DL.DDP5.1.ENG.Atmos.ITA.H265-TheBlackKing`
-added to `RealWorldLibrary` (M:\Torrents, TvSeason) and `ExpectedClassifications` — the only
-inbox item from the 2026-07-17 pass not yet represented in the fixture.
-
-Verified by `Scanner_classifies_every_real_world_variation_as_expected` (245 tests passing, 2026-07-17).
+(none)
 
 
