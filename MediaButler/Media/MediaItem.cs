@@ -15,6 +15,8 @@ public sealed record MediaItem
     public string? ShowName { get; init; }
     public int? SeasonNumber { get; init; }
     public int? EpisodeNumber { get; init; }
+    /// <summary>Series-premiere year parsed from the source folder name (e.g. 2026 from "Show.2026.S01..."). Used to disambiguate reboots that share a show name.</summary>
+    public int? TvYear { get; init; }
     public IReadOnlyList<SeasonChild> Seasons { get; init; } = Array.Empty<SeasonChild>();
     public IReadOnlyList<string> OrphanFilesAtParent { get; init; } = Array.Empty<string>();
 

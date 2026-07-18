@@ -134,7 +134,7 @@ public sealed class RenameStage
             return;
         }
 
-        var newName = NameParser.FormatSeasonFolder(item.ShowName, item.SeasonNumber.Value);
+        var newName = NameParser.FormatSeasonFolder(item.ShowName, item.SeasonNumber.Value, item.TvYear);
         if (string.Equals(item.OriginalName, newName, StringComparison.Ordinal))
         {
             Status.Line("  [ok]", Theme.Dim);

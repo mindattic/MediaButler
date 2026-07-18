@@ -246,6 +246,7 @@ public sealed class MediaScanner
                 Kind = MediaKind.TvSeason,
                 ShowName = single.Value.Show,
                 SeasonNumber = single.Value.Season,
+                TvYear = single.Value.Year,
             };
         }
 

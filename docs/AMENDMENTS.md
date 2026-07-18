@@ -150,3 +150,36 @@ as the CLI and menu. stdout carries protocol frames only; pipeline narration is 
 and returned inside tool results. Register with `claude mcp add mediabutler -- mediabutler mcp`.
 
 Verified by `DuplicateMovieActionTests.*` and `McpServerTests.*` (2026-07-04).
+
+## MB-A7 — Reboot/same-name TV disambiguation (extends MB-LAW-4)
+
+**Problem.** When a TV series is rebooted under the same name (e.g. *Little House on the Prairie* 2026 landing
+alongside the 1974 original), the pipeline routes both to the same destination folder
+`M:\TV\Little House on the Prairie\Season 01`, treating new episodes as duplicates of the old.
+
+**Fix.** Three-part change:
+
+1. **Year parsed from source folder name.** `NameParser.ParseSingleSeason` now extracts the
+   series-premiere year from the show-name segment (before the season marker) and returns it as
+   `int? Year` in the tuple. `MediaItem` gains `TvYear` (`int?`) populated at scan time.
+   Pre-strip: the ` - ` separator that MediaButler itself inserts is removed before year extraction
+   so that `{Show} (YYYY) - Season NN` round-trips correctly.
+
+2. **Year threaded through the staging folder name.** `NameParser.FormatSeasonFolder` gains an
+   optional `int? year` parameter. When set, the staging name becomes `{Show} ({Year}) - Season NN`
+   instead of `{Show} - Season NN`. `RenameStage` passes `item.TvYear` here; `FileBotStage.
+   SyncTvFolderToEpisodes` recovers the year from the current folder name before recomputing the
+   canonical name, so the year survives the FileBot rename pass.
+
+3. **Disambiguation-aware routing in MoveStage.** A show is considered disambiguated when the TV
+   destination already contains at least one `ShowName (YYYY)` folder. Only then does `MoveStage`
+   route to `{ShowName} ({TvYear})\Season NN`; otherwise it uses the bare `{ShowName}` path
+   (preserving existing behaviour for shows whose year happens to appear in the source dump name).
+   A warning is logged if the bare folder still exists alongside year-tagged content.
+
+**Workflow.** When a reboot arrives that shares a name with an existing library entry: rename the
+existing folder from `M:\TV\ShowName` to `M:\TV\ShowName (YEAR)` (one manual step). All subsequent
+pipeline runs for that show name auto-route to year-tagged destinations.
+
+Verified by `ParseSingleSeason_extracts_tv_year`, `FormatSeasonFolder_round_trips_through_ParseSingleSeason`
+(with year cases), and the full `RealWorldLibraryPipelineTests` suite (245 tests passing, 2026-07-17).

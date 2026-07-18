@@ -70,6 +70,25 @@ public class NameParserTests
     public void ParseSingleSeason_rejects_multi_season_dumps(string input) =>
         Assert.That(NameParser.ParseSingleSeason(input), Is.Null);
 
+    // Reboot/same-name disambiguation — year must be extracted from the show part.
+    [TestCase("Little.House.on.the.Prairie.2026.S01.1080p.NF.WEB-DL.DDP5.1.ENG.Atmos.ITA.H265-TheBlackKing",
+              "Little House on the Prairie", 1, 2026)]
+    [TestCase("Sherlock.2010.S01.COMPLETE.1080p.BluRay.x265-GroupX", "Sherlock",    1, 2010)]
+    [TestCase("The.Following.2013.S01.720p.WEB.x264",                "The Following", 1, 2013)]
+    [TestCase("Breaking.Bad.(2008).S01.1080p.BluRay",                "Breaking Bad",  1, 2008)]
+    [TestCase("Better.Call.Saul.S05.Complete.1080p.NF.WEBRip",       "Better Call Saul", 5, null)] // no year in name
+    public void ParseSingleSeason_extracts_tv_year(string input, string expectedShow, int expectedSeason, int? expectedYear)
+    {
+        var parsed = NameParser.ParseSingleSeason(input);
+        Assert.That(parsed, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(parsed!.Value.Show,   Is.EqualTo(expectedShow));
+            Assert.That(parsed.Value.Season,  Is.EqualTo(expectedSeason));
+            Assert.That(parsed.Value.Year,    Is.EqualTo(expectedYear));
+        });
+    }
+
     // ---- ParseMultiSeasonParent --------------------------------------------
 
     [TestCase("Bones Complete Series S1-S12 x264 406p + English Subs (MP4)", "Bones")]
@@ -250,20 +269,23 @@ public class NameParserTests
     /// If FormatSeasonFolder ≠ ParseSingleSeason(FormatSeasonFolder(...)),
     /// repeated runs would keep renaming and eventually destroy data.
     /// </summary>
-    [TestCase("Better Call Saul", 5)]
-    [TestCase("The X-Files",      9)]
-    [TestCase("Twin Peaks",       1)]
-    [TestCase("The Mentalist",    4)]
-    public void FormatSeasonFolder_round_trips_through_ParseSingleSeason(string show, int season)
+    [TestCase("Better Call Saul", 5,    null)]
+    [TestCase("The X-Files",      9,    null)]
+    [TestCase("Twin Peaks",       1,    null)]
+    [TestCase("The Mentalist",    4,    null)]
+    [TestCase("Little House on the Prairie", 1, 2026)] // reboot disambiguation round-trip
+    [TestCase("Ghostbusters",     1,    2025)]
+    public void FormatSeasonFolder_round_trips_through_ParseSingleSeason(string show, int season, int? year)
     {
-        var formatted = NameParser.FormatSeasonFolder(show, season);
+        var formatted = NameParser.FormatSeasonFolder(show, season, year);
         var parsed    = NameParser.ParseSingleSeason(formatted);
         Assert.That(parsed, Is.Not.Null);
         Assert.Multiple(() =>
         {
             Assert.That(parsed!.Value.Show,   Is.EqualTo(show));
             Assert.That(parsed.Value.Season,  Is.EqualTo(season));
-            Assert.That(NameParser.FormatSeasonFolder(parsed.Value.Show, parsed.Value.Season),
+            Assert.That(parsed.Value.Year,    Is.EqualTo(year));
+            Assert.That(NameParser.FormatSeasonFolder(parsed.Value.Show, parsed.Value.Season, parsed.Value.Year),
                 Is.EqualTo(formatted));
         });
     }

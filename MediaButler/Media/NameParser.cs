@@ -175,7 +175,7 @@ public static class NameParser
     /// Parse a single-season folder name. Returns null if no season marker is found.
     /// Rejects multi-season range patterns first so "Seasons 1-5" doesn't return season 1.
     /// </summary>
-    public static (string Show, int Season)? ParseSingleSeason(string folderName)
+    public static (string Show, int Season, int? Year)? ParseSingleSeason(string folderName)
     {
         var n = Normalize(folderName);
         if (MultiSeasonRange.IsMatch(n) || SeasonRange.IsMatch(n)) return null;
@@ -184,9 +184,24 @@ public static class NameParser
         if (!m.Success) return null;
 
         var seasonNum = int.Parse(m.Groups[1].Value);
-        var showPart = n[..m.Index].Trim();
+        // Pre-strip the " - " separator (from our own FormatSeasonFolder output) so
+        // the year-in-parens lands at end-of-string before CleanShowName sees it.
+        var showPart = Regex.Replace(n[..m.Index].Trim(), @"\s*-+\s*$", "");
+
+        // Extract series-premiere year before CleanShowName strips it.
+        // Prefer parenthesised "(2026)" over bare "2026" to mirror movie parsing.
+        int? year = null;
+        var parenY = ParenYear.Match(showPart);
+        if (parenY.Success)
+            year = int.Parse(parenY.Groups[1].Value);
+        else
+        {
+            var bareY = BareYear.Match(showPart);
+            if (bareY.Success) year = int.Parse(bareY.Groups[1].Value);
+        }
+
         var show = CleanShowName(showPart);
-        return string.IsNullOrWhiteSpace(show) ? null : (show, seasonNum);
+        return string.IsNullOrWhiteSpace(show) ? null : (show, seasonNum, year);
     }
 
     /// <summary>
@@ -309,11 +324,12 @@ public static class NameParser
     }
 
     /// <summary>
-    /// MediaButler's canonical pre-FileBot TV folder name: <c>{Show} - Season 01</c>.
+    /// MediaButler's canonical pre-FileBot TV folder name: <c>{Show} - Season 01</c>
+    /// (or <c>{Show} (YYYY) - Season 01</c> when a series-premiere year is known).
     /// Always two-digit padded.
     /// </summary>
-    public static string FormatSeasonFolder(string show, int season) =>
-        $"{show} - Season {season:D2}";
+    public static string FormatSeasonFolder(string show, int season, int? year = null) =>
+        year.HasValue ? $"{show} ({year}) - Season {season:D2}" : $"{show} - Season {season:D2}";
 
     /// <summary>MediaButler's canonical pre-FileBot movie folder name: <c>{Title} (YYYY)</c>.</summary>
     public static string FormatMovieFolder(string title, int? year) =>

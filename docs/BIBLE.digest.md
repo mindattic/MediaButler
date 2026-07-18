@@ -5,7 +5,7 @@ code: MB
 layer: digest
 status: living
 generatedFrom: MB-§1
-updated: 2026-07-04
+updated: 2026-07-17
 ---
 
 AUTHORITATIVE — full detail in docs/BIBLE.md
@@ -168,32 +168,37 @@ disables saving for the run — user edits are never overwritten by MediaButler.
 
 ## Latest amendment (amendment wins over the bible)
 
-## MB-A6 — Duplicate-movie policy and the MCP front door (refines MB-LAW-9; extends HOUSE-LAW-6)
+## MB-A7 — Reboot/same-name TV disambiguation (extends MB-LAW-4)
 
-**Duplicate-movie policy.** MB-LAW-9's "duplicates are a human decision" default proved wrong for
-movies in practice (2026-07-04: a 29.6 GB PROPER arrived for a film whose 11.5 GB copy was already
-filed, and the pipeline parked it in the inbox). New setting `duplicateMovieAction`:
+**Problem.** When a TV series is rebooted under the same name (e.g. *Little House on the Prairie* 2026 landing
+alongside the 1974 original), the pipeline routes both to the same destination folder
+`M:\TV\Little House on the Prairie\Season 01`, treating new episodes as duplicates of the old.
 
-- **`KeepLargest` (default).** When a movie's destination folder already has content, the copy
-  with the larger primary video (largest non-sample video file) wins. Incoming larger → the
-  destination's video files are deleted and the incoming folder merges in (existing artwork
-  survives; non-video name collisions keep the destination's copy). Incoming smaller or equal →
-  the incoming folder is deleted. Both directions audit-log the loser (`duplicate-replace` /
-  `duplicate-discard`). With **no comparable video on either side, it always falls back to
-  flagging** — a wrong guess destroys media. Dry-run logs the decision and mutates nothing.
-- **`Flag`.** The classic MB-LAW-9 behaviour: leave both copies, surface needs-manual (exit 2).
+**Fix.** Three-part change:
 
-CLI: `--duplicates keep-largest|flag` on every pipeline command overlays the persisted setting.
-Episode/season duplicates are UNCHANGED — MB-LAW-9's merge-and-flag contract still governs TV.
+1. **Year parsed from source folder name.** `NameParser.ParseSingleSeason` now extracts the
+   series-premiere year from the show-name segment (before the season marker) and returns it as
+   `int? Year` in the tuple. `MediaItem` gains `TvYear` (`int?`) populated at scan time.
+   Pre-strip: the ` - ` separator that MediaButler itself inserts is removed before year extraction
+   so that `{Show} (YYYY) - Season NN` round-trips correctly.
 
-**MCP front door.** `mediabutler mcp` serves the Model Context Protocol over stdio
-(newline-delimited JSON-RPC 2.0): tools `scan` (read-only classification of the inboxes, JSON per
-item), `status` (config snapshot), `run` (full pipeline; **dryRun=true by default** — an agent
-must pass `dryRun=false` explicitly to mutate, and MB-LAW-1 governs as usual). One engine, many
-front doors (HOUSE-LAW-6): the MCP layer dispatches into the same `PipelineRunner`/`MediaScanner`
-as the CLI and menu. stdout carries protocol frames only; pipeline narration is rebound to stderr
-and returned inside tool results. Register with `claude mcp add mediabutler -- mediabutler mcp`.
+2. **Year threaded through the staging folder name.** `NameParser.FormatSeasonFolder` gains an
+   optional `int? year` parameter. When set, the staging name becomes `{Show} ({Year}) - Season NN`
+   instead of `{Show} - Season NN`. `RenameStage` passes `item.TvYear` here; `FileBotStage.
+   SyncTvFolderToEpisodes` recovers the year from the current folder name before recomputing the
+   canonical name, so the year survives the FileBot rename pass.
 
-Verified by `DuplicateMovieActionTests.*` and `McpServerTests.*` (2026-07-04).
+3. **Disambiguation-aware routing in MoveStage.** A show is considered disambiguated when the TV
+   destination already contains at least one `ShowName (YYYY)` folder. Only then does `MoveStage`
+   route to `{ShowName} ({TvYear})\Season NN`; otherwise it uses the bare `{ShowName}` path
+   (preserving existing behaviour for shows whose year happens to appear in the source dump name).
+   A warning is logged if the bare folder still exists alongside year-tagged content.
+
+**Workflow.** When a reboot arrives that shares a name with an existing library entry: rename the
+existing folder from `M:\TV\ShowName` to `M:\TV\ShowName (YEAR)` (one manual step). All subsequent
+pipeline runs for that show name auto-route to year-tagged destinations.
+
+Verified by `ParseSingleSeason_extracts_tv_year`, `FormatSeasonFolder_round_trips_through_ParseSingleSeason`
+(with year cases), and the full `RealWorldLibraryPipelineTests` suite (245 tests passing, 2026-07-17).
 
 

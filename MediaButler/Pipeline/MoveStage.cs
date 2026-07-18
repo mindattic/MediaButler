@@ -106,7 +106,32 @@ public sealed class MoveStage
             return;
         }
 
-        var showRoot   = Path.Combine(settings.TvDestination, SanitizeForFs(item.ShowName));
+        var sanitizedShow = SanitizeForFs(item.ShowName);
+
+        // Use a year-tagged destination ONLY when the user has already set up disambiguation
+        // for this show name — i.e., at least one "ShowName (YYYY)" folder exists in the TV
+        // destination. This handles reboots (the user renames the existing bare folder to add
+        // its year, which activates year-tagged routing for all future content with that name).
+        string showRoot;
+        if (item.TvYear.HasValue && IsShowDisambiguated(settings.TvDestination, sanitizedShow))
+        {
+            showRoot = Path.Combine(settings.TvDestination, $"{sanitizedShow} ({item.TvYear})");
+
+            // Warn if the bare folder still exists alongside year-tagged content — it should
+            // have been renamed when the user set up disambiguation.
+            var bareShowRoot = Path.Combine(settings.TvDestination, sanitizedShow);
+            if (Directory.Exists(bareShowRoot))
+            {
+                Status.Print($"  ! '{bareShowRoot}' exists — rename to '{item.ShowName} (YEAR)' to avoid mixing series with '{Path.GetFileName(showRoot)}'", Theme.Active);
+                report.RecordManual(bareShowRoot, item.Kind,
+                    $"bare show folder exists alongside year-tagged '{Path.GetFileName(showRoot)}' — rename to '{item.ShowName} (YEAR)'");
+            }
+        }
+        else
+        {
+            showRoot = Path.Combine(settings.TvDestination, sanitizedShow);
+        }
+
         var seasonRoot = Path.Combine(showRoot, $"Season {item.SeasonNumber:D2}");
 
         Status.Item($"{item.ShowName} S{item.SeasonNumber:D2}");
@@ -560,6 +585,27 @@ public sealed class MoveStage
         foreach (var ch in name)
             clean.Append(Array.IndexOf(invalid, ch) >= 0 ? ' ' : ch);
         return System.Text.RegularExpressions.Regex.Replace(clean.ToString(), @"\s+", " ").Trim();
+    }
+
+    /// <summary>
+    /// True when the TV destination already contains at least one year-tagged folder
+    /// for <paramref name="sanitizedShowName"/> (e.g. "Little House on the Prairie (1974)").
+    /// This signals that the user has set up year-disambiguation for this show name
+    /// (by renaming an existing bare folder to include its year), so future content
+    /// with the same name should also land in year-tagged folders.
+    /// </summary>
+    private static bool IsShowDisambiguated(string tvDestination, string sanitizedShowName)
+    {
+        if (!Directory.Exists(tvDestination)) return false;
+        try
+        {
+            return Directory
+                .EnumerateDirectories(tvDestination, $"{sanitizedShowName} (*)", SearchOption.TopDirectoryOnly)
+                .Any(d => System.Text.RegularExpressions.Regex.IsMatch(
+                    Path.GetFileName(d), @"^.+\s+\((19|20)\d{2}\)$",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+        }
+        catch { return false; }
     }
 
     private static void EnsureDir(string path)

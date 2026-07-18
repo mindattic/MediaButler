@@ -315,8 +315,10 @@ public sealed class FileBotStage
 
         if (showName is null || seasonNum is null) return null;
 
-        var canonical = NameParser.FormatSeasonFolder(showName, seasonNum.Value);
         var currentName = Path.GetFileName(folderPath);
+        // Preserve any year-tag already in the current folder name (reboot disambiguation).
+        var existingYear = NameParser.ParseSingleSeason(currentName)?.Year;
+        var canonical = NameParser.FormatSeasonFolder(showName, seasonNum.Value, existingYear);
         if (string.Equals(canonical, currentName, StringComparison.OrdinalIgnoreCase)) return null;
 
         // "Season 01" is the Plex library layout — the folder is already inside
