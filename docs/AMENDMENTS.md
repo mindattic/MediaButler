@@ -183,3 +183,25 @@ pipeline runs for that show name auto-route to year-tagged destinations.
 
 Verified by `ParseSingleSeason_extracts_tv_year`, `FormatSeasonFolder_round_trips_through_ParseSingleSeason`
 (with year cases), and the full `RealWorldLibraryPipelineTests` suite (245 tests passing, 2026-07-17).
+
+## MB-A8 — TrailingJunk: language codes and iT streaming platform (extends NameParser)
+
+**Gap.** Language codes (`ITA`, `iTA`, `ENG`, `EnG`, `FRE`, `LAT`) and the iTunes streaming code
+(`iT`) were absent from `TrailingJunk`. In the common case they appear after a resolution or
+source token and are consumed by `.*$`. But scene packs sometimes pre-tag language before quality
+tokens (e.g. `Show.ITA.S01.1080p...`), leaving the code in the show-name segment where
+`CleanShowName` would preserve it as part of the title.
+
+**Fix.** Added two new comment-grouped lines to `NameParser.TrailingJunk`:
+- Streaming platform codes: `iT` appended to the existing group.
+- Language/subtitle codes: `ITA|iTA|ENG|EnG|FRE|LAT` as a new group.
+
+The regex is deliberately case-sensitive (see existing comment), so `FRE` cannot match `Fre` inside
+`Frequency`, `ITA` cannot match `Ita` inside `Italian`, etc. — false positives on English words are
+not a concern for the all-caps/mixed-case forms added here.
+
+**Real-world corpus.** `Little.House.on.the.Prairie.2026.S01.1080p.NF.WEB-DL.DDP5.1.ENG.Atmos.ITA.H265-TheBlackKing`
+added to `RealWorldLibrary` (M:\Torrents, TvSeason) and `ExpectedClassifications` — the only
+inbox item from the 2026-07-17 pass not yet represented in the fixture.
+
+Verified by `Scanner_classifies_every_real_world_variation_as_expected` (245 tests passing, 2026-07-17).

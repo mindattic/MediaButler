@@ -103,6 +103,10 @@ public sealed class RealWorldLibrary : IDisposable
         Dir(Torrents, "The.Bear.S05.2160p.DSNP.WEB-DL.DV.HDR.DDP5.1.H265.MP4-BEN.THE.MEN",
             "The.Bear.S05E01.2160p.DSNP.WEB-DL.DV.HDR[Ben The Men].mp4",
             "The.Bear.S05E02.2160p.DSNP.WEB-DL.DV.HDR[Ben The Men].mp4");
+        // ---- 2026-07-17 inbox pass — LHOTP 2026 reboot, NF+ITA+ENG tag run before quality ----
+        Dir(Torrents, "Little.House.on.the.Prairie.2026.S01.1080p.NF.WEB-DL.DDP5.1.ENG.Atmos.ITA.H265-TheBlackKing",
+            "Little.House.on.the.Prairie.2026.S01E01.mkv",
+            "Little.House.on.the.Prairie.2026.S01E02.mkv");
         LooseFile(Torrents, "Masters.of.the.Universe.2026.2160p.WEB-DL.DDP5.1.H.265-TGS.mkv");
         LooseFile(Torrents, "Mortal.Kombat.II.2026.1080p.DCPRip.x264-FS.mkv");
         LooseFile(Torrents, "Scary Movie 2026 1080p DCPRiP x264-FS.mkv");

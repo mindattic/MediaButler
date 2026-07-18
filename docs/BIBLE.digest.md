@@ -168,37 +168,26 @@ disables saving for the run — user edits are never overwritten by MediaButler.
 
 ## Latest amendment (amendment wins over the bible)
 
-## MB-A7 — Reboot/same-name TV disambiguation (extends MB-LAW-4)
+## MB-A8 — TrailingJunk: language codes and iT streaming platform (extends NameParser)
 
-**Problem.** When a TV series is rebooted under the same name (e.g. *Little House on the Prairie* 2026 landing
-alongside the 1974 original), the pipeline routes both to the same destination folder
-`M:\TV\Little House on the Prairie\Season 01`, treating new episodes as duplicates of the old.
+**Gap.** Language codes (`ITA`, `iTA`, `ENG`, `EnG`, `FRE`, `LAT`) and the iTunes streaming code
+(`iT`) were absent from `TrailingJunk`. In the common case they appear after a resolution or
+source token and are consumed by `.*$`. But scene packs sometimes pre-tag language before quality
+tokens (e.g. `Show.ITA.S01.1080p...`), leaving the code in the show-name segment where
+`CleanShowName` would preserve it as part of the title.
 
-**Fix.** Three-part change:
+**Fix.** Added two new comment-grouped lines to `NameParser.TrailingJunk`:
+- Streaming platform codes: `iT` appended to the existing group.
+- Language/subtitle codes: `ITA|iTA|ENG|EnG|FRE|LAT` as a new group.
 
-1. **Year parsed from source folder name.** `NameParser.ParseSingleSeason` now extracts the
-   series-premiere year from the show-name segment (before the season marker) and returns it as
-   `int? Year` in the tuple. `MediaItem` gains `TvYear` (`int?`) populated at scan time.
-   Pre-strip: the ` - ` separator that MediaButler itself inserts is removed before year extraction
-   so that `{Show} (YYYY) - Season NN` round-trips correctly.
+The regex is deliberately case-sensitive (see existing comment), so `FRE` cannot match `Fre` inside
+`Frequency`, `ITA` cannot match `Ita` inside `Italian`, etc. — false positives on English words are
+not a concern for the all-caps/mixed-case forms added here.
 
-2. **Year threaded through the staging folder name.** `NameParser.FormatSeasonFolder` gains an
-   optional `int? year` parameter. When set, the staging name becomes `{Show} ({Year}) - Season NN`
-   instead of `{Show} - Season NN`. `RenameStage` passes `item.TvYear` here; `FileBotStage.
-   SyncTvFolderToEpisodes` recovers the year from the current folder name before recomputing the
-   canonical name, so the year survives the FileBot rename pass.
+**Real-world corpus.** `Little.House.on.the.Prairie.2026.S01.1080p.NF.WEB-DL.DDP5.1.ENG.Atmos.ITA.H265-TheBlackKing`
+added to `RealWorldLibrary` (M:\Torrents, TvSeason) and `ExpectedClassifications` — the only
+inbox item from the 2026-07-17 pass not yet represented in the fixture.
 
-3. **Disambiguation-aware routing in MoveStage.** A show is considered disambiguated when the TV
-   destination already contains at least one `ShowName (YYYY)` folder. Only then does `MoveStage`
-   route to `{ShowName} ({TvYear})\Season NN`; otherwise it uses the bare `{ShowName}` path
-   (preserving existing behaviour for shows whose year happens to appear in the source dump name).
-   A warning is logged if the bare folder still exists alongside year-tagged content.
-
-**Workflow.** When a reboot arrives that shares a name with an existing library entry: rename the
-existing folder from `M:\TV\ShowName` to `M:\TV\ShowName (YEAR)` (one manual step). All subsequent
-pipeline runs for that show name auto-route to year-tagged destinations.
-
-Verified by `ParseSingleSeason_extracts_tv_year`, `FormatSeasonFolder_round_trips_through_ParseSingleSeason`
-(with year cases), and the full `RealWorldLibraryPipelineTests` suite (245 tests passing, 2026-07-17).
+Verified by `Scanner_classifies_every_real_world_variation_as_expected` (245 tests passing, 2026-07-17).
 
 

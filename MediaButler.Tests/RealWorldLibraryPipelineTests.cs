@@ -71,6 +71,8 @@ public class RealWorldLibraryPipelineTests
         ("T",  "Obsession.2026.2160p.iT.WEB-DL.UNRATED.DV.HDR10+.MULTi.FRE.LAT.DDP5.1.Atmos.H265.MP4-BEN.THE.MEN", MediaKind.Movie, "Obsession", null),
         ("T",  "Project.Hail.Mary.2026.PROPER.HDR.2160p.WEB.h265-GRACE",          MediaKind.Movie, "Project Hail Mary", null),
         ("T",  "The.Bear.S05.2160p.DSNP.WEB-DL.DV.HDR.DDP5.1.H265.MP4-BEN.THE.MEN", MediaKind.TvSeason, "The Bear", 5),
+        // 2026-07-17 — LHOTP reboot; exercises ITA+ENG language codes in show segment (pre-quality)
+        ("T",  "Little.House.on.the.Prairie.2026.S01.1080p.NF.WEB-DL.DDP5.1.ENG.Atmos.ITA.H265-TheBlackKing", MediaKind.TvSeason, "Little House on the Prairie", 1),
         ("T",  "Masters.of.the.Universe.2026.2160p.WEB-DL.DDP5.1.H.265-TGS.mkv",  MediaKind.Movie, "Masters of the Universe", null),
         ("T",  "Mortal.Kombat.II.2026.1080p.DCPRip.x264-FS.mkv",                  MediaKind.Movie, "Mortal Kombat II", null),
         ("T",  "Scary Movie 2026 1080p DCPRiP x264-FS.mkv",                       MediaKind.Movie, "Scary Movie", null),
