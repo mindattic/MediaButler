@@ -13,8 +13,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\MindAttic.Vault\MindAttic.Vault\MindAttic.Vault.csproj" />
-    <ProjectReference Include="..\..\MindAttic.Legion\MindAttic.Legion\MindAttic.Legion.csproj" />
+    <PackageReference Include="MindAttic.Vault" Version="1.0.0" />
+    <PackageReference Include="MindAttic.Legion" Version="21.0.0" />
   </ItemGroup>
 
   <ItemGroup>
