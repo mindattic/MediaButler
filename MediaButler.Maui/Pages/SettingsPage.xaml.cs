@@ -65,7 +65,7 @@ public partial class SettingsPage : ContentPage
                 s.EnableSubtitles = SwitchEnableSubtitles.IsToggled;
                 s.SubtitleLanguage = (EntrySubtitleLanguage.Text ?? "en").Trim();
                 s.EnableLlmFallback = SwitchEnableLlmFallback.IsToggled;
-                s.LlmProvider = (EntryLlmProvider.Text ?? "claude").Trim();
+                s.LlmProvider = (EntryLlmProvider.Text ?? "claude-api").Trim();
 
                 s.ExcludedFolders = ParseList(EntryExcludedFolders.Text);
                 s.VideoExtensions = ParseList(EntryVideoExtensions.Text);
