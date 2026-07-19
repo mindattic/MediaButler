@@ -14,7 +14,7 @@
 
   <ItemGroup>
     <PackageReference Include="MindAttic.Vault" Version="1.0.0" />
-    <PackageReference Include="MindAttic.Legion" Version="21.0.0" />
+    <PackageReference Include="MindAttic.Legion" Version="22.0.0" />
   </ItemGroup>
 
   <ItemGroup>
