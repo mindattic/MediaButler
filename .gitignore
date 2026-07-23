@@ -28,3 +28,4 @@ Thumbs.db
 scripts/cli/deploy.settings.json
 node_modules/
 package-lock.json
+.claude/checkpoint.md
