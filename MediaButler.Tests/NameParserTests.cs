@@ -142,6 +142,18 @@ public class NameParserTests
     [TestCase("Star.Wars.The.Mandalorian.And.Grogu.2026.1080p.DCPRiP.x264-FS",                      "Star Wars The Mandalorian And Grogu", 2026)]
     [TestCase("The Devil Wears Prada 2 (2026) 2160p H265 HDR DV iTA EnG Sub iTA-MIRCrew",           "The Devil Wears Prada 2",       2026)]
     [TestCase("The.Sheep.Detectives.2026.1080p.WEBRip.10Bit.DDP5.1.x265-NeoNoir",                   "The Sheep Detectives",          2026)]
+    // 2026-08-08 real-inbox shapes (2160p/4K UHD scene + iTunes/streamer dumps)
+    [TestCase("Disclosure.Day.2026.2160p.iT.WEB-DL.DV.HDR10+.DDP5.1.Atmos.H265.MP4-BTM",           "Disclosure Day",                2026)]
+    [TestCase("Michael.2026.2160p.iT.WEB-DL.DDPA5.1.HDR.DV.HEVC-BYNDR",                             "Michael",                        2026)]
+    [TestCase("Obsession (2025) 4320p HDR Ai Upscale 7.1 Atmos + 5.1 Multidub/Sub MKV -Mesc",       "Obsession",                      2025)]
+    [TestCase("Troy.2004.DC.2160p.UHD.BluRay.REMUX.DV.P7.HDR.MULTi.DTS-HD.MA.5.1.H265-BTM",         "Troy",                           2004)]
+    [TestCase("IN.THE.GREY.2026.2160p.AMZN.WEB-DL.DDP5.1.Atmos.H.265-SCOPE",                        "IN THE GREY",                    2026)]
+    [TestCase("Masters.Of.The.Universe.2026.FIX.2160p.WEB-DL.DV.HDR10+.MULTi.Atmos.H265-BTM",       "Masters Of The Universe",        2026)]
+    [TestCase("Inception 2010 PROPER Bluray 2160p AV1 HDR10 EN/ITA/FR/ES/DE OPUS 5.1-UH",           "Inception",                      2010)]
+    [TestCase("Obsession.2025.2026.2160p.UHD.BluRay.Remux.DV.P7.HDR.MULTi.TrueHD.Atmos.H265-BTM",   "Obsession",                      2025)]
+    [TestCase("F1.The.Movie.2025.MULTi.AI.2160p.UHD.BluRay.REMUX.DV.HDR.HEVC.TrueHD.Atmos.7.1-D",   "F1 The Movie",                   2025)]
+    [TestCase("Project.Hail.Mary.2026.IMAX.2160p.USA.UHD.Bluray.REMUX.DoVi.HDR10.HEVC.TrueHD.7.",   "Project Hail Mary",              2026)]
+    [TestCase("Dune.Part.Two.2024.2160p.WEB-DL.DDP5.1.Atmos.DV.HDR.H.265-FLUX[T",                   "Dune Part Two",                  2024)]
     public void ParseMovie_extracts_title_and_year(string input, string expectedTitle, int expectedYear)
     {
         var (title, year) = NameParser.ParseMovie(input);
@@ -187,6 +199,8 @@ public class NameParserTests
     [TestCase("Blade Runner 2049 2017",            "Blade Runner 2049", 2017)]
     [TestCase("Wonder Woman 1984 2020 1080p BluRay", "Wonder Woman 1984", 2020)]
     [TestCase("Blade Runner 2049 1080p BluRay",    "Blade Runner 2049", null)]
+    // 2026-08-08: real-inbox dump with a "US" region tag riding along after the year.
+    [TestCase("Blade.Runner.2049.2017.PROPER.2160p.US.BluRay.REMUX.HEVC.DTS-HD.MA.TrueHD.7.1.At", "Blade Runner 2049", 2017)]
     public void ParseMovie_respects_title_year_overrides(string input, string expectedTitle, int? expectedYear)
     {
         var overrides = new MediaButler.Settings.MediaButlerSettings().TitleYearOverrides;
