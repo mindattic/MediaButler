@@ -1,8 +1,9 @@
 namespace MediaButler.Settings;
 
 /// <summary>
-/// What MoveStage does when a movie's destination folder already exists with
-/// content. Serialized as a string in settings.json (case-insensitive read).
+/// What happens when a movie folder — or, via <see cref="MediaButlerSettings.DuplicateEpisodeAction"/>,
+/// a single TV episode — already exists at the destination with content.
+/// Serialized as a string in settings.json (case-insensitive read).
 /// </summary>
 [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter))]
 public enum DuplicateMovieAction
@@ -16,7 +17,7 @@ public enum DuplicateMovieAction
 
     /// <summary>
     /// Classic MB-LAW-9 behaviour: never touch either copy — the incoming
-    /// folder stays in the source and surfaces as needs-manual (exit 2).
+    /// folder/file stays in the source and surfaces as needs-manual (exit 2).
     /// </summary>
     Flag,
 }
@@ -184,6 +185,16 @@ public sealed class MediaButlerSettings
     /// leave-both-and-ask behaviour. CLI: <c>--duplicates keep-largest|flag</c>.
     /// </summary>
     public DuplicateMovieAction DuplicateMovieAction { get; set; } = DuplicateMovieAction.KeepLargest;
+
+    /// <summary>
+    /// Duplicate-episode policy: what to do when a TV season merge finds an
+    /// incoming episode whose name or parsed episode number already exists at
+    /// the destination season folder. <see cref="DuplicateMovieAction.KeepLargest"/>
+    /// (default) keeps whichever copy has the larger video file and deletes the
+    /// other, mirroring <see cref="DuplicateMovieAction"/>; <see cref="DuplicateMovieAction.Flag"/>
+    /// restores the classic leave-both-and-ask behaviour. CLI: <c>--tv-duplicates keep-largest|flag</c>.
+    /// </summary>
+    public DuplicateMovieAction DuplicateEpisodeAction { get; set; } = DuplicateMovieAction.KeepLargest;
 
     /// <summary>
     /// Ceiling for treating a "sample"-named video as junk. Release groups

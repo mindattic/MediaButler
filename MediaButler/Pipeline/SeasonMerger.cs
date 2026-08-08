@@ -11,10 +11,13 @@ namespace MediaButler.Pipeline;
 /// <para>Merging exists because real inboxes hold the SAME season twice in
 /// different shapes ("Criminal Minds Season 2" with scene codes next to
 /// "Criminal Minds Season 2 Complete WEB x264 [i_c]") — usually with
-/// complementary episode subsets. Files move individually; a file stays put
-/// when the target already has its exact name OR already has the same parsed
-/// episode (so two rips of S03E01 surface as a human decision instead of
-/// becoming a silent duplicate).</para>
+/// complementary episode subsets. Files move individually; a file whose name
+/// or parsed episode already exists at the target is a duplicate. Under
+/// <see cref="DuplicateMovieAction.KeepLargest"/> (the default, via
+/// <see cref="MediaButlerSettings.DuplicateEpisodeAction"/>) the larger video
+/// wins and the other is deleted, mirroring MoveStage's movie-duplicate
+/// policy; under <see cref="DuplicateMovieAction.Flag"/> both copies stay put
+/// and surface as a human decision.</para>
 /// </summary>
 public static class SeasonMerger
 {
@@ -37,18 +40,19 @@ public static class SeasonMerger
         var videoExts = new HashSet<string>(settings.VideoExtensions,    StringComparer.OrdinalIgnoreCase);
         var subExts   = new HashSet<string>(settings.SubtitleExtensions, StringComparer.OrdinalIgnoreCase);
 
-        // Index the target once: file names + parsed episode numbers.
-        var targetNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var targetEps   = new HashSet<int>();
+        // Index the target once: file names + parsed episode numbers, keeping
+        // full paths so a KeepLargest conflict can compare sizes and replace.
+        var targetPathByName    = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var targetPathByEpisode = new Dictionary<int, string>();
         if (Directory.Exists(targetFolder))
         {
             foreach (var f in Directory.EnumerateFiles(targetFolder))
             {
                 var fname = Path.GetFileName(f);
-                targetNames.Add(fname);
+                targetPathByName[fname] = f;
                 if (videoExts.Contains(Path.GetExtension(f)) &&
                     NameParser.ParseEpisodeNumberInSeason(fname, season) is { } ep)
-                    targetEps.Add(ep);
+                    targetPathByEpisode[ep] = f;
             }
         }
 
@@ -62,8 +66,24 @@ public static class SeasonMerger
             if (isVideo && NameParser.IsSampleName(fname)) continue;   // samples never merge
 
             var episode = isVideo ? NameParser.ParseEpisodeNumberInSeason(fname, season) : null;
-            if (targetNames.Contains(fname) || (episode is { } e && targetEps.Contains(e)))
+            var existingPath = targetPathByName.GetValueOrDefault(fname)
+                ?? (episode is { } e ? targetPathByEpisode.GetValueOrDefault(e) : null);
+
+            if (existingPath is not null)
             {
+                if (isVideo && settings.DuplicateEpisodeAction == DuplicateMovieAction.KeepLargest &&
+                    ResolveEpisodeDuplicate(file, existingPath, targetFolder, settings) is { } outcome)
+                {
+                    if (outcome.Replaced)
+                    {
+                        targetPathByName.Remove(Path.GetFileName(existingPath));
+                        targetPathByName[fname] = outcome.NewPath!;
+                        if (episode is { } newEp) targetPathByEpisode[newEp] = outcome.NewPath!;
+                        moved++;
+                    }
+                    continue;
+                }
+
                 conflicts++;
                 continue;
             }
@@ -74,8 +94,8 @@ public static class SeasonMerger
                 AuditLog.Record(settings, settings.DryRun, "merge", file,
                     Path.Combine(targetFolder, fname), MediaKind.TvSeason);
             }
-            targetNames.Add(fname);
-            if (episode is { } moe) targetEps.Add(moe);
+            targetPathByName[fname] = Path.Combine(targetFolder, fname);
+            if (episode is { } moe) targetPathByEpisode[moe] = Path.Combine(targetFolder, fname);
             moved++;
         }
 
@@ -85,6 +105,49 @@ public static class SeasonMerger
                 $"{conflicts} file(s) duplicate episodes already in {targetFolder} — pick the copy to keep");
         }
         return new MergeResult(moved, conflicts);
+    }
+
+    private readonly record struct EpisodeDuplicateOutcome(bool Replaced, string? NewPath);
+
+    /// <summary>
+    /// A single episode video collides with one already at the target. The
+    /// larger file wins: incoming larger → the existing video is deleted and
+    /// the incoming one moves into its place; incoming smaller or equal → the
+    /// incoming copy is deleted and the existing one is untouched. Both
+    /// directions are audit-logged. Returns null (falls back to Flag-style
+    /// conflict handling) only if a file vanished out from under us mid-race.
+    /// </summary>
+    private static EpisodeDuplicateOutcome? ResolveEpisodeDuplicate(
+        string incomingPath, string existingPath, string targetFolder, MediaButlerSettings settings)
+    {
+        long incomingLen, existingLen;
+        try
+        {
+            incomingLen = new FileInfo(incomingPath).Length;
+            existingLen = new FileInfo(existingPath).Length;
+        }
+        catch (IOException) { return null; }
+
+        var fname = Path.GetFileName(incomingPath);
+        var dest  = Path.Combine(targetFolder, fname);
+
+        if (incomingLen > existingLen)
+        {
+            if (!settings.DryRun)
+            {
+                File.Delete(existingPath);
+                File.Move(incomingPath, dest);
+                AuditLog.Record(settings, settings.DryRun, "duplicate-replace", incomingPath, dest, MediaKind.TvSeason);
+            }
+            return new EpisodeDuplicateOutcome(true, dest);
+        }
+
+        if (!settings.DryRun)
+        {
+            File.Delete(incomingPath);
+            AuditLog.Record(settings, settings.DryRun, "duplicate-discard", incomingPath, existingPath, MediaKind.TvSeason);
+        }
+        return new EpisodeDuplicateOutcome(false, null);
     }
 
     /// <summary>

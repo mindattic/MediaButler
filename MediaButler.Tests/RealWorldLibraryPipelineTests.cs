@@ -32,23 +32,24 @@ public class RealWorldLibraryPipelineTests
     [TearDown]
     public void TearDown() => fixture.Dispose();
 
-    private MediaButlerSettings SettingsFor(string source, bool dryRun = false) => new()
+    private MediaButlerSettings SettingsFor(string source, bool dryRun = false, DuplicateMovieAction? duplicateEpisodeAction = null) => new()
     {
-        SourcePath           = source,
-        TvDestination        = fixture.TvDestination,
-        MoviesDestination    = fixture.MoviesDestination,
-        VariationCatalogPath = fixture.VariationsPath,
-        EnableLlmFallback    = false,
-        DryRun               = dryRun,
+        SourcePath             = source,
+        TvDestination          = fixture.TvDestination,
+        MoviesDestination      = fixture.MoviesDestination,
+        VariationCatalogPath   = fixture.VariationsPath,
+        EnableLlmFallback      = false,
+        DryRun                 = dryRun,
+        DuplicateEpisodeAction = duplicateEpisodeAction ?? DuplicateMovieAction.KeepLargest,
     };
 
     /// <summary>Run rename + move over all four inboxes, like `mediabutler run` (minus FileBot).</summary>
-    private PipelineReport RunLocalPipelineOverAllSources(bool dryRun = false)
+    private PipelineReport RunLocalPipelineOverAllSources(bool dryRun = false, DuplicateMovieAction? duplicateEpisodeAction = null)
     {
         var report = new PipelineReport();
         foreach (var source in fixture.Sources)
         {
-            var s = SettingsFor(source, dryRun);
+            var s = SettingsFor(source, dryRun, duplicateEpisodeAction);
             new RenameStage(s, report).Run();
             new MoveStage(s, report).Run();
         }
@@ -342,7 +343,10 @@ public class RealWorldLibraryPipelineTests
     [Test]
     public void True_duplicate_rips_stay_behind_and_are_flagged_for_a_human()
     {
-        var report = RunLocalPipelineOverAllSources();
+        // MB-A9 made KeepLargest the default for TV episodes too (see
+        // DuplicateEpisodeActionTests); this test exercises the Flag opt-out,
+        // which restores the original MB-LAW-9 leave-both-and-ask behaviour.
+        var report = RunLocalPipelineOverAllSources(duplicateEpisodeAction: DuplicateMovieAction.Flag);
 
         Assert.Multiple(() =>
         {

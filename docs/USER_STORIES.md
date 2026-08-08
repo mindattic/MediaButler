@@ -151,10 +151,15 @@ updated: 2026-07-04
   reaches the library. *(verified by `Junk_and_sample_shells_are_cleaned_up_after_consolidation`.)*
 - **MB-US-I3 ✅** As an operator, multi-movie packs split into one canonical folder per film.
   *(verified by `Matrix_pack_is_split_into_four_distinct_movies`.)*
-- **MB-US-I4 ✅** As an operator, duplicate rips of the same episodes merge when complementary and
-  stay behind flagged (exit 2) when they truly collide — never silently overwritten or
-  double-filed. *(verified by `True_duplicate_rips_stay_behind_and_are_flagged_for_a_human`,
-  `ParseEpisodeNumberInSeason_resolves_context_only_shapes`.)*
+- **MB-US-I4 ✅** As an operator, duplicate rips of the same episodes merge when complementary; when
+  they truly collide (same name or parsed episode), the `duplicateEpisodeAction` policy resolves
+  it: `KeepLargest` (default) keeps whichever copy has the larger video and deletes the other
+  (audit-logged, mirroring movies' `duplicateMovieAction`); `flag` restores the classic
+  leave-both-and-ask behaviour (exit 2). Never silently overwritten or double-filed either way.
+  Overridable per run via `--tv-duplicates keep-largest|flag`. *(verified by
+  `DuplicateEpisodeActionTests.*`,
+  `True_duplicate_rips_stay_behind_and_are_flagged_for_a_human` (Flag path),
+  `ParseEpisodeNumberInSeason_resolves_context_only_shapes`.)* See [MB-A9](AMENDMENTS.md).
 - **MB-US-I5 ✅** As an operator, partial-download dotfiles (`.parts`) are never touched.
   *(verified by `Dot_parts_partial_download_file_is_ignored_entirely`.)*
 - **MB-US-I6 ✅** As an operator, re-runs never touch the destinations and the whole tree reaches

@@ -53,6 +53,10 @@ public class BaseSettings : CommandSettings
     [CommandOption("--duplicates <keep-largest|flag>")]
     public string? Duplicates { get; init; }
 
+    [Description("Duplicate-episode policy when a TV season merge finds a name/episode collision: keep-largest (default; the copy with the larger video wins) or flag (leave both, surface for a human — classic MB-LAW-9 behaviour).")]
+    [CommandOption("--tv-duplicates <keep-largest|flag>")]
+    public string? TvDuplicates { get; init; }
+
     [Description("Bypass the source/destination overlap safety check. Use when pointing a command at a destination folder to repair an existing library (e.g. hoist --source M:\\Movies --no-guard).")]
     [CommandOption("--no-guard")]
     public bool NoGuard { get; init; }
@@ -105,6 +109,16 @@ public class BaseSettings : CommandSettings
                 "flag"        => DuplicateMovieAction.Flag,
                 var other     => throw new InvalidOperationException(
                     $"Unknown --duplicates value '{other}': use keep-largest or flag."),
+            };
+        }
+        if (!string.IsNullOrWhiteSpace(TvDuplicates))
+        {
+            s.DuplicateEpisodeAction = TvDuplicates.Trim().Replace("-", "").ToLowerInvariant() switch
+            {
+                "keeplargest" => DuplicateMovieAction.KeepLargest,
+                "flag"        => DuplicateMovieAction.Flag,
+                var other     => throw new InvalidOperationException(
+                    $"Unknown --tv-duplicates value '{other}': use keep-largest or flag."),
             };
         }
     }

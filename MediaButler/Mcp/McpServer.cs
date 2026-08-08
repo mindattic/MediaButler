@@ -256,6 +256,7 @@ public sealed class McpServer
             ["moviesDestination"] = s.MoviesDestination,
             ["musicDestination"] = string.IsNullOrWhiteSpace(s.MusicDestination) ? null : s.MusicDestination,
             ["duplicateMovieAction"] = s.DuplicateMovieAction.ToString(),
+            ["duplicateEpisodeAction"] = s.DuplicateEpisodeAction.ToString(),
             ["fileBot"] = FileBotClient.TryLocate(s.FileBotPath) ?? "NOT FOUND",
             ["enableSubtitles"] = s.EnableSubtitles,
             ["enableLlmFallback"] = s.EnableLlmFallback,
