@@ -53,6 +53,8 @@ public class NameParserTests
     [TestCase("The Penguin Season 01",                                         "The Penguin",      1)]
     [TestCase("True Detective Season 02",                                      "True Detective",   2)]
     [TestCase("Twin.Peaks.SEASON.01.S01.COMPLETE.1080p.10bit.BluRay.6CH.x265.HEVC-PSA", "Twin Peaks", 1)]
+    [TestCase("Alone Australia Season 1 (S01) Complete 1080p SBS WEB-DL H 264-SUNSTONE", "Alone Australia", 1)]
+    [TestCase("Alone Australia Season 2 (S02) Complete 1080p SBS WEB-DL H 264-SUNSTONE", "Alone Australia", 2)]
     public void ParseSingleSeason_extracts_show_and_season(string input, string expectedShow, int expectedSeason)
     {
         var parsed = NameParser.ParseSingleSeason(input);

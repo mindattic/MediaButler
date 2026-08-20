@@ -117,6 +117,8 @@ public static class NameParser
         @"10bit|10BIT|10Bit|10bits|10-bit|" +
         // Streaming platform codes (iT = iTunes; others are ALLCAPS forms seen in scene names)
         @"DSNP|ATVP|ATV|PCOK|HULU|PMTP|PLAY|AMZN|NF|HMAX|MAX|iT|" +
+        // Broadcaster codes (SBS = Special Broadcasting Service, AU)
+        @"SBS|" +
         // Language / subtitle codes (appear before quality tokens when scene packs pre-tag language)
         @"ITA|iTA|ENG|EnG|FRE|LAT|" +
         // Container

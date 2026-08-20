@@ -263,6 +263,9 @@ public static class MasterVariations
         "Elementary Season 3 Complete 1080p WEB-DL [rartv]",
         "Elementary Season 3 Complete 720p WEB-DL x264 [NOSUB] [i_c]",
         "Fallout - Season 2",
+        // 2026-08-19 dry-run additions (Australian broadcaster tag: SBS)
+        "Alone Australia Season 1 (S01) Complete 1080p SBS WEB-DL H 264-SUNSTONE",
+        "Alone Australia Season 2 (S02) Complete 1080p SBS WEB-DL H 264-SUNSTONE",
     ];
 
     public static readonly string[] Music =
