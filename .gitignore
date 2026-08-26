@@ -1,4 +1,4 @@
-# Build output
+﻿# Build output
 bin/
 obj/
 out/
@@ -28,4 +28,4 @@ Thumbs.db
 scripts/cli/deploy.settings.json
 node_modules/
 package-lock.json
-.claude/checkpoint.md
+.claude/quicksave.md
