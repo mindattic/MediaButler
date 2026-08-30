@@ -199,6 +199,17 @@ public static class MasterVariations
         "Spider-Man.No.Way.Home.2022.2160p.UHD.BluRay.TrueHD.7.1.Atmos.HD",
         "Hokum.2026.2160p.AMZN.WEB-DL.DV.HDR10+.DDP5.1.H265.MP4-BTM",
         "Harry Potter and the Prisoner of Azkaban (2004) [2160p] [BluRay] [5.1]",
+        // 2026-08-29 dry-run additions (new release groups: BEN.THE.MEN, Ghost, DKS;
+        // hardcoded-subs version tag HC.V2; ESub suffix)
+        "Normal (2026) (1080p BluRay x265 10bit EAC3 7.1 Atmos SAMPA)",
+        "Obsession.2026.1080p.AMZN.WEB-DL.DDP5.1.H264.MP4-BEN.THE.MEN",
+        "The Mandalorian and Grogu (2026) IMAX (1080p BluRay x265 10bit EAC3 Atmos 7.1 Ghost)",
+        "The.End.of.Oak.Street.2026.1080p.HC.V2.x264-DKS",
+        "Toy.Story.5.2026.2160p.iT.WEB-DL.DV.HDR10+.DDP5.1.Atmos.H265.MP4-BTM",
+        "Batman.Knightfall.Part.1.Knightfall.2026.1080p.WEBRip.10Bit.DDP5.1.x265-NeoNoir.mkv",
+        "Colony (2026) Eng 1080p WEBRip x265 AAC ESub.mkv",
+        "Evil.Dead.Burn.2026.1080p.WEBRip.10Bit.DDP5.1.x265-NeoNoir.mkv",
+        "Mutiny 2026 1080p WEB-DL HEVC x265 5.1 BONE.mkv",
     ];
 
     public static readonly string[] Tv =
