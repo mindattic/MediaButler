@@ -210,6 +210,9 @@ public static class MasterVariations
         "Colony (2026) Eng 1080p WEBRip x265 AAC ESub.mkv",
         "Evil.Dead.Burn.2026.1080p.WEBRip.10Bit.DDP5.1.x265-NeoNoir.mkv",
         "Mutiny 2026 1080p WEB-DL HEVC x265 5.1 BONE.mkv",
+        // 2026-09-05 dry-run additions (new release groups: JYK, VPPV)
+        "Minions 2015 1080p BluRay x264 AC3-JYK",
+        "Despicable Me 3 (2017) 1080p BrRip x264 - VPPV",
     ];
 
     public static readonly string[] Tv =

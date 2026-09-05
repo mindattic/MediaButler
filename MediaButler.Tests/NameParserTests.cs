@@ -156,6 +156,9 @@ public class NameParserTests
     [TestCase("F1.The.Movie.2025.MULTi.AI.2160p.UHD.BluRay.REMUX.DV.HDR.HEVC.TrueHD.Atmos.7.1-D",   "F1 The Movie",                   2025)]
     [TestCase("Project.Hail.Mary.2026.IMAX.2160p.USA.UHD.Bluray.REMUX.DoVi.HDR10.HEVC.TrueHD.7.",   "Project Hail Mary",              2026)]
     [TestCase("Dune.Part.Two.2024.2160p.WEB-DL.DDP5.1.Atmos.DV.HDR.H.265-FLUX[T",                   "Dune Part Two",                  2024)]
+    // 2026-09-05 real-inbox shapes (new release groups: JYK, VPPV)
+    [TestCase("Minions 2015 1080p BluRay x264 AC3-JYK",                                            "Minions",                        2015)]
+    [TestCase("Despicable Me 3 (2017) 1080p BrRip x264 - VPPV",                                    "Despicable Me 3",                2017)]
     public void ParseMovie_extracts_title_and_year(string input, string expectedTitle, int expectedYear)
     {
         var (title, year) = NameParser.ParseMovie(input);
