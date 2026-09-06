@@ -55,6 +55,12 @@ public class NameParserTests
     [TestCase("Twin.Peaks.SEASON.01.S01.COMPLETE.1080p.10bit.BluRay.6CH.x265.HEVC-PSA", "Twin Peaks", 1)]
     [TestCase("Alone Australia Season 1 (S01) Complete 1080p SBS WEB-DL H 264-SUNSTONE", "Alone Australia", 1)]
     [TestCase("Alone Australia Season 2 (S02) Complete 1080p SBS WEB-DL H 264-SUNSTONE", "Alone Australia", 2)]
+    // 2026-09-05 real-inbox shapes (new release groups: NTb, ELiTE, t3nzin, V3SP4EV3R, Pir8)
+    [TestCase("House.of.the.Dragon.S02.COMPLETE.1080p.AMZN.WEB-DL.DDP5.1.H.264-NTb[TGx]", "House of the Dragon", 2)]
+    [TestCase("Severance.S02.1080p.x265-ELiTE",                                          "Severance",         2)]
+    [TestCase("Silo (2023) Season 1 S01 (1080p ATVP WEB-DL x265 HEVC 10bit EAC3 Atmos 5.1 t3nzin)", "Silo", 1)]
+    [TestCase("Silo.S02.REPACK.1080p.ITA-ENG.MULTI.WEBRip.x265.AAC-V3SP4EV3R",            "Silo",              2)]
+    [TestCase("Silo.S03.ITA.ENG.1080p.ATVP.WEBRip.AAC.x265-Pir8",                         "Silo",              3)]
     public void ParseSingleSeason_extracts_show_and_season(string input, string expectedShow, int expectedSeason)
     {
         var parsed = NameParser.ParseSingleSeason(input);
@@ -159,6 +165,10 @@ public class NameParserTests
     // 2026-09-05 real-inbox shapes (new release groups: JYK, VPPV)
     [TestCase("Minions 2015 1080p BluRay x264 AC3-JYK",                                            "Minions",                        2015)]
     [TestCase("Despicable Me 3 (2017) 1080p BrRip x264 - VPPV",                                    "Despicable Me 3",                2017)]
+    // 2026-09-05 M:\Torrents live-run shapes (new release groups: KRaLiMaRKo, FGT; RETAIL DKSUBS tag)
+    [TestCase("Django Unchained 2012 1080p Blu-ray Remux AVC DTS-HD MA 5.1 - KRaLiMaRKo",           "Django Unchained",               2012)]
+    [TestCase("Once.Upon.a.Time.in.Hollywood.2019.1080p.BluRay.REMUX.AVC.DTS-HD.MA.5.1-FGT",        "Once Upon a Time in Hollywood",  2019)]
+    [TestCase("The Death Of Robin Hood (2026) [RETAIL DKSUBS] [1080p] [WEBRip] [5.1] [YTS.GG - YTS.BZ]", "The Death Of Robin Hood",   2026)]
     public void ParseMovie_extracts_title_and_year(string input, string expectedTitle, int expectedYear)
     {
         var (title, year) = NameParser.ParseMovie(input);

@@ -213,6 +213,13 @@ public static class MasterVariations
         // 2026-09-05 dry-run additions (new release groups: JYK, VPPV)
         "Minions 2015 1080p BluRay x264 AC3-JYK",
         "Despicable Me 3 (2017) 1080p BrRip x264 - VPPV",
+        // 2026-09-05 M:\Torrents live-run additions (new release groups: KRaLiMaRKo, FGT, DDR;
+        // double-index tag [YTS.GG - YTS.BZ]; RETAIL DKSUBS tag; www.UIndex.org prefix + SPLiCE)
+        "Django Unchained 2012 1080p Blu-ray Remux AVC DTS-HD MA 5.1 - KRaLiMaRKo",
+        "Once.Upon.a.Time.in.Hollywood.2019.1080p.BluRay.REMUX.AVC.DTS-HD.MA.5.1-FGT",
+        "The Death Of Robin Hood (2026) [RETAIL DKSUBS] [1080p] [WEBRip] [5.1] [YTS.GG - YTS.BZ]",
+        "www.UIndex.org    -    The.Odyssey.2026.1080p.TELESYNC.HEVC.AAC2.0-SPLiCE",
+        "The.Hateful.Eight.2015.2160p.REMUX DCPRip.Eng -DDR.mkv",
     ];
 
     public static readonly string[] Tv =
@@ -280,6 +287,14 @@ public static class MasterVariations
         // 2026-08-19 dry-run additions (Australian broadcaster tag: SBS)
         "Alone Australia Season 1 (S01) Complete 1080p SBS WEB-DL H 264-SUNSTONE",
         "Alone Australia Season 2 (S02) Complete 1080p SBS WEB-DL H 264-SUNSTONE",
+        // 2026-09-05 M:\Torrents live-run additions (new release groups: NTb, ELiTE, t3nzin,
+        // V3SP4EV3R, Pir8; eztv.re site tag)
+        "House.of.the.Dragon.S02.COMPLETE.1080p.AMZN.WEB-DL.DDP5.1.H.264-NTb[TGx]",
+        "Severance.S01.1080p.WEBRip.x265[eztv.re]",
+        "Severance.S02.1080p.x265-ELiTE",
+        "Silo (2023) Season 1 S01 (1080p ATVP WEB-DL x265 HEVC 10bit EAC3 Atmos 5.1 t3nzin)",
+        "Silo.S02.REPACK.1080p.ITA-ENG.MULTI.WEBRip.x265.AAC-V3SP4EV3R",
+        "Silo.S03.ITA.ENG.1080p.ATVP.WEBRip.AAC.x265-Pir8",
     ];
 
     public static readonly string[] Music =
