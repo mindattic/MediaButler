@@ -220,6 +220,9 @@ public static class MasterVariations
         "The Death Of Robin Hood (2026) [RETAIL DKSUBS] [1080p] [WEBRip] [5.1] [YTS.GG - YTS.BZ]",
         "www.UIndex.org    -    The.Odyssey.2026.1080p.TELESYNC.HEVC.AAC2.0-SPLiCE",
         "The.Hateful.Eight.2015.2160p.REMUX DCPRip.Eng -DDR.mkv",
+        // 2026-09-06 M:\Torrents live-run additions (new release groups: ETRG, GalaxyRG265)
+        "Rambo.Last.Blood.2019.1080p.Bluray.x264.AAC-ETRG",
+        "The.Crow.2024.1080p.WEBRip.DDP5.1.x265.10bit-GalaxyRG265[TGx]",
     ];
 
     public static readonly string[] Tv =
@@ -295,6 +298,10 @@ public static class MasterVariations
         "Silo (2023) Season 1 S01 (1080p ATVP WEB-DL x265 HEVC 10bit EAC3 Atmos 5.1 t3nzin)",
         "Silo.S02.REPACK.1080p.ITA-ENG.MULTI.WEBRip.x265.AAC-V3SP4EV3R",
         "Silo.S03.ITA.ENG.1080p.ATVP.WEBRip.AAC.x265-Pir8",
+        // 2026-09-06 M:\Torrents live-run additions (new release groups: DBMS, RiCK, edge2020)
+        "Archer.2009.S01-S14.1080p.WEB.DD.AV1-DBMS",
+        "Elementary Season 1-4 S01-S04 1080p WEB-DL x264-MIXED [RiCK]",
+        "Rick.and.Morty.S06.1080p.BluRay.DDP.5.1.x265-edge2020",
     ];
 
     public static readonly string[] Music =
