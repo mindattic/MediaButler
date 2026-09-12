@@ -26,7 +26,7 @@ public class SettingsEditorTests
         using var tmp = new TempDir();
         var ownKeys = new AppScopedCredentialStore("mediabutler", new CredentialStore(tmp.Path));
 
-        Assert.That(SettingsEditor.DescribeProviderKey("claude-api", ownKeys),
+        Assert.That(SettingsEditor.DescribeProviderKey("claude", ownKeys),
             Is.EqualTo("Not configured (falls back to the shared default)"));
     }
 
@@ -36,12 +36,12 @@ public class SettingsEditorTests
         using var tmp = new TempDir();
         var inner = new CredentialStore(tmp.Path);
         var ownKeys = new AppScopedCredentialStore("mediabutler", inner);
-        ownKeys.SetKey("claude-api", "sk-ant-test");
+        ownKeys.SetKey("claude", "sk-ant-test");
 
-        Assert.That(SettingsEditor.DescribeProviderKey("claude-api", ownKeys), Is.EqualTo("Configured"));
+        Assert.That(SettingsEditor.DescribeProviderKey("claude", ownKeys), Is.EqualTo("Configured"));
         // Confirms it landed under the scoped id, not the shared one.
-        Assert.That(inner.GetKey("mediabutler-claude-api"), Is.EqualTo("sk-ant-test"));
-        Assert.That(inner.GetKey("claude-api"), Is.Null);
+        Assert.That(inner.GetKey("mediabutler-claude"), Is.EqualTo("sk-ant-test"));
+        Assert.That(inner.GetKey("claude"), Is.Null);
     }
 
     [Test]
@@ -49,10 +49,10 @@ public class SettingsEditorTests
     {
         using var tmp = new TempDir();
         var inner = new CredentialStore(tmp.Path);
-        inner.SetKey("claude-api", "shared-key");
+        inner.SetKey("claude", "shared-key");
         var ownKeys = new AppScopedCredentialStore("mediabutler", inner);
 
-        Assert.That(SettingsEditor.DescribeProviderKey("claude-api", ownKeys),
+        Assert.That(SettingsEditor.DescribeProviderKey("claude", ownKeys),
             Is.EqualTo("Not configured (falls back to the shared default)"));
     }
 }

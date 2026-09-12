@@ -127,7 +127,7 @@ public sealed class MediaButlerSettings
     public bool EnableLlmFallback { get; set; } = false;
 
     /// <summary>Legion provider id used for fallback parsing (claude, openai, gemini, ...).</summary>
-    public string LlmProvider { get; set; } = "claude-api";
+    public string LlmProvider { get; set; } = "claude";
 
     /// <summary>Top-level folder names under <see cref="SourcePath"/> MediaButler should skip.</summary>
     public string[] ExcludedFolders { get; set; } = ["temp", ".temp", "incomplete", "complete", "_unsorted"];
