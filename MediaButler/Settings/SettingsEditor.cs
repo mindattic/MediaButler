@@ -1,4 +1,5 @@
 using MediaButler.Ui;
+using MindAttic.Vault.Credentials;
 
 namespace MediaButler.Settings;
 
@@ -10,6 +11,14 @@ namespace MediaButler.Settings;
 public sealed class SettingsEditor
 {
     private readonly SettingsService settings;
+
+    /// <summary>
+    /// MediaButler's own Vault-scoped LLM keys (<c>"mediabutler-{providerId}"</c>) — checked
+    /// by <see cref="Llm.LegionFallbackParser"/> before the shared cross-app default. Lives here
+    /// (not settings.json) so a key never gets echoed back in plain text via "Open Settings File".
+    /// </summary>
+    private static readonly ICredentialStore OwnKeys =
+        new AppScopedCredentialStore("mediabutler", LlmCredentialStore.Default);
 
     public SettingsEditor(SettingsService settings) => this.settings = settings;
 
@@ -67,6 +76,8 @@ public sealed class SettingsEditor
                     Tag = (Action)(() => Toggle(v => v.EnableLlmFallback, (v, x) => v.EnableLlmFallback = x)) },
             new() { Name = "LLM Provider",        Description = s.LlmProvider,
                     Tag = (Action)(() => EditString("LLM provider (claude/openai/gemini/...)", v => v.LlmProvider, (v, x) => v.LlmProvider = x)) },
+            new() { Name = "LLM API Key",         Description = DescribeProviderKey(s.LlmProvider, OwnKeys),
+                    Tag = (Action)EditProviderKey },
             new() { Name = "Excluded Folders",    Description = string.Join(", ", s.ExcludedFolders),
                     Tag = (Action)(() => EditList("Excluded folders (comma-separated)", v => v.ExcludedFolders, (v, x) => v.ExcludedFolders = x)) },
             new() { Name = "Open Variations File", Description = Media.VariationCatalog.ResolvePath(s) + " (movie/tv/music sections; hand-edits pin a name's category)",
@@ -102,6 +113,48 @@ public sealed class SettingsEditor
         var parts = next.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         settings.Update(s => setter(s, parts));
         Status.Print("Saved.", Theme.Ok);
+        Screen.PressAnyKey();
+    }
+
+    internal static string DescribeProviderKey(string providerId, ICredentialStore ownKeys)
+    {
+        if (string.IsNullOrWhiteSpace(providerId)) return "(set LLM Provider first)";
+        var hasKey = !string.IsNullOrWhiteSpace(ownKeys.GetKey(providerId));
+        return hasKey ? "Configured" : "Not configured (falls back to the shared default)";
+    }
+
+    /// <summary>
+    /// Edits this app's own Vault-scoped key for the currently-configured
+    /// <see cref="MediaButlerSettings.LlmProvider"/> — never the shared cross-app id, and never
+    /// written to settings.json (so it can't be echoed back via "Open Settings File"). Blank input
+    /// keeps the existing key; "clear" removes it and falls back to the shared default.
+    /// </summary>
+    private void EditProviderKey()
+    {
+        var providerId = settings.Load().LlmProvider;
+        if (string.IsNullOrWhiteSpace(providerId))
+        {
+            Status.Print("Set an LLM Provider first.", Theme.Err);
+            Screen.PressAnyKey();
+            return;
+        }
+
+        var hint = DescribeProviderKey(providerId, OwnKeys) == "Configured"
+            ? "configured — blank keeps it, type clear to remove"
+            : "not configured";
+        var input = Screen.Prompt($"API key for '{providerId}'", hint);
+        if (input is null || input == hint) return;
+
+        if (string.Equals(input, "clear", StringComparison.OrdinalIgnoreCase))
+        {
+            OwnKeys.SetKey(providerId, "");
+            Status.Print("Cleared — falls back to the shared default.", Theme.Ok);
+        }
+        else
+        {
+            OwnKeys.SetKey(providerId, input);
+            Status.Print("Saved.", Theme.Ok);
+        }
         Screen.PressAnyKey();
     }
 
