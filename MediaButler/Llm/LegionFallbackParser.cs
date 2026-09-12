@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MindAttic.Legion;
+using MindAttic.Vault.Credentials;
 using MediaButler.Settings;
 
 namespace MediaButler.Llm;
@@ -15,13 +16,24 @@ public sealed class LegionFallbackParser
 {
     private static readonly HttpClient SharedHttp = new() { Timeout = TimeSpan.FromSeconds(30) };
 
+    /// <summary>
+    /// MediaButler's own Vault-scoped keys (<c>"mediabutler-{providerId}"</c>), checked
+    /// before <see cref="LegionClient"/> falls back to the shared cross-app id for
+    /// <see cref="MediaButlerSettings.LlmProvider"/>. There's no settings UI to write one
+    /// yet (MediaButler has no per-key entry surface, only the shared
+    /// <c>%APPDATA%\MindAttic\LLM</c> store today) — this just puts MediaButler on the
+    /// same resolution order as every other MindAttic app ahead of one existing.
+    /// </summary>
+    private static readonly ICredentialStore OwnKeys =
+        new AppScopedCredentialStore("mediabutler", LlmCredentialStore.Default);
+
     private readonly MediaButlerSettings settings;
     private readonly LegionClient client;
 
     public LegionFallbackParser(MediaButlerSettings settings)
     {
         this.settings = settings;
-        client = new LegionClient(SharedHttp);
+        client = new LegionClient(SharedHttp, options: null, keyResolver: OwnKeys.GetKey);
     }
 
     /// <summary>
