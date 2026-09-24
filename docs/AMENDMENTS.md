@@ -44,3 +44,36 @@ unchanged and still always flag.
 
 (Verified by `DuplicateEpisodeActionTests.*`. The original MB-LAW-9 TV-human-decision behaviour is
 still covered under `Flag` by `True_duplicate_rips_stay_behind_and_are_flagged_for_a_human`.)
+
+### MB-A10 — TV destination layout reverts to flat `{Show} - Season NN`, no per-show container {#MB-A10}
+
+**Supersedes** the nested `ShowName\Season NN` TV destination layout described throughout
+[§4.3](BIBLE.md#MB-§4) and [MB-LAW-4](BIBLE.md#MB-LAW-4) (folded from the reboot-disambiguation
+work at epoch `2026-07-17`).
+
+Born from a 2026-09-23 `M:\Torrents` run: FileBot failed to rename "Kian's Bizarre B&B" S02
+(exit 3), but `MoveStage` still moved it into a nested `M:\TV\Kians Bizarre B and B\Season 02`.
+Checking the real library showed that layout was wrong for this project — the user's actual
+library (e.g. `12 Monkeys (2015) Season 1`, `Season 2`, …, each with its own artwork copies) has
+always been flat, one folder per season directly under `TvDestination`. The nested layout was a
+well-intentioned but unrequested departure introduced by the reboot-disambiguation feature; the
+user confirmed: "I always wanted it flat."
+
+`MoveStage.MoveTvSeason` now targets `{TvDestination}\{NameParser.FormatSeasonFolder(...)}`
+directly — `{Show} - Season NN`, or `{Show} (Year) - Season NN` once `IsShowDisambiguated` detects
+existing year-tagged season folders for that show name (reboot disambiguation still works, just
+flat). Per-season artwork FileBot fetches into the season folder now stays there — the show-level
+art hoist/dedupe step (`HoistShowLevelArt`/`DeleteShowLevelArt`, and the now-dead
+`MediaButlerSettings.ShowLevelArtFiles` setting) was removed entirely, since there is no show-root
+folder to hoist it to. `RelocateStage.BuildTvTarget` was updated to match (flat target, no
+year-disambiguation there — it never had that in the first place). Test fixture
+`PlexStandard.TvSeasonPath`/`SeasonFolder` (`MediaButler.Tests/Fixtures/PlexStandard.cs`) updated
+to assert the flat path.
+
+One-time manual migration: any pre-existing nested folders under `M:\TV` this bug already created
+(Kian's Bizarre B&B, the LHOTP 2026 reboot) were hoisted back to flat and the empty show
+containers deleted — see git history around 2026-09-23 for the cleanup.
+
+(Verified by the existing `MoveStageTests`/`RelocateStageTests`/`DuplicateEpisodeActionTests`/
+`PathologicalLibraryPipelineTests` suites, updated to assert flat paths — no new test file, since
+this is a straight revert of covered behavior rather than new behavior.)

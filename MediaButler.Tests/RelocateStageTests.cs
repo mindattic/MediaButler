@@ -46,7 +46,7 @@ public class RelocateStageTests
         Assert.Multiple(() =>
         {
             Assert.That(Directory.Exists(theEnglish),                                                  Is.False, "TV folder should have been evicted from Movies");
-            Assert.That(Directory.Exists(Path.Combine(tv, "The English", "Season 01")),                Is.True,  "TV folder should land in TvDestination");
+            Assert.That(Directory.Exists(Path.Combine(tv, "The English - Season 01")),                 Is.True,  "TV folder should land in TvDestination");
             Assert.That(Directory.Exists(heat),                                                        Is.True,  "correctly-placed movie should be left alone");
             Assert.That(report.TvMoved,                                                                Is.EqualTo(1));
             Assert.That(report.Errors,                                                                 Is.Empty);
@@ -96,7 +96,7 @@ public class RelocateStageTests
         Assert.Multiple(() =>
         {
             Assert.That(Directory.Exists(theEnglish),                                  Is.True, "dry run must not move the folder");
-            Assert.That(Directory.Exists(Path.Combine(tv, "The English", "Season 01")), Is.False);
+            Assert.That(Directory.Exists(Path.Combine(tv, "The English - Season 01")), Is.False);
         });
     }
 

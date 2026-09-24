@@ -9,10 +9,9 @@ namespace MediaButler.Pipeline;
 /// into Plex-shaped destinations:
 ///
 /// <list type="bullet">
-///   <item>TV: <c>{Show} - Season XX</c> at source root → <c>{TvDestination}\{Show}\Season XX\episode.ext</c>.
-///         Show-level artwork (poster.jpg / banner.jpg / fanart.jpg / tvshow.nfo) is hoisted from the
-///         first processed season into <c>{TvDestination}\{Show}\</c> so Plex finds it at the show root,
-///         and the duplicates inside other season folders are deleted.</item>
+///   <item>TV: <c>{Show} - Season XX</c> at source root → <c>{TvDestination}\{Show} - Season XX\episode.ext</c>
+///         — a flat folder directly under <c>TvDestination</c>, matching the user's existing library
+///         (no per-show container folder). Artwork FileBot fetched into the season folder moves with it.</item>
 ///   <item>Movies: <c>{Title} ({Year})</c> at source root → <c>{MoviesDestination}\{Title} ({Year})\</c>
 ///         (entire folder moves as-is — poster/backdrop already live with the movie file).</item>
 /// </list>
@@ -26,14 +25,12 @@ namespace MediaButler.Pipeline;
 public sealed class MoveStage
 {
     private readonly MediaButlerSettings settings;
-    private readonly HashSet<string> showArt;
     private readonly PipelineReport report;
 
     public MoveStage(MediaButlerSettings settings, PipelineReport report)
     {
         this.settings = settings;
         this.report   = report;
-        showArt       = new HashSet<string>(settings.ShowLevelArtFiles, StringComparer.OrdinalIgnoreCase);
     }
 
     public void Run()
@@ -53,12 +50,8 @@ public sealed class MoveStage
         ReportOrphanCopyMarkers(settings.MoviesDestination, report);
 
         var items = new MediaScanner(settings).Scan().ToList();
-        // Track show roots we've already populated so duplicate artwork from
-        // subsequent seasons gets pruned instead of overwriting good art.
-        var showRootsSeeded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // Stable order — process all seasons of a show together so the first
-        // season seeds show-level art and subsequent ones dedupe against it.
+        // Stable order — cosmetic only now that seasons move independently.
         IEnumerable<MediaItem> ordered = items
             .OrderBy(i => i.Kind == MediaKind.Movie ? 1 : 0)
             .ThenBy(i => i.ShowName ?? i.MovieTitle ?? i.OriginalName)
@@ -72,7 +65,7 @@ public sealed class MoveStage
                 switch (item.Kind)
                 {
                     case MediaKind.TvSeason:
-                        MoveTvSeason(item, showRootsSeeded);
+                        MoveTvSeason(item);
                         break;
                     case MediaKind.Movie:
                         MoveMovie(item);
@@ -97,7 +90,7 @@ public sealed class MoveStage
         }
     }
 
-    private void MoveTvSeason(MediaItem item, HashSet<string> showRootsSeeded)
+    private void MoveTvSeason(MediaItem item)
     {
         if (string.IsNullOrWhiteSpace(item.ShowName) || item.SeasonNumber is null)
         {
@@ -109,30 +102,30 @@ public sealed class MoveStage
         var sanitizedShow = SanitizeForFs(item.ShowName);
 
         // Use a year-tagged destination ONLY when the user has already set up disambiguation
-        // for this show name — i.e., at least one "ShowName (YYYY)" folder exists in the TV
-        // destination. This handles reboots (the user renames the existing bare folder to add
-        // its year, which activates year-tagged routing for all future content with that name).
-        string showRoot;
-        if (item.TvYear.HasValue && IsShowDisambiguated(settings.TvDestination, sanitizedShow))
-        {
-            showRoot = Path.Combine(settings.TvDestination, $"{sanitizedShow} ({item.TvYear})");
+        // for this show name — i.e., at least one "{Show} (YYYY) - Season NN" folder exists in
+        // the TV destination. This handles reboots (the user renames the existing bare season
+        // folder(s) to add the year, which activates year-tagged routing for all future content
+        // with that show name).
+        int? year = item.TvYear.HasValue && IsShowDisambiguated(settings.TvDestination, sanitizedShow)
+            ? item.TvYear
+            : null;
 
-            // Warn if the bare folder still exists alongside year-tagged content — it should
-            // have been renamed when the user set up disambiguation.
-            var bareShowRoot = Path.Combine(settings.TvDestination, sanitizedShow);
-            if (Directory.Exists(bareShowRoot))
+        if (year.HasValue)
+        {
+            // Warn if a bare (year-less) season folder for this show still exists alongside
+            // year-tagged content — it should have been renamed when disambiguation kicked in.
+            var bareMatch = Directory.Exists(settings.TvDestination)
+                ? Directory.EnumerateDirectories(settings.TvDestination, $"{sanitizedShow} - Season *", SearchOption.TopDirectoryOnly).FirstOrDefault()
+                : null;
+            if (bareMatch is not null)
             {
-                Status.Print($"  ! '{bareShowRoot}' exists — rename to '{item.ShowName} (YEAR)' to avoid mixing series with '{Path.GetFileName(showRoot)}'", Theme.Active);
-                report.RecordManual(bareShowRoot, item.Kind,
-                    $"bare show folder exists alongside year-tagged '{Path.GetFileName(showRoot)}' — rename to '{item.ShowName} (YEAR)'");
+                Status.Print($"  ! '{bareMatch}' exists — rename to include '({year})' to avoid mixing series", Theme.Active);
+                report.RecordManual(bareMatch, item.Kind,
+                    $"bare season folder exists alongside year-tagged content for '{item.ShowName}' — rename to include the year");
             }
         }
-        else
-        {
-            showRoot = Path.Combine(settings.TvDestination, sanitizedShow);
-        }
 
-        var seasonRoot = Path.Combine(showRoot, $"Season {item.SeasonNumber:D2}");
+        var seasonRoot = Path.Combine(settings.TvDestination, SanitizeForFs(NameParser.FormatSeasonFolder(item.ShowName, item.SeasonNumber.Value, year)));
 
         Status.Item($"{item.ShowName} S{item.SeasonNumber:D2}");
 
@@ -165,21 +158,6 @@ public sealed class MoveStage
             Status.Line($"  [dry: -> {seasonRoot}]", Theme.Active);
             report.TvMoved++;
             return;
-        }
-
-        EnsureDir(showRoot);
-
-        // First, hoist show-level art up to {ShowRoot}. We do this BEFORE moving
-        // anything else so the art files don't ride along into the season folder.
-        if (!showRootsSeeded.Contains(showRoot))
-        {
-            HoistShowLevelArt(item.FullPath, showRoot);
-            showRootsSeeded.Add(showRoot);
-        }
-        else
-        {
-            // Show root already has its art — delete duplicates in this season folder.
-            DeleteShowLevelArt(item.FullPath);
         }
 
         SafeMoveDirectory(item.FullPath, seasonRoot);
@@ -371,59 +349,6 @@ public sealed class MoveStage
         report.MusicMoved++;
     }
 
-    /// <summary>
-    /// Move show-level artwork files from the season folder to the show root.
-    /// Plex expects poster.jpg / fanart.jpg / tvshow.nfo at the show root, not
-    /// in each season subfolder. Reports any move/delete failure so the user
-    /// knows when art didn't land where they expected.
-    /// </summary>
-    private void HoistShowLevelArt(string seasonFolder, string showRoot)
-    {
-        foreach (var file in Directory.EnumerateFiles(seasonFolder))
-        {
-            var name = Path.GetFileName(file);
-            if (!showArt.Contains(name)) continue;
-            var dest = Path.Combine(showRoot, name);
-            if (File.Exists(dest))
-            {
-                try
-                {
-                    File.Delete(file);
-                    AuditLog.Record(settings, settings.DryRun, "delete-art", file, null, MediaKind.TvSeason);
-                }
-                catch (Exception ex) { report.RecordError(file, "art dedupe delete failed: " + ex.Message); }
-                continue;
-            }
-            try
-            {
-                File.Move(file, dest);
-                AuditLog.Record(settings, settings.DryRun, "move-art", file, dest, MediaKind.TvSeason);
-            }
-            catch (Exception ex)
-            {
-                // Leave the file behind — SafeMoveDirectory will carry it over.
-                // Surface the failure so the user knows art didn't reach the show root.
-                report.RecordError(file, "art hoist failed: " + ex.Message);
-            }
-        }
-    }
-
-    /// <summary>Delete duplicate show-level artwork from a season folder when the show root already has it.</summary>
-    private void DeleteShowLevelArt(string seasonFolder)
-    {
-        foreach (var file in Directory.EnumerateFiles(seasonFolder))
-        {
-            var name = Path.GetFileName(file);
-            if (!showArt.Contains(name)) continue;
-            try
-            {
-                File.Delete(file);
-                AuditLog.Record(settings, settings.DryRun, "delete-art", file, null, MediaKind.TvSeason);
-            }
-            catch (Exception ex) { report.RecordError(file, "art dedupe delete failed: " + ex.Message); }
-        }
-    }
-
     /// <summary>The marker dropped at the destination root while a cross-volume copy is in progress.</summary>
     internal const string CopyingMarker = ".mediabutler-copying";
 
@@ -588,10 +513,10 @@ public sealed class MoveStage
     }
 
     /// <summary>
-    /// True when the TV destination already contains at least one year-tagged folder
-    /// for <paramref name="sanitizedShowName"/> (e.g. "Little House on the Prairie (1974)").
+    /// True when the TV destination already contains at least one year-tagged season folder
+    /// for <paramref name="sanitizedShowName"/> (e.g. "Little House on the Prairie (1974) - Season 01").
     /// This signals that the user has set up year-disambiguation for this show name
-    /// (by renaming an existing bare folder to include its year), so future content
+    /// (by renaming existing bare season folders to include the year), so future content
     /// with the same name should also land in year-tagged folders.
     /// </summary>
     private static bool IsShowDisambiguated(string tvDestination, string sanitizedShowName)
@@ -599,10 +524,11 @@ public sealed class MoveStage
         if (!Directory.Exists(tvDestination)) return false;
         try
         {
+            var prefixPattern = $@"^{System.Text.RegularExpressions.Regex.Escape(sanitizedShowName)}\s+\((19|20)\d{{2}}\)";
             return Directory
-                .EnumerateDirectories(tvDestination, $"{sanitizedShowName} (*)", SearchOption.TopDirectoryOnly)
+                .EnumerateDirectories(tvDestination, $"{sanitizedShowName} (*", SearchOption.TopDirectoryOnly)
                 .Any(d => System.Text.RegularExpressions.Regex.IsMatch(
-                    Path.GetFileName(d), @"^.+\s+\((19|20)\d{2}\)$",
+                    Path.GetFileName(d), prefixPattern,
                     System.Text.RegularExpressions.RegexOptions.IgnoreCase));
         }
         catch { return false; }

@@ -36,8 +36,8 @@ user-extendable corpus.
 - **LLM-assisted long tail.** With `EnableLlmFallback` on, unclassifiable folders AND loose files
   that match no known pattern are routed through `MindAttic.Legion` to a configurable provider
   (default `claude`). Off by default. See [#MB-LAW-6](#MB-§5).
-- **Plex-ready output.** TV becomes `M:\TV\<Show>\Season XX\episodes`, movies become
-  `M:\Movies\<Title> (YYYY)\`. Per-season artwork hoists to the show root and deduplicates.
+- **Plex-ready output.** TV becomes `M:\TV\<Show> - Season XX\episodes` (flat — no per-show
+  container folder, matching the user's library), movies become `M:\Movies\<Title> (YYYY)\`.
 - **Merge, never overwrite (TV).** A second dump of the same season merges file-by-file into the
   existing canonical folder; a file whose name or parsed episode already exists at the target
   stays behind and is flagged — duplicate rips are a human decision. See [#MB-LAW-9](#MB-§5).
@@ -46,8 +46,8 @@ user-extendable corpus.
   is deleted. Set `duplicateMovieAction: Flag` to restore the manual-review behaviour. See
   [#MB-LAW-9](#MB-§5).
 - **Reboot-safe TV routing.** When a TV show is rebooted under the same name, MediaButler routes
-  year-tagged content to `ShowName (YEAR)\Season NN` automatically — once the user renames the
-  existing library folder to include its own year. See [#MB-LAW-4](#MB-§5).
+  year-tagged content to `ShowName (YEAR) - Season NN` automatically — once the user renames the
+  existing bare season folder(s) to include the year. See [#MB-LAW-4](#MB-§5).
 - **MCP front door.** `mediabutler mcp` exposes the pipeline over the Model Context Protocol
   (stdio, JSON-RPC 2.0): tools `scan`, `status`, and `run` (dry-run by default). Same engine as
   the CLI. Register with `claude mcp add mediabutler -- mediabutler mcp`.
@@ -99,11 +99,11 @@ user-extendable corpus.
                             v
    RenameStage  ->  FileBotStage  ->  MoveStage          [relocate is separate]
    (local clean,   (filebot.exe:     (cross-volume move
-    hoist seasons,  TV/Movies/subs/   to Plex layout,
-    consolidate     artwork)          hoist show art,
-    episodes, split                   merge into existing
-    packs, wrap loose                 seasons, move music
-    files, merge dups,                as-is)
+    hoist seasons,  TV/Movies/subs/   to flat season folder,
+    consolidate     artwork)          merge into existing
+    episodes, split                   seasons, move music
+    packs, wrap loose                 as-is)
+    files, merge dups,                |
     delete empties)      |                    |
         |          MindAttic.Vault       MoviesDestination / TvDestination / MusicDestination
         |          (OpenSubtitles creds)
@@ -144,7 +144,7 @@ user-extendable corpus.
   `SourcePath`, `ExtraSources`, `Recursive`, `TvDestination`, `MoviesDestination`,
   `MusicDestination`, `FileBotPath`, subtitle/artwork toggles, `DryRun`,
   `EnableLlmFallback`/`LlmProvider`, `ExcludedFolders`, `VideoExtensions`, `AudioExtensions`,
-  `SubtitleExtensions`, `EmptyDeleteSafetyBytes`, `SampleMaxBytes`, `ShowLevelArtFiles`,
+  `SubtitleExtensions`, `EmptyDeleteSafetyBytes`, `SampleMaxBytes`,
   `TitleYearOverrides`, `VariationCatalogPath`, `duplicateMovieAction` (`KeepLargest` | `Flag`).
 - **`VariationCatalog`** (`MediaButler/Media/VariationCatalog.cs`) — the persistent naming-
   variation corpus + category pins; seeded from **`MasterVariations`**
@@ -180,11 +180,11 @@ user-extendable corpus.
   an existing canonical season folder + sample-aware shell cleanup (shared by Rename and Move).
 - **`FileBotStage`** (`MediaButler/Pipeline/FileBotStage.cs`) — drives `filebot.exe` for TV, movies,
   subtitles, and artwork via `FileBotClient` (`MediaButler/FileBot/FileBotClient.cs`).
-- **`MoveStage.Run()`** (`MediaButler/Pipeline/MoveStage.cs`) — cross-volume move to Plex layout,
-  `SanitizeForFs`, show-art hoist, destination-side season merge, music move-as-is. Reboot
-  disambiguation: routes to `ShowName (TvYear)\Season NN` when `IsShowDisambiguated` finds an
-  existing year-tagged folder in the TV destination; applies `duplicateMovieAction` for movie
-  destination collisions (`KeepLargest` by default).
+- **`MoveStage.Run()`** (`MediaButler/Pipeline/MoveStage.cs`) — cross-volume move to a flat season
+  folder directly under `TvDestination` (no per-show container), `SanitizeForFs`, destination-side
+  season merge, music move-as-is. Reboot disambiguation: routes to `ShowName (TvYear) - Season NN`
+  when `IsShowDisambiguated` finds an existing year-tagged season folder in the TV destination;
+  applies `duplicateMovieAction` for movie destination collisions (`KeepLargest` by default).
 - **`RelocateStage.Run()`** (`MediaButler/Pipeline/RelocateStage.cs`) — destination eviction.
 - **`LegionFallbackParser.ClassifyAsync()` / `ClassifyFileAsync()`**
   (`MediaButler/Llm/LegionFallbackParser.cs`) — LLM long-tail for folders and unmatched files.
@@ -230,9 +230,9 @@ A folder with zero recognised video files is deleted only if it holds at most
 `EmptyDeleteSafetyBytes` (default 1 MB); anything larger is surfaced as needs-manual.
 `Extras`/`Specials`/`Bonus` are classified `Extras`, left in place, and flagged — never deleted or
 renamed as movies. **Reboot routing:** a TV season whose parsed `TvYear` is set is routed to
-`ShowName (TvYear)\Season NN` in `MoveStage` when `IsShowDisambiguated` confirms an existing
-year-tagged folder in `TvDestination`; otherwise the bare `ShowName\Season NN` path is used,
-preserving backward-compatible behaviour for year-less shows. (Verified by
+`ShowName (TvYear) - Season NN` in `MoveStage` when `IsShowDisambiguated` confirms an existing
+year-tagged season folder in `TvDestination`; otherwise the bare `ShowName - Season NN` path is
+used, preserving backward-compatible behaviour for year-less shows. (Verified by
 `Empty_disguised_folder_is_deleted`,
 `Empty_size_guard_refuses_to_delete_a_folder_that_exceeds_the_threshold`,
 `Extras_folder_is_left_in_place_and_flagged`,
@@ -314,10 +314,10 @@ disables saving for the run — user edits are never overwritten by MediaButler.
   `CliEndToEndTests`, `PathologicalLibraryPipelineTests`, `RealWorldLibraryPipelineTests`,
   `DuplicateMovieActionTests`, `McpServerTests`, `LooksLikeTestPassTests`.
 - **Real-disk verification (2026-07-17):** Full `run --live` over `M:\Torrents` with `--subtitles`;
-  all items classified and moved correctly including the LHOTP 2026 reboot (routed to
-  `M:\TV\Little House on the Prairie (2026)\Season 01`). 1974 original in
-  `M:\TV\Little House on the Prairie (1974)\` and nine flat `Season X` folders reorganised.
-  Zero Unknown items.
+  all items classified and moved correctly including the LHOTP 2026 reboot (routed at the time to
+  a nested `M:\TV\Little House on the Prairie (2026)\Season 01`). Zero Unknown items. **Superseded
+  2026-09-23 (MB-A10):** the nested show-container layout this run exercised was reverted in favor
+  of the flat `M:\TV\<Show> (Year) - Season NN` layout the user's library actually uses.
 - **Proven working (✅):** everything from previous verified state, plus: movie-collection husk
   hoisting (`MovieCollection`), dry-run FileBot TEST-pass detection (`FileBotResult.LooksLikeTestPass`),
   `KeepLargest` / `Flag` duplicate-movie policy, MCP front door (`mediabutler mcp`),
@@ -356,7 +356,7 @@ Otherwise it is 🟡/⬜. Inherits [HOUSE-LAW-8](../../MindAttic.HouseRules.md#H
 - **Canonical name** — the idempotent target form: `Show - Season NN` / `Title (YYYY)`.
 - **Multi-season parent** — one folder holding multiple `Season N` subfolders (or flat episode
   files spanning seasons) that must be hoisted/filed.
-- **Hoist** — lift nested `Season N` subfolders (or show-level artwork) up one level.
+- **Hoist** — lift nested `Season N` subfolders (from a source-side multi-season dump) up one level.
 - **Consolidate** — file a per-episode dump or loose episode file into its `{Show} - Season XX`.
 - **Pack split** — break a multi-movie folder into one `{Title} (YYYY)` folder per film.
 - **Merge** — file-level union of a duplicate season into the existing canonical folder;

@@ -55,7 +55,7 @@ public class DuplicateEpisodeActionTests
         var incomingFile = System.IO.Path.Combine(incoming, "Ted Lasso - S01E01 - Pilot.mkv");
         File.WriteAllBytes(incomingFile, new byte[incomingBytes]);
 
-        var existingSeason = System.IO.Path.Combine(tv, "Ted Lasso", "Season 01");
+        var existingSeason = System.IO.Path.Combine(tv, "Ted Lasso - Season 01");
         Directory.CreateDirectory(existingSeason);
         var existingFile = System.IO.Path.Combine(existingSeason, "Ted Lasso - S01E01 - Pilot (alt).mkv");
         File.WriteAllBytes(existingFile, new byte[existingBytes]);

@@ -161,7 +161,6 @@ public sealed class PipelineRunner
         DuplicateEpisodeAction = s.DuplicateEpisodeAction,
         SubtitleExtensions    = s.SubtitleExtensions,
         VariationCatalogPath  = s.VariationCatalogPath,
-        ShowLevelArtFiles     = s.ShowLevelArtFiles,
         TitleYearOverrides    = s.TitleYearOverrides,
         Limit                 = s.Limit,
         NoGuard               = s.NoGuard,

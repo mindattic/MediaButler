@@ -218,11 +218,6 @@ public sealed class MediaButlerSettings
     /// </summary>
     public string VariationCatalogPath { get; set; } = "";
 
-    /// <summary>Show-level artwork file names Plex looks for at the show root.</summary>
-    public string[] ShowLevelArtFiles { get; set; } =
-        ["poster.jpg", "banner.jpg", "fanart.jpg", "backdrop.jpg", "folder.jpg",
-         "landscape.jpg", "clearart.png", "logo.png", "tvshow.nfo"];
-
     /// <summary>
     /// Movie titles that contain what looks like a year as part of the title
     /// itself (not the release year). Without this list, the parser would read

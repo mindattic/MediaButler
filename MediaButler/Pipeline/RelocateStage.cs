@@ -121,8 +121,8 @@ public sealed class RelocateStage
             report.RecordManual(item.FullPath, item.Kind, "TV item missing show/season");
             return null;
         }
-        var showRoot = Path.Combine(settings.TvDestination, MoveStage.SanitizeForFs(item.ShowName));
-        return Path.Combine(showRoot, $"Season {item.SeasonNumber:D2}");
+        var seasonFolder = NameParser.FormatSeasonFolder(item.ShowName, item.SeasonNumber.Value);
+        return Path.Combine(settings.TvDestination, MoveStage.SanitizeForFs(seasonFolder));
     }
 
     /// <summary>
