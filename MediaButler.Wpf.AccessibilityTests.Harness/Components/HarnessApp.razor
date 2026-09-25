@@ -1,0 +1,17 @@
+@page "/"
+@using Microsoft.AspNetCore.Components.Web
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>MediaButler Accessibility Harness</title>
+    <base href="/" />
+    <link rel="stylesheet" href="_content/MediaButler.Wpf.UI/css/app.css" />
+    <HeadOutlet />
+</head>
+<body>
+    <MediaButler.Wpf.UI.App @rendermode="RenderMode.InteractiveServer" />
+    <script src="_content/MediaButler.Wpf.UI/js/interop.js"></script>
+    <script src="_framework/blazor.web.js"></script>
+</body>
+</html>

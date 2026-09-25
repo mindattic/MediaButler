@@ -70,7 +70,7 @@ canonical docs.
 - [LLM fallback parsing](#llm-fallback-parsing)
 - [The variation catalog](#the-variation-catalog)
 - [MCP server (agents)](#mcp-server-agents)
-- [MediaButler.Maui (Windows desktop shell)](#mediabuttermaui-windows-desktop-shell)
+- [MediaButler.Wpf (Windows desktop shell)](#mediabutlerwpf-windows-desktop-shell)
 - [Landing page](#landing-page)
 - [Why a console app and not PowerShell](#why-a-console-app-and-not-powershell)
 - [Build, run, and test](#build-run-and-test)
@@ -86,8 +86,8 @@ MediaButler **is**:
 - A .NET console app (`net10.0-windows`, assembly `mediabutler`) that organizes an existing
   folder of already-downloaded media into a Plex-compatible layout.
 - One engine with three front doors: a Spectre.Console CLI + interactive menu, an optional
-  `MediaButler.Maui` desktop shell, and an MCP (Model Context Protocol) server for agent hosts —
-  all driving the same `PipelineRunner`.
+  `MediaButler.Wpf` desktop shell (WPF + BlazorWebView, WCAG 2.2 AA), and an MCP (Model Context
+  Protocol) server for agent hosts — all driving the same `PipelineRunner`.
 
 MediaButler **is not**:
 
@@ -140,21 +140,23 @@ The full canon for these facts (with law IDs and verifying tests) lives in
 
    Front doors (same DI graph / same PipelineRunner):
      Spectre.Console.Cli subcommands + interactive menu
-     MediaButler.Maui desktop shell
+     MediaButler.Wpf desktop shell
      MCP server (stdio JSON-RPC 2.0)
 
    Settings:    %APPDATA%\MindAttic\MediaButler\settings.json    (via MindAttic.Vault)
    Variations:  %APPDATA%\MindAttic\MediaButler\variations.json  (naming corpus + pins)
 ```
 
-Three sub-projects sit around the console app:
+Six sub-projects sit around the console app:
 
 | Project | Role | Status |
 | --- | --- | --- |
 | `MediaButler/` | The console app itself — Spectre.Console CLI + interactive menu + MCP server. References `MindAttic.Vault` and `MindAttic.Legion`. | done |
 | `MediaButler.Tests/` | NUnit coverage for the parser, scanner, pipeline stages, guards, CLI, and MCP server. | done |
-| `MediaButler.Maui/` | Optional MAUI GUI shell (`net10.0-windows10.0.19041.0`) wrapping the same pipeline stages via its own `Services/PipelineRunner` and `ConsoleCaptureWriter`. Windows-desktop only; not part of the headless test gate. | partial |
-| `MediaButler.Maui.UiTests/` | FlaUI smoke tests that drive the MAUI shell's window/buttons. Windows-desktop only. | partial |
+| `MediaButler.Wpf.UI/` | Razor Class Library: the shell's markup (WCAG 2.2 AA) plus its own `Services/PipelineRunner` and `ConsoleCaptureWriter`. | partial |
+| `MediaButler.Wpf/` | Optional WPF + BlazorWebView GUI shell (`net10.0-windows10.0.19041.0`) hosting `MediaButler.Wpf.UI.App`. Windows-desktop only; not part of the headless test gate. | partial |
+| `MediaButler.Wpf.UiTests/` | FlaUI smoke tests that drive the WPF shell's window/buttons. Windows-desktop only. | partial |
+| `MediaButler.Wpf.AccessibilityTests/` | bUnit markup-contract tests + a real-Chromium axe-core WCAG 2.2 AA scan. Windows-desktop only. | partial |
 | `MediaButler.Landing.Tests/` | Playwright tests against the repo-root `index.htm` landing page. | done (needs Playwright browser binaries) |
 
 ## Repository layout
@@ -174,10 +176,13 @@ MediaButler/                     the console app (this is what mb.cmd runs)
   Program.cs                     Spectre.Console.Cli app wiring / subcommand registration
 
 MediaButler.Tests/                NUnit test project (headless gate)
-MediaButler.Maui/                  optional Windows desktop GUI shell
-  Pages/                          SettingsPage
-  Services/                       PipelineRunner (Maui-side), ConsoleCaptureWriter
-MediaButler.Maui.UiTests/          FlaUI UI-automation smoke tests for the Maui shell
+MediaButler.Wpf.UI/                Razor Class Library: the shell's markup + services
+  Pages/                          Run.razor, Settings.razor
+  Layout/, Shared/                TabShell.razor (tabs), ConfirmDialog.razor (accessible modal)
+  Services/                       PipelineRunner (Wpf-side), ConsoleCaptureWriter, DialogService
+MediaButler.Wpf/                   optional Windows desktop GUI shell (WPF host + BlazorWebView)
+MediaButler.Wpf.UiTests/           FlaUI UI-automation smoke tests for the WPF shell
+MediaButler.Wpf.AccessibilityTests/ bUnit + real-Chromium axe-core WCAG 2.2 AA scan
 MediaButler.Landing.Tests/         Playwright tests against index.htm
 
 docs/                             Codex canon (BIBLE, AMENDMENTS, USER_STORIES, rfc/, digest)
@@ -187,7 +192,7 @@ tools/                            codex.ps1 (docs linter) and build-readme.ps1 (
 mb.cmd                           CLI shim: forwards every argument to `dotnet run --project MediaButler`
 index.htm                        landing-page HTML (deployed via the sibling MindAttic.Deploy repo)
 package.json                     legacy README->index.htm renderer scaffold; scripts/cli/* no longer exist
-MediaButler.slnx                 solution file (all five projects)
+MediaButler.slnx                 solution file (all seven projects)
 ```
 
 ## The pipeline stages
@@ -455,17 +460,34 @@ It's the same engine as the CLI and interactive menu — one engine, many front 
 (`MediaButler/Mcp/McpServer.cs`). stdout carries protocol frames only; pipeline narration goes to
 stderr and rides inside tool results.
 
-## MediaButler.Maui (Windows desktop shell)
+## MediaButler.Wpf (Windows desktop shell)
 
-`MediaButler.Maui/` is an optional MAUI GUI (`net10.0-windows10.0.19041.0`) that wraps the same
-pipeline via its own `Services/PipelineRunner` and `ConsoleCaptureWriter` (which redirects
-console-style pipeline narration into the app's log view). It ships one page,
-`Pages/SettingsPage.xaml`, for editing the same `MediaButlerSettings` the CLI reads. It
+`MediaButler.Wpf/` is an optional WPF host (`net10.0-windows10.0.19041.0` — BlazorWebView's WinRT
+composition control needs the SDK-versioned TFM) that embeds a single `BlazorWebView` window. Its
+Razor markup lives in the separate `MediaButler.Wpf.UI/` Razor Class Library — a "Run" tab (the
+pipeline buttons, dry-run toggle, live output log) and a "Settings" tab, switched via an
+accessible WAI-ARIA tabs pattern with both panels kept mounted so an in-flight run survives a tab
+switch. It wraps the same pipeline via its own `Services/PipelineRunner` and
+`ConsoleCaptureWriter` (which redirects console-style pipeline narration into the log pane), and
 references `MediaButler/MediaButler.csproj` directly, so it stays on the same pipeline logic as
 the console app.
 
-`MediaButler.Maui.UiTests/` drives the built shell through FlaUI (UI Automation) for smoke
-testing — window opens, buttons respond.
+The shell targets **WCAG 2.2 AA**: real `<label for>` associations on every Settings field,
+`role="switch"`/`aria-checked` toggles, `aria-live="polite"` status announcements (never the log
+pane, to avoid spamming a screen reader on a full-library run), a focus-trapping accessible modal
+(`Shared/ConfirmDialog.razor`) replacing the old confirm/prompt dialogs, and the same
+contrast-audited colors as CSS custom properties.
+
+`MediaButler.Wpf.UiTests/` drives the built shell through FlaUI (UI Automation) for smoke
+testing — window opens, buttons respond, the dry-run badge starts correct. WebView2's Chromium
+content exposes its own accessibility tree through the same UIA bridge FlaUI already used for
+native controls.
+
+`MediaButler.Wpf.AccessibilityTests/` proves the WCAG 2.2 AA claim two ways: bUnit renders
+`Run`/`Settings` into a fake DOM for fast, always-on structural checks (label/role contract), and
+a real headless-Chromium axe-core scan (`wcag2a`/`wcag2aa`/`wcag22aa` tags) — hosted by the
+standalone `MediaButler.Wpf.AccessibilityTests.Harness` executable, launched as a subprocess —
+checks actual computed contrast and touch-target size against the real production component tree.
 
 Both projects are Windows-desktop only and are **not** part of the headless test gate; treat
 them as verified only when actually run on Windows desktop (see `docs/BIBLE.md` §6).
@@ -503,13 +525,18 @@ dotnet run   --project MediaButler -- --dry-run    # force dry-run for the sessi
 # Headless test gate
 dotnet test  MediaButler.Tests/MediaButler.Tests.csproj
 
-# Whole solution (all five projects)
+# Whole solution (all seven projects)
 dotnet build MediaButler.slnx
 dotnet test  MediaButler.slnx
 
 # Windows-desktop-only projects (not part of the headless gate)
-dotnet build MediaButler.Maui/MediaButler.Maui.csproj
-dotnet test  MediaButler.Maui.UiTests/MediaButler.Maui.UiTests.csproj
+dotnet build MediaButler.Wpf/MediaButler.Wpf.csproj
+dotnet test  MediaButler.Wpf.UiTests/MediaButler.Wpf.UiTests.csproj --filter Category=Ui
+
+# WCAG 2.2 AA scan (Playwright; installs once per machine)
+dotnet build MediaButler.Wpf.AccessibilityTests/MediaButler.Wpf.AccessibilityTests.csproj
+pwsh MediaButler.Wpf.AccessibilityTests/bin/Debug/net10.0-windows/playwright.ps1 install chromium
+dotnet test  MediaButler.Wpf.AccessibilityTests/MediaButler.Wpf.AccessibilityTests.csproj
 
 # Landing-page tests (Playwright; installs once per machine)
 dotnet build MediaButler.Landing.Tests/MediaButler.Landing.Tests.csproj

@@ -1,0 +1,48 @@
+<div class="run-page">
+    <section class="header-strip" aria-label="Status">
+        <div class="header-row">
+            <div class="dryrun-toggle">
+                <input type="checkbox" id="dryrun" role="switch" aria-checked="@(dryRun ? "true" : "false")" @bind="dryRun" @bind:after="OnDryRunToggled" disabled="@(busy || dialogInFlight)" />
+                <label for="dryrun">Dry-run mode</label>
+            </div>
+            <span class="mode-badge @(dryRun ? "badge-dryrun" : "badge-live")">@(dryRun ? "DRY RUN" : "LIVE")</span>
+        </div>
+        <p class="paths-line">@pathsLine</p>
+        <p class="filebot-line">@fileBotLine</p>
+    </section>
+
+    <section aria-labelledby="pipeline-heading" class="button-group">
+        <h2 id="pipeline-heading">Pipeline</h2>
+        <div class="button-row">
+            <button type="button" class="primary" title="Rename + FileBot rename/artwork/subtitles + Move to Plex" disabled="@(busy || dialogInFlight)" @onclick="OnRunFull">Run Full Pipeline</button>
+            <button type="button" title="Stage 1: clean folder names, hoist nested seasons, wrap loose movie files" disabled="@(busy || dialogInFlight)" @onclick="OnRename">Rename &amp; Hoist</button>
+            <button type="button" title="Stage 2a: rename TV episodes via TheTVDB + fetch artwork" disabled="@(busy || dialogInFlight)" @onclick="OnFileBotTv">FileBot TV</button>
+            <button type="button" title="Stage 2b: rename movies via TheMovieDB + fetch artwork" disabled="@(busy || dialogInFlight)" @onclick="OnFileBotMovies">FileBot Movies</button>
+            <button type="button" title="Stage 3: download subtitles via OpenSubtitles" disabled="@(busy || dialogInFlight)" @onclick="OnFileBotSubtitles">FileBot Subtitles</button>
+            <button type="button" title="Stage 4: move renamed folders to TV/Movies/Music destinations" disabled="@(busy || dialogInFlight)" @onclick="OnMove">Move to Plex</button>
+        </div>
+    </section>
+
+    <section aria-labelledby="library-heading" class="button-group">
+        <h2 id="library-heading">Library Tools</h2>
+        <div class="button-row">
+            <button type="button" title="Re-run FileBot rename + folder sync + artwork against an existing Movies or TV folder" disabled="@(busy || dialogInFlight)" @onclick="OnFixLibrary">Fix Library…</button>
+            <button type="button" title="Scan a destination folder and evict items whose kind doesn't belong" disabled="@(busy || dialogInFlight)" @onclick="OnRelocate">Relocate…</button>
+            <button type="button" title="List everything MediaButler sees in the source — no changes made" disabled="@(busy || dialogInFlight)" @onclick="OnScan">Scan Inbox</button>
+            <button type="button" title="Show settings, FileBot status, OpenSubtitles credentials, and inbox summary" disabled="@(busy || dialogInFlight)" @onclick="OnStatus">Status</button>
+        </div>
+
+        <div class="status-row">
+            <span role="status" aria-live="polite" class="busy-label">@busyText</span>
+            @if (busy)
+            {
+                <span class="spinner" aria-hidden="true"></span>
+            }
+            <button type="button" class="link-button" disabled="@(busy || dialogInFlight)" @onclick="OnClearLog">Clear log</button>
+        </div>
+    </section>
+
+    <section aria-label="Pipeline output log" class="log-pane">
+        <pre id="log-output">@logText</pre>
+    </section>
+</div>

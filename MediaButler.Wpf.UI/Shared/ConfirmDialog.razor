@@ -1,0 +1,90 @@
+@inject Services.DialogService Dialog
+@inject IJSRuntime JS
+@implements IDisposable
+
+@if (Dialog.Current is { } req)
+{
+    <div class="dialog-backdrop">
+        <div id="mb-dialog" class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-title"
+             aria-describedby="@(string.IsNullOrEmpty(req.Message) ? null : "dlg-message")">
+            <h2 id="dlg-title">@req.Title</h2>
+            @if (!string.IsNullOrEmpty(req.Message))
+            {
+                <p id="dlg-message">@req.Message</p>
+            }
+
+            @if (req.Mode == Services.DialogService.DialogMode.Prompt)
+            {
+                <label for="dlg-input">Value</label>
+                <input id="dlg-input" type="text" maxlength="@req.MaxLength" @bind="inputValue" @bind:event="oninput" />
+                <div class="dialog-actions">
+                    <button type="button" @onclick="Cancel">@req.CancelText</button>
+                    <button type="button" class="primary" @onclick="Accept">@req.AcceptText</button>
+                </div>
+            }
+            else if (req.Mode == Services.DialogService.DialogMode.Choose)
+            {
+                <div class="dialog-actions dialog-actions-vertical">
+                    @foreach (var option in req.Options)
+                    {
+                        <button type="button" @onclick="() => Dialog.Complete(option)">@option</button>
+                    }
+                    <button type="button" @onclick="Cancel">@req.CancelText</button>
+                </div>
+            }
+            else
+            {
+                <div class="dialog-actions">
+                    <button type="button" @onclick="Cancel">@req.CancelText</button>
+                    <button type="button" class="primary" @onclick="() => Dialog.Complete(true)">@req.AcceptText</button>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private string inputValue = "";
+    private bool wasOpen;
+    private DotNetObjectReference<ConfirmDialog>? selfRef;
+
+    protected override void OnInitialized()
+    {
+        Dialog.OnChange += HandleChange;
+        selfRef = DotNetObjectReference.Create(this);
+    }
+
+    private void HandleChange()
+    {
+        // Seed the prompt field's value from the new request BEFORE the next
+        // render, so the bound <input> never flashes the previous dialog's
+        // leftover text.
+        if (Dialog.Current is { Mode: Services.DialogService.DialogMode.Prompt } req)
+            inputValue = req.InitialValue;
+        InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var isOpen = Dialog.Current is not null;
+        if (isOpen && !wasOpen)
+            await JS.InvokeVoidAsync("mediaButlerInterop.openDialog", "mb-dialog", selfRef);
+        else if (!isOpen && wasOpen)
+            await JS.InvokeVoidAsync("mediaButlerInterop.closeDialog");
+        wasOpen = isOpen;
+    }
+
+    private void Accept() => Dialog.Complete(inputValue);
+
+    private void Cancel() =>
+        Dialog.Complete(Dialog.Current?.Mode == Services.DialogService.DialogMode.Confirm ? false : null);
+
+    [JSInvokable]
+    public void OnEscape() => Cancel();
+
+    public void Dispose()
+    {
+        Dialog.OnChange -= HandleChange;
+        selfRef?.Dispose();
+    }
+}

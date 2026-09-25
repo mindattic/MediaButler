@@ -1,0 +1,77 @@
+<div class="settings-page">
+    <p class="file-path-label">settings.json: @filePath</p>
+
+    <fieldset>
+        <legend>Paths</legend>
+
+        <label for="src">Source path</label>
+        <input id="src" type="text" @bind="sourcePath" />
+
+        <label for="tvdest">TV destination</label>
+        <input id="tvdest" type="text" @bind="tvDestination" />
+
+        <label for="moviesdest">Movies destination</label>
+        <input id="moviesdest" type="text" @bind="moviesDestination" />
+
+        <label for="filebot">FileBot path</label>
+        <input id="filebot" type="text" @bind="fileBotPath" />
+    </fieldset>
+
+    <fieldset>
+        <legend>Options</legend>
+
+        <div class="switch-row">
+            <label for="dryrun-setting">Dry run (preview only — no changes written)</label>
+            <input id="dryrun-setting" type="checkbox" role="switch" aria-checked="@(dryRun ? "true" : "false")" @bind="dryRun" />
+        </div>
+        <div class="switch-row">
+            <label for="rename-episodes">Rename TV episodes (FileBot TheTVDB)</label>
+            <input id="rename-episodes" type="checkbox" role="switch" aria-checked="@(renameEpisodes ? "true" : "false")" @bind="renameEpisodes" />
+        </div>
+        <div class="switch-row">
+            <label for="rename-movies">Rename movies (FileBot TheMovieDB)</label>
+            <input id="rename-movies" type="checkbox" role="switch" aria-checked="@(renameMovies ? "true" : "false")" @bind="renameMovies" />
+        </div>
+        <div class="switch-row">
+            <label for="fetch-artwork">Fetch artwork (posters / fanart)</label>
+            <input id="fetch-artwork" type="checkbox" role="switch" aria-checked="@(fetchArtwork ? "true" : "false")" @bind="fetchArtwork" />
+        </div>
+        <div class="switch-row">
+            <label for="enable-subs">Fetch subtitles (OpenSubtitles)</label>
+            <input id="enable-subs" type="checkbox" role="switch" aria-checked="@(enableSubtitles ? "true" : "false")" @bind="enableSubtitles" />
+        </div>
+
+        <label for="sub-lang">Subtitle language (ISO 639-1)</label>
+        <input id="sub-lang" type="text" @bind="subtitleLanguage" />
+
+        <div class="switch-row">
+            <label for="llm-fallback">LLM fallback for unparseable folders</label>
+            <input id="llm-fallback" type="checkbox" role="switch" aria-checked="@(enableLlmFallback ? "true" : "false")" @bind="enableLlmFallback" />
+        </div>
+
+        <label for="llm-provider">LLM provider (claude, openai, gemini, …)</label>
+        <input id="llm-provider" type="text" @bind="llmProvider" />
+    </fieldset>
+
+    <fieldset>
+        <legend>Advanced</legend>
+
+        <label for="excluded">Excluded folders (comma separated)</label>
+        <input id="excluded" type="text" @bind="excludedFolders" />
+
+        <label for="video-ext">Video extensions (comma separated)</label>
+        <input id="video-ext" type="text" @bind="videoExtensions" />
+
+        <label for="empty-delete">Empty-delete safety floor (bytes)</label>
+        <input id="empty-delete" type="number" inputmode="numeric" @bind="emptyDeleteSafetyBytes" />
+
+        <label for="title-year">Title-year overrides (comma separated)</label>
+        <input id="title-year" type="text" @bind="titleYearOverrides" />
+    </fieldset>
+
+    <div class="settings-actions">
+        <span role="status" aria-live="polite" class="status-label">@statusText</span>
+        <button type="button" @onclick="Load">Reload</button>
+        <button type="button" class="primary" @onclick="OnSave">Save</button>
+    </div>
+</div>

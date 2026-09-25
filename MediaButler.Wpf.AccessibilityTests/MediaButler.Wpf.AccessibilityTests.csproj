@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>MediaButler.Wpf.AccessibilityTests</RootNamespace>
+    <AssemblyName>MediaButler.Wpf.AccessibilityTests</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageReference Include="NUnit" Version="4.3.2" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+    <PackageReference Include="NUnit.Analyzers" Version="4.5.0" />
+    <!-- Renders Razor components to static markup with no browser — fast, always runs. -->
+    <PackageReference Include="bunit" Version="1.35.3" />
+    <!--
+      Real headless Chromium, same as MediaButler.Landing.Tests. After build,
+      install browser binaries once per machine:
+          pwsh bin/Debug/net10.0-windows/playwright.ps1 install chromium
+      Without this step AxeScanTests Assert.Ignore()s with a clear message.
+    -->
+    <PackageReference Include="Microsoft.Playwright" Version="1.50.0" />
+    <PackageReference Include="Microsoft.Playwright.NUnit" Version="1.50.0" />
+    <PackageReference Include="Deque.AxeCore.Playwright" Version="4.13.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MediaButler.Wpf.UI\MediaButler.Wpf.UI.csproj" />
+    <!--
+      Not a real dependency — AxeScanTests launches this as a subprocess (via
+      its built .exe path) rather than referencing its types, but listing it
+      here ensures `dotnet build`/`dotnet test` on this project also builds
+      the harness first.
+    -->
+    <ProjectReference Include="..\MediaButler.Wpf.AccessibilityTests.Harness\MediaButler.Wpf.AccessibilityTests.Harness.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

@@ -5,7 +5,7 @@ code: MB
 layer: digest
 status: living
 generatedFrom: MB-§1
-updated: 2026-08-07
+updated: 2026-09-25
 ---
 
 AUTHORITATIVE — full detail in docs/BIBLE.md
@@ -30,7 +30,7 @@ user-extendable corpus.
   (TheTVDB / TheMovieDB). MediaButler shells out to FileBot; it does not query those APIs itself.
 - **NOT a media server.** It produces a Plex-compatible folder layout; it does not stream, scan,
   or talk to a Plex server.
-- **NOT a PowerShell script.** It is a .NET console app (with an optional MAUI shell) specifically
+- **NOT a PowerShell script.** It is a .NET console app (with an optional WPF shell) specifically
   so it can use `MindAttic.Vault` for credential resolution. See
   [README "Why a console app and not PowerShell"](../README.md#why-a-console-app-and-not-powershell).
 - **NOT a destination editor (except `relocate`).** Every stage operates on `SourcePath`; only the
@@ -77,9 +77,9 @@ A folder with zero recognised video files is deleted only if it holds at most
 `EmptyDeleteSafetyBytes` (default 1 MB); anything larger is surfaced as needs-manual.
 `Extras`/`Specials`/`Bonus` are classified `Extras`, left in place, and flagged — never deleted or
 renamed as movies. **Reboot routing:** a TV season whose parsed `TvYear` is set is routed to
-`ShowName (TvYear)\Season NN` in `MoveStage` when `IsShowDisambiguated` confirms an existing
-year-tagged folder in `TvDestination`; otherwise the bare `ShowName\Season NN` path is used,
-preserving backward-compatible behaviour for year-less shows. (Verified by
+`ShowName (TvYear) - Season NN` in `MoveStage` when `IsShowDisambiguated` confirms an existing
+year-tagged season folder in `TvDestination`; otherwise the bare `ShowName - Season NN` path is
+used, preserving backward-compatible behaviour for year-less shows. (Verified by
 `Empty_disguised_folder_is_deleted`,
 `Empty_size_guard_refuses_to_delete_a_folder_that_exceeds_the_threshold`,
 `Extras_folder_is_left_in_place_and_flagged`,
@@ -157,7 +157,7 @@ disables saving for the run — user edits are never overwritten by MediaButler.
 - **Canonical name** — the idempotent target form: `Show - Season NN` / `Title (YYYY)`.
 - **Multi-season parent** — one folder holding multiple `Season N` subfolders (or flat episode
   files spanning seasons) that must be hoisted/filed.
-- **Hoist** — lift nested `Season N` subfolders (or show-level artwork) up one level.
+- **Hoist** — lift nested `Season N` subfolders (from a source-side multi-season dump) up one level.
 - **Consolidate** — file a per-episode dump or loose episode file into its `{Show} - Season XX`.
 - **Pack split** — break a multi-movie folder into one `{Title} (YYYY)` folder per film.
 - **Merge** — file-level union of a duplicate season into the existing canonical folder;

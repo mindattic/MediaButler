@@ -1,0 +1,88 @@
+@inject IJSRuntime JS
+
+<div class="app-shell">
+    <header class="app-header">
+        <h1>MediaButler</h1>
+        <div role="tablist" aria-label="MediaButler sections" class="tablist">
+            <button type="button"
+                    role="tab"
+                    id="tab-run"
+                    aria-selected="@(active == Tab.Run ? "true" : "false")"
+                    aria-controls="panel-run"
+                    tabindex="@(active == Tab.Run ? 0 : -1)"
+                    class="tab @(active == Tab.Run ? "tab-active" : "")"
+                    @onclick="() => Activate(Tab.Run)"
+                    @onkeydown="OnTabKeyDown">
+                Run
+            </button>
+            <button type="button"
+                    role="tab"
+                    id="tab-settings"
+                    aria-selected="@(active == Tab.Settings ? "true" : "false")"
+                    aria-controls="panel-settings"
+                    tabindex="@(active == Tab.Settings ? 0 : -1)"
+                    class="tab @(active == Tab.Settings ? "tab-active" : "")"
+                    @onclick="() => Activate(Tab.Settings)"
+                    @onkeydown="OnTabKeyDown">
+                Settings
+            </button>
+        </div>
+    </header>
+
+    <main id="main-content">
+        @* Both panels stay mounted (display:none toggling, never @@if) so the
+           Run page's in-flight run state and log buffer survive a tab
+           switch — matches the old MAUI Shell TabBar, where the page
+           instance persisted across tab changes. *@
+        <div id="panel-run" role="tabpanel" aria-labelledby="tab-run" tabindex="0"
+             style="display:@(active == Tab.Run ? "block" : "none")">
+            <Run @ref="runRef" />
+        </div>
+        <div id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" tabindex="0"
+             style="display:@(active == Tab.Settings ? "block" : "none")">
+            <Settings />
+        </div>
+    </main>
+</div>
+
+@code {
+    private enum Tab { Run, Settings }
+    private Tab active = Tab.Run;
+    private Run? runRef;
+
+    private void Activate(Tab tab)
+    {
+        if (tab == active) return;
+        SetActive(tab);
+    }
+
+    // Both panels stay mounted for the whole circuit lifetime (see the
+    // comment above), so Run's OnInitialized only ever fires once and can't
+    // by itself notice settings saved from the Settings tab (e.g. a changed
+    // DryRun value) while Run was hidden. Re-sync Run's header/badge every
+    // time its tab becomes active again, mirroring the old MAUI shell's
+    // OnAppearing → RefreshHeader on every tab reactivation.
+    private void SetActive(Tab tab)
+    {
+        active = tab;
+        if (tab == Tab.Run) runRef?.OnTabActivated();
+    }
+
+    private async Task OnTabKeyDown(KeyboardEventArgs e)
+    {
+        Tab? next = e.Key switch
+        {
+            "ArrowRight" or "ArrowLeft" or "ArrowDown" or "ArrowUp" =>
+                active == Tab.Run ? Tab.Settings : Tab.Run,
+            "Home" => Tab.Run,
+            "End" => Tab.Settings,
+            _ => null,
+        };
+        if (next is { } t)
+        {
+            SetActive(t);
+            var id = t == Tab.Run ? "tab-run" : "tab-settings";
+            await JS.InvokeVoidAsync("mediaButlerInterop.focusById", id);
+        }
+    }
+}

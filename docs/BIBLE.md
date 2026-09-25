@@ -69,7 +69,7 @@ user-extendable corpus.
   (TheTVDB / TheMovieDB). MediaButler shells out to FileBot; it does not query those APIs itself.
 - **NOT a media server.** It produces a Plex-compatible folder layout; it does not stream, scan,
   or talk to a Plex server.
-- **NOT a PowerShell script.** It is a .NET console app (with an optional MAUI shell) specifically
+- **NOT a PowerShell script.** It is a .NET console app (with an optional WPF shell) specifically
   so it can use `MindAttic.Vault` for credential resolution. See
   [README "Why a console app and not PowerShell"](../README.md#why-a-console-app-and-not-powershell).
 - **NOT a destination editor (except `relocate`).** Every stage operates on `SourcePath`; only the
@@ -111,7 +111,7 @@ user-extendable corpus.
    unclassifiable folder or loose file --(EnableLlmFallback)--> LegionFallbackParser
                                                       -> MindAttic.Legion -> provider
 
-   Front doors (same DI graph): Spectre.Console.Cli subcommands  +  MediaButler.Maui shell  +  MCP (stdio JSON-RPC)
+   Front doors (same DI graph): Spectre.Console.Cli subcommands  +  MediaButler.Wpf shell  +  MCP (stdio JSON-RPC)
    Settings:   %APPDATA%\MindAttic\MediaButler\settings.json   (via MindAttic.Vault)
    Variations: %APPDATA%\MindAttic\MediaButler\variations.json (clone of MasterVariations + discoveries)
 ```
@@ -120,9 +120,23 @@ user-extendable corpus.
 - **`MediaButler/`** ✅ — the console app (`net10.0-windows`, assembly `mediabutler`). Spectre.Console
   CLI + interactive menu. References `MindAttic.Vault` and `MindAttic.Legion`.
 - **`MediaButler.Tests/`** ✅ — NUnit test project covering parser, scanner, stages, guards, CLI.
-- **`MediaButler.Maui/`** 🟡 — optional MAUI GUI shell (`net10.0-windows10.0.19041.0`) that wraps
-  the same pipeline stages via its own `Services/PipelineRunner` and `ConsoleCaptureWriter`.
-- **`MediaButler.Maui.UiTests/`** 🟡 — smoke tests for the MAUI shell window/buttons.
+- **`MediaButler.Wpf.UI/`** 🟡 — Razor Class Library: the WPF shell's markup (`Pages/Run.razor`,
+  `Pages/Settings.razor`, `Layout/TabShell.razor`, `Shared/ConfirmDialog.razor`) plus its own
+  `Services/PipelineRunner` and `ConsoleCaptureWriter`, ported unchanged from the old MAUI shell.
+  WCAG 2.2 AA: real `<label for>` associations, `role="switch"`/`aria-checked` toggles, `role="tab"`
+  tabs (WAI-ARIA APG pattern), `aria-live="polite"` status regions (never the log pane), and the
+  same already-audited contrast colors as CSS custom properties.
+- **`MediaButler.Wpf/`** 🟡 — optional WPF + BlazorWebView GUI shell (`net10.0-windows10.0.19041.0`
+  — BlazorWebView's WinRT composition control needs the SDK-versioned TFM; `Microsoft.NET.Sdk.Razor`
+  — plain `Microsoft.NET.Sdk` can't discover BlazorWebView's own static web assets) hosting
+  `MediaButler.Wpf.UI.App` in a single window.
+- **`MediaButler.Wpf.UiTests/`** 🟡 — FlaUI smoke tests for the WPF shell's window/buttons
+  (WebView2's Chromium content exposes its own accessibility tree through the same UIA bridge).
+- **`MediaButler.Wpf.AccessibilityTests/`** 🟡 — bUnit structural-markup tests (label/role contract,
+  no browser) plus a real-Chromium axe-core scan (`wcag2a`/`wcag2aa`/`wcag22aa`) of
+  `MediaButler.Wpf.UI.App`, hosted by the standalone `MediaButler.Wpf.AccessibilityTests.Harness`
+  exe (a Blazor Web App launched as a subprocess — an in-process `dotnet test` host breaks
+  ASP.NET Core's entry-assembly-keyed component/static-asset discovery).
 - **`MediaButler.Landing.Tests/`** ✅ — tests for the `README.md` -> landing-page rendering.
 - **Landing page** — `README.md` is rendered to `mediabutler.htm` and deployed via the sibling
   `MindAttic.Deploy` repo (see `.claude/commands/deploy.md`). The in-repo `scripts/cli/*` +
@@ -322,22 +336,29 @@ disables saving for the run — user edits are never overwritten by MediaButler.
   hoisting (`MovieCollection`), dry-run FileBot TEST-pass detection (`FileBotResult.LooksLikeTestPass`),
   `KeepLargest` / `Flag` duplicate-movie policy, MCP front door (`mediabutler mcp`),
   reboot/same-name TV disambiguation (year-tagged staging + `IsShowDisambiguated` routing).
-- **Partial (🟡):** the MAUI shell (`MediaButler.Maui`) and its UI smoke tests run only on
-  Windows desktop and are not part of the headless `MediaButler.Tests` gate; treated as 🟡 until
-  proven in this environment. Live FileBot/OpenSubtitles/LLM paths require external binaries and
-  credentials and are exercised by construction tests, not live integration (the Legion fallback
-  for folders AND unmatched files is implemented but has no mocked-transport test yet).
-  `LandingPageTests` require Playwright browser binaries (`playwright.ps1 install chromium`) and
-  skip gracefully when absent — treated as 🟡 in headless CI until binaries are provisioned.
+- **Partial (🟡):** the WPF shell (`MediaButler.Wpf`), its FlaUI smoke tests, and its
+  bUnit/axe-core accessibility scan run only on Windows desktop and are not part of the headless
+  `MediaButler.Tests` gate; treated as 🟡 pending a CI/desktop runner even though all three have
+  each passed clean on real Windows desktop hardware (2026-09-25): `MediaButler.Wpf.UiTests`
+  (5/5, FlaUI against the built `.exe`) and `MediaButler.Wpf.AccessibilityTests` (7/7 — 5 bUnit
+  markup-contract tests plus a real-Chromium axe-core scan of both tabs with zero
+  wcag2a/wcag2aa/wcag22aa violations). Live FileBot/OpenSubtitles/LLM paths require external
+  binaries and credentials and are exercised by construction tests, not live integration (the
+  Legion fallback for folders AND unmatched files is implemented but has no mocked-transport test
+  yet). `LandingPageTests` and `MediaButler.Wpf.AccessibilityTests`' axe-core scan both require
+  Playwright browser binaries (`playwright.ps1 install chromium`) and skip gracefully when
+  absent — treated as 🟡 in headless CI until binaries are provisioned.
 
 ## 7. Active frontier {#MB-§7}
 - See `docs/rfc/` for open design notes.
 - See `docs/USER_STORIES.md` for the epic breakdown and priority backlog.
 - Known frontier items: broaden `TitleYearOverrides` coverage as new year-in-title movies land;
-  promote the MAUI shell from 🟡 to ✅ with an environment that can run it; live-integration
-  harness for FileBot and OpenSubtitles; mocked-Legion tests so MB-US-F1/F2 can graduate to ✅;
-  date-based TV (`Daily.Show.2024.01.15`) and anime absolute numbering (`[Group] Show - 01`)
-  are cataloged in `MasterVariations` but not yet auto-converted by the regex pipeline.
+  wire a CI/desktop runner for `MediaButler.Wpf.UiTests` and `MediaButler.Wpf.AccessibilityTests`
+  to promote the WPF shell from 🟡 to ✅ (both suites already pass clean on real desktop hardware,
+  see §6); live-integration harness for FileBot and OpenSubtitles; mocked-Legion tests so
+  MB-US-F1/F2 can graduate to ✅; date-based TV (`Daily.Show.2024.01.15`) and anime absolute
+  numbering (`[Group] Show - 01`) are cataloged in `MasterVariations` but not yet auto-converted
+  by the regex pipeline.
 
 ## 8. Quality bar {#MB-§8}
 A feature is done (✅) only when:

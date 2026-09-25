@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>MediaButler.Wpf.UiTests</RootNamespace>
+    <AssemblyName>MediaButler.Wpf.UiTests</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageReference Include="NUnit" Version="4.3.2" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+    <PackageReference Include="NUnit.Analyzers" Version="4.5.0" />
+    <!--
+      FlaUI drives Windows apps through the UI Automation tree. UIA3 is the
+      modern backend; the BlazorWebView's WebView2/Chromium content exposes
+      its own accessibility tree through the same UIA bridge, so the same
+      ByName/ByControlType matching that worked against native MAUI controls
+      keeps working here as long as the HTML carries correct roles/names.
+    -->
+    <PackageReference Include="FlaUI.Core" Version="5.0.0" />
+    <PackageReference Include="FlaUI.UIA3" Version="5.0.0" />
+  </ItemGroup>
+
+</Project>

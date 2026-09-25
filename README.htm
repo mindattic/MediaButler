@@ -6,7 +6,7 @@
 <title>MediaButler</title>
 <meta name="description" content="Stop hand-renaming torrent dumps. Drop them in, get a Plex-ready library out.">
 <meta name="generator" content="MindAttic Codex build-readme.ps1">
-<meta name="generated" content="2026-08-14">
+<meta name="generated" content="2026-09-25">
 <style>:root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;
   --border:#30363d;
@@ -144,7 +144,7 @@ pre:hover .cpbtn{opacity:1}
 <li><a href="#llm-fallback-parsing">LLM fallback parsing</a></li>
 <li><a href="#the-variation-catalog">The variation catalog</a></li>
 <li><a href="#mcp-server-agents">MCP server (agents)</a></li>
-<li><a href="#mediabuttermaui-windows-desktop-shell">MediaButler.Maui (Windows desktop shell)</a></li>
+<li><a href="#mediabutlerwpf-windows-desktop-shell">MediaButler.Wpf (Windows desktop shell)</a></li>
 <li><a href="#landing-page">Landing page</a></li>
 <li><a href="#why-a-console-app-and-not-powershell">Why a console app and not PowerShell</a></li>
 <li><a href="#build-run-and-test">Build, run, and test</a></li>
@@ -156,7 +156,7 @@ pre:hover .cpbtn{opacity:1}
 <p>MediaButler <strong>is</strong>:</p>
 <ul>
 <li>A .NET console app (<code>net10.0-windows</code>, assembly <code>mediabutler</code>) that organizes an existing folder of already-downloaded media into a Plex-compatible layout.</li>
-<li>One engine with three front doors: a Spectre.Console CLI + interactive menu, an optional <code>MediaButler.Maui</code> desktop shell, and an MCP (Model Context Protocol) server for agent hosts —   all driving the same <code>PipelineRunner</code>.</li>
+<li>One engine with three front doors: a Spectre.Console CLI + interactive menu, an optional <code>MediaButler.Wpf</code> desktop shell (WPF + BlazorWebView, WCAG 2.2 AA), and an MCP (Model Context   Protocol) server for agent hosts — all driving the same <code>PipelineRunner</code>.</li>
 </ul>
 <p>MediaButler <strong>is not</strong>:</p>
 <ul>
@@ -196,12 +196,12 @@ pre:hover .cpbtn{opacity:1}
 
    Front doors (same DI graph / same PipelineRunner):
      Spectre.Console.Cli subcommands + interactive menu
-     MediaButler.Maui desktop shell
+     MediaButler.Wpf desktop shell
      MCP server (stdio JSON-RPC 2.0)
 
    Settings:    %APPDATA%\MindAttic\MediaButler\settings.json    (via MindAttic.Vault)
    Variations:  %APPDATA%\MindAttic\MediaButler\variations.json  (naming corpus + pins)</code></pre>
-<p>Three sub-projects sit around the console app:</p>
+<p>Six sub-projects sit around the console app:</p>
 <table><thead><tr>
 <th>Project</th>
 <th>Role</th>
@@ -218,13 +218,23 @@ pre:hover .cpbtn{opacity:1}
 <td>done</td>
 </tr>
 <tr>
-<td><code>MediaButler.Maui/</code></td>
-<td>Optional MAUI GUI shell (<code>net10.0-windows10.0.19041.0</code>) wrapping the same pipeline stages via its own <code>Services/PipelineRunner</code> and <code>ConsoleCaptureWriter</code>. Windows-desktop only; not part of the headless test gate.</td>
+<td><code>MediaButler.Wpf.UI/</code></td>
+<td>Razor Class Library: the shell's markup (WCAG 2.2 AA) plus its own <code>Services/PipelineRunner</code> and <code>ConsoleCaptureWriter</code>.</td>
 <td>partial</td>
 </tr>
 <tr>
-<td><code>MediaButler.Maui.UiTests/</code></td>
-<td>FlaUI smoke tests that drive the MAUI shell's window/buttons. Windows-desktop only.</td>
+<td><code>MediaButler.Wpf/</code></td>
+<td>Optional WPF + BlazorWebView GUI shell (<code>net10.0-windows10.0.19041.0</code>) hosting <code>MediaButler.Wpf.UI.App</code>. Windows-desktop only; not part of the headless test gate.</td>
+<td>partial</td>
+</tr>
+<tr>
+<td><code>MediaButler.Wpf.UiTests/</code></td>
+<td>FlaUI smoke tests that drive the WPF shell's window/buttons. Windows-desktop only.</td>
+<td>partial</td>
+</tr>
+<tr>
+<td><code>MediaButler.Wpf.AccessibilityTests/</code></td>
+<td>bUnit markup-contract tests + a real-Chromium axe-core WCAG 2.2 AA scan. Windows-desktop only.</td>
 <td>partial</td>
 </tr>
 <tr>
@@ -248,10 +258,13 @@ pre:hover .cpbtn{opacity:1}
   Program.cs                     Spectre.Console.Cli app wiring / subcommand registration
 
 MediaButler.Tests/                NUnit test project (headless gate)
-MediaButler.Maui/                  optional Windows desktop GUI shell
-  Pages/                          SettingsPage
-  Services/                       PipelineRunner (Maui-side), ConsoleCaptureWriter
-MediaButler.Maui.UiTests/          FlaUI UI-automation smoke tests for the Maui shell
+MediaButler.Wpf.UI/                Razor Class Library: the shell's markup + services
+  Pages/                          Run.razor, Settings.razor
+  Layout/, Shared/                TabShell.razor (tabs), ConfirmDialog.razor (accessible modal)
+  Services/                       PipelineRunner (Wpf-side), ConsoleCaptureWriter, DialogService
+MediaButler.Wpf/                   optional Windows desktop GUI shell (WPF host + BlazorWebView)
+MediaButler.Wpf.UiTests/           FlaUI UI-automation smoke tests for the WPF shell
+MediaButler.Wpf.AccessibilityTests/ bUnit + real-Chromium axe-core WCAG 2.2 AA scan
 MediaButler.Landing.Tests/         Playwright tests against index.htm
 
 docs/                             Codex canon (BIBLE, AMENDMENTS, USER_STORIES, rfc/, digest)
@@ -261,7 +274,7 @@ tools/                            codex.ps1 (docs linter) and build-readme.ps1 (
 mb.cmd                           CLI shim: forwards every argument to `dotnet run --project MediaButler`
 index.htm                        landing-page HTML (deployed via the sibling MindAttic.Deploy repo)
 package.json                     legacy README-&gt;index.htm renderer scaffold; scripts/cli/* no longer exist
-MediaButler.slnx                 solution file (all five projects)</code></pre>
+MediaButler.slnx                 solution file (all seven projects)</code></pre>
 <h2 id="the-pipeline-stages">The pipeline stages</h2>
 <ol>
 <li><strong>Self-rename pass (<code>RenameStage</code>).</strong> Cleans messy folder names (<code>Better.Call.Saul.S05.Complete.1080p...</code>) into FileBot-friendly stems    (<code>Better Call Saul - Season 05</code>). Movies become <code>Title (YYYY)</code>. Hoists nested <code>Season N</code>    subfolders out of multi-season parent dumps onto the source root and pads season numbers with    a leading zero. Consolidates loose episode files into their <code>{Show} - Season XX</code> folder,    splits multi-movie packs into one folder per film, hoists "collection husk" folders    (<code>MovieCollection</code>) into individual movie folders, and merges duplicate-season dumps    file-by-file. Empty disguised folders (no video underneath, under the safety byte floor) are    deleted. <code>Extras</code> / <code>Specials</code> / <code>Bonus</code> folders are left in place and surfaced in the final    report.</li>
@@ -561,9 +574,11 @@ $env:MindAttic__Vault__Subtitles__OpenSubtitles__password = '***'</code></pre>
 <p>Register it with Claude Code:</p>
 <pre><code class="language-powershell">claude mcp add mediabutler -- mediabutler mcp</code></pre>
 <p>It's the same engine as the CLI and interactive menu — one engine, many front doors (<code>MediaButler/Mcp/McpServer.cs</code>). stdout carries protocol frames only; pipeline narration goes to stderr and rides inside tool results.</p>
-<h2 id="mediabutlermaui-windows-desktop-shell">MediaButler.Maui (Windows desktop shell)</h2>
-<p><code>MediaButler.Maui/</code> is an optional MAUI GUI (<code>net10.0-windows10.0.19041.0</code>) that wraps the same pipeline via its own <code>Services/PipelineRunner</code> and <code>ConsoleCaptureWriter</code> (which redirects console-style pipeline narration into the app's log view). It ships one page, <code>Pages/SettingsPage.xaml</code>, for editing the same <code>MediaButlerSettings</code> the CLI reads. It references <code>MediaButler/MediaButler.csproj</code> directly, so it stays on the same pipeline logic as the console app.</p>
-<p><code>MediaButler.Maui.UiTests/</code> drives the built shell through FlaUI (UI Automation) for smoke testing — window opens, buttons respond.</p>
+<h2 id="mediabutlerwpf-windows-desktop-shell">MediaButler.Wpf (Windows desktop shell)</h2>
+<p><code>MediaButler.Wpf/</code> is an optional WPF host (<code>net10.0-windows10.0.19041.0</code> — BlazorWebView's WinRT composition control needs the SDK-versioned TFM) that embeds a single <code>BlazorWebView</code> window. Its Razor markup lives in the separate <code>MediaButler.Wpf.UI/</code> Razor Class Library — a "Run" tab (the pipeline buttons, dry-run toggle, live output log) and a "Settings" tab, switched via an accessible WAI-ARIA tabs pattern with both panels kept mounted so an in-flight run survives a tab switch. It wraps the same pipeline via its own <code>Services/PipelineRunner</code> and <code>ConsoleCaptureWriter</code> (which redirects console-style pipeline narration into the log pane), and references <code>MediaButler/MediaButler.csproj</code> directly, so it stays on the same pipeline logic as the console app.</p>
+<p>The shell targets <strong>WCAG 2.2 AA</strong>: real <code>&lt;label for&gt;</code> associations on every Settings field, <code>role="switch"</code>/<code>aria-checked</code> toggles, <code>aria-live="polite"</code> status announcements (never the log pane, to avoid spamming a screen reader on a full-library run), a focus-trapping accessible modal (<code>Shared/ConfirmDialog.razor</code>) replacing the old confirm/prompt dialogs, and the same contrast-audited colors as CSS custom properties.</p>
+<p><code>MediaButler.Wpf.UiTests/</code> drives the built shell through FlaUI (UI Automation) for smoke testing — window opens, buttons respond, the dry-run badge starts correct. WebView2's Chromium content exposes its own accessibility tree through the same UIA bridge FlaUI already used for native controls.</p>
+<p><code>MediaButler.Wpf.AccessibilityTests/</code> proves the WCAG 2.2 AA claim two ways: bUnit renders <code>Run</code>/<code>Settings</code> into a fake DOM for fast, always-on structural checks (label/role contract), and a real headless-Chromium axe-core scan (<code>wcag2a</code>/<code>wcag2aa</code>/<code>wcag22aa</code> tags) — hosted by the standalone <code>MediaButler.Wpf.AccessibilityTests.Harness</code> executable, launched as a subprocess — checks actual computed contrast and touch-target size against the real production component tree.</p>
 <p>Both projects are Windows-desktop only and are <strong>not</strong> part of the headless test gate; treat them as verified only when actually run on Windows desktop (see <code>docs/BIBLE.md</code> §6).</p>
 <h2 id="landing-page">Landing page</h2>
 <p><code>index.htm</code> at the repo root is the MediaButler marketing/landing page, deployed to <code>mindattic.com/mediabutler.htm</code> via the sibling <code>MindAttic.Deploy</code> repo. <code>MediaButler.Landing.Tests</code> drives it headlessly with Playwright — checks visible content, link resolution, and console errors.</p>
@@ -579,13 +594,18 @@ dotnet run   --project MediaButler -- --dry-run    # force dry-run for the sessi
 # Headless test gate
 dotnet test  MediaButler.Tests/MediaButler.Tests.csproj
 
-# Whole solution (all five projects)
+# Whole solution (all seven projects)
 dotnet build MediaButler.slnx
 dotnet test  MediaButler.slnx
 
 # Windows-desktop-only projects (not part of the headless gate)
-dotnet build MediaButler.Maui/MediaButler.Maui.csproj
-dotnet test  MediaButler.Maui.UiTests/MediaButler.Maui.UiTests.csproj
+dotnet build MediaButler.Wpf/MediaButler.Wpf.csproj
+dotnet test  MediaButler.Wpf.UiTests/MediaButler.Wpf.UiTests.csproj --filter Category=Ui
+
+# WCAG 2.2 AA scan (Playwright; installs once per machine)
+dotnet build MediaButler.Wpf.AccessibilityTests/MediaButler.Wpf.AccessibilityTests.csproj
+pwsh MediaButler.Wpf.AccessibilityTests/bin/Debug/net10.0-windows/playwright.ps1 install chromium
+dotnet test  MediaButler.Wpf.AccessibilityTests/MediaButler.Wpf.AccessibilityTests.csproj
 
 # Landing-page tests (Playwright; installs once per machine)
 dotnet build MediaButler.Landing.Tests/MediaButler.Landing.Tests.csproj
@@ -662,7 +682,7 @@ dotnet test  MediaButler.Landing.Tests/MediaButler.Landing.Tests.csproj</code></
 <li><strong>Duplicate rip pileups.</strong> A re-arrived season colliding episode-by-episode with an already-filed copy used to require a manual pick per episode; <code>duplicateEpisodeAction:   KeepLargest</code> (default) now resolves it automatically, the same way movie duplicates already   were.</li>
 </ul>
 
-    <p class="codex-footer">Generated 2026-08-14 by the shared MindAttic Codex engine (<code>codex-standard/build-readme.ps1</code>) from <code>README.md</code>. Edit the Markdown source, not this file.</p>
+    <p class="codex-footer">Generated 2026-09-25 by the shared MindAttic Codex engine (<code>codex-standard/build-readme.ps1</code>) from <code>README.md</code>. Edit the Markdown source, not this file.</p>
   </main>
 </div>
 <script>(function(){

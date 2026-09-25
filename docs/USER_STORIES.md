@@ -199,9 +199,13 @@ updated: 2026-07-04
   🟡 for the same reason as MB-US-F1 (no mocked Legion test yet). See [#MB-LAW-6](BIBLE.md#MB-LAW-6).
 
 ## Epic G — GUI shell
-- **MB-US-G1 🟡** As a desktop user, I can drive the pipeline from a MAUI window with a live log
-  and a dry-run toggle. Smoke tests exist (`MauiAppSmokeTests`) but run only on Windows desktop
-  and are outside the headless `MediaButler.Tests` gate — 🟡 until proven in this environment.
+- **MB-US-G1 🟡** As a desktop user, I can drive the pipeline from a WPF + BlazorWebView window
+  with a live log and a dry-run toggle, meeting WCAG 2.2 AA. FlaUI smoke tests
+  (`WpfAppSmokeTests`) and a bUnit + real-Chromium axe-core accessibility scan
+  (`MediaButler.Wpf.AccessibilityTests`) both pass clean on Windows desktop (2026-09-25: 5/5 and
+  7/7 respectively, zero wcag2a/wcag2aa/wcag22aa violations) but run only on Windows desktop and
+  are outside the headless `MediaButler.Tests` gate — 🟡 until a CI/desktop runner proves them
+  continuously.
 
 ## Epic H — Landing page
 - **MB-US-H1 ✅** As a maintainer, the `README.md` renders into the published landing page so the
@@ -209,7 +213,8 @@ updated: 2026-07-04
 
 ## Priority backlog
 1. **MB-US-F1** — add a mocked/recorded Legion test so the LLM fallback can graduate to ✅.
-2. **MB-US-G1** — wire a CI/desktop runner that executes `MauiAppSmokeTests`, promoting the shell to ✅.
+2. **MB-US-G1** — wire a CI/desktop runner that executes `WpfAppSmokeTests` and
+   `MediaButler.Wpf.AccessibilityTests`, promoting the shell to ✅.
 3. Live-integration harness for FileBot + OpenSubtitles (currently arg-construction tests only).
 4. Expand `TitleYearOverrides` coverage as new year-in-title releases appear (see
    [docs/rfc/0001-llm-fallback-test-strategy.md](rfc/0001-llm-fallback-test-strategy.md)).

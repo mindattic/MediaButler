@@ -1,7 +1,10 @@
 <Solution>
   <Project Path="MediaButler/MediaButler.csproj" />
   <Project Path="MediaButler.Tests/MediaButler.Tests.csproj" />
-  <Project Path="MediaButler.Maui/MediaButler.Maui.csproj" />
-  <Project Path="MediaButler.Maui.UiTests/MediaButler.Maui.UiTests.csproj" />
+  <Project Path="MediaButler.Wpf.UI/MediaButler.Wpf.UI.csproj" />
+  <Project Path="MediaButler.Wpf/MediaButler.Wpf.csproj" />
+  <Project Path="MediaButler.Wpf.UiTests/MediaButler.Wpf.UiTests.csproj" />
+  <Project Path="MediaButler.Wpf.AccessibilityTests/MediaButler.Wpf.AccessibilityTests.csproj" />
+  <Project Path="MediaButler.Wpf.AccessibilityTests.Harness/MediaButler.Wpf.AccessibilityTests.Harness.csproj" />
   <Project Path="MediaButler.Landing.Tests/MediaButler.Landing.Tests.csproj" />
 </Solution>

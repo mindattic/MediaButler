@@ -1,0 +1,236 @@
+/*
+  Color values below are carried over unchanged from the old MAUI shell's
+  XAML comments, where they were already audited for WCAG contrast:
+    #F9A825 / black  = 11.1:1  (DRY RUN badge)
+    #2E7D32 / white  =  4.59:1 (LIVE badge)
+    #6D6D6D / white  =  4.59:1 (section labels, light)
+    #949494 / #222   =  5.36:1 (section labels, dark)
+    #E6EDF3 / #0E1117= 17.1:1  (log pane)
+  See docs/BIBLE.md MediaButler.Wpf.UI entry.
+*/
+:root {
+  --bg: #F5F5F7;
+  --surface: #FFFFFF;
+  --border: #D0D0D0;
+  --text: #1A1A1A;
+  --text-muted: #444444;
+  --section-label: #6D6D6D;
+  --link: #1976D2;
+  --badge-dryrun-bg: #F9A825;
+  --badge-dryrun-fg: #000000;
+  --badge-live-bg: #2E7D32;
+  --badge-live-fg: #FFFFFF;
+  --log-bg: #0E1117;
+  --log-fg: #E6EDF3;
+  --focus-ring: #1976D2;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1A1A1A;
+    --surface: #222222;
+    --border: #3A3A3A;
+    --text: #F2F2F2;
+    --text-muted: #BBBBBB;
+    --section-label: #949494;
+    --link: #82B1FF;
+    --focus-ring: #82B1FF;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+}
+
+#app { min-height: 100vh; }
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 12px;
+  z-index: 100;
+}
+.skip-link:focus {
+  left: 8px;
+  top: 8px;
+}
+
+/* SC 2.4.11 Focus Not Obscured / 2.4.7 Focus Visible */
+:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.app-shell { padding: 16px; max-width: 980px; margin: 0 auto; }
+
+h1 { font-size: 20px; margin: 0 0 8px; }
+h2 {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--section-label);
+  margin: 12px 0 8px;
+}
+
+.tablist { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+.tab {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 10px 16px;
+  min-height: 44px;
+  min-width: 24px;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.tab-active { color: var(--text); border-bottom-color: var(--link); font-weight: 600; }
+
+.header-strip, .button-group, .log-pane, fieldset {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+fieldset { border: 1px solid var(--border); }
+legend { font-size: 16px; font-weight: 700; padding: 0 4px; }
+
+.header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.dryrun-toggle { display: flex; align-items: center; gap: 8px; }
+.dryrun-toggle input[type="checkbox"] { width: 24px; height: 24px; }
+
+.mode-badge {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 4px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+}
+.badge-dryrun { background: var(--badge-dryrun-bg); color: var(--badge-dryrun-fg); }
+.badge-live { background: var(--badge-live-bg); color: var(--badge-live-fg); }
+
+.paths-line, .filebot-line { font-size: 12px; color: var(--text-muted); margin: 4px 0 0; }
+
+.button-row { display: flex; flex-wrap: wrap; gap: 8px; }
+button {
+  min-height: 24px;
+  min-width: 24px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+button.primary {
+  background: var(--link);
+  color: white;
+  border-color: var(--link);
+}
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.link-button {
+  background: transparent;
+  border: none;
+  color: var(--link);
+  text-decoration: underline;
+  padding: 8px 4px;
+}
+
+.status-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.busy-label { font-size: 12px; color: var(--text-muted); flex: 1; }
+
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--border);
+  border-top-color: var(--link);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.log-pane { background: var(--log-bg); padding: 0; }
+#log-output {
+  color: var(--log-fg);
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 12px;
+  padding: 12px;
+  margin: 0;
+  max-height: 420px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.settings-page label { display: block; font-size: 12px; margin: 10px 0 4px; }
+.settings-page input[type="text"], .settings-page input[type="number"] {
+  width: 100%;
+  min-height: 24px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0; }
+.switch-row label { margin: 0; }
+.switch-row input[type="checkbox"] { width: 24px; height: 24px; }
+
+.file-path-label { font-size: 11px; color: var(--text-muted); }
+
+.settings-actions { display: flex; align-items: center; gap: 8px; }
+.status-label { flex: 1; font-size: 12px; color: var(--text-muted); }
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+.dialog {
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 440px;
+  width: 100%;
+}
+.dialog h2 { font-size: 16px; margin: 0 0 8px; text-transform: none; letter-spacing: normal; }
+.dialog p { font-size: 13px; white-space: pre-wrap; }
+.dialog input[type="text"] {
+  width: 100%;
+  min-height: 24px;
+  padding: 6px 8px;
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.dialog-actions-vertical { flex-direction: column; align-items: stretch; }

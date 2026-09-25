@@ -19,7 +19,7 @@ public enum Verbosity { Quiet, Normal, Verbose }
 public static class Status
 {
     // Backed by AsyncLocal so test fixtures and any future concurrent runs
-    // (Maui shell wrapping CLI logic) don't clobber each other's verbosity.
+    // (WPF shell wrapping CLI logic) don't clobber each other's verbosity.
     // AsyncLocal<T> for a value type defaults to default(T) on the first read,
     // which would mean Quiet (0) — wrap with nullable so unset reads as Normal.
     private static readonly AsyncLocal<Verbosity?> verbosity = new();
