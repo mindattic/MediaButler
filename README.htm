@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MediaButler</title>
-<meta name="description" content="Stop hand-renaming torrent dumps. Drop them in, get a Plex-ready library out.">
+<meta name="description" content="Point MediaButler at a folder of messy torrent dumps and get a Plex-ready TV and movie library back: names cleaned, matched by FileBot, duplicates resolved, with a dry run before anything moves.">
 <meta name="generator" content="MindAttic Codex build-readme.ps1">
-<meta name="generated" content="2026-09-25">
+<meta name="generated" content="2026-10-03">
 <style>:root{
   --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;
   --border:#30363d;
@@ -111,66 +111,65 @@ pre:hover .cpbtn{opacity:1}
   </nav>
   <main id="content">
 <h1 id="mediabutler">MediaButler</h1>
-<p><strong>Stop hand-renaming torrent dumps. Drop them in, get a Plex-ready library out.</strong></p>
-<p>MediaButler watches one or more inboxes of messy torrent dumps (<code>Better.Call.Saul.S05.Complete.1080p.WEB-DL.x265-RELEASE_GROUP</code>), cleans the names locally, hands the survivors to FileBot for episode titles and artwork, optionally fetches subtitles, and moves everything into a canonical Plex layout. Multi-season torrents get split into per-season folders; multi-movie packs and "collection husk" folders get split into one folder per film. Show artwork is hoisted from each season into a single show root. Folder names you've already seen — <code>[YTS.MX]</code>, <code>Bones - Season 1-12</code>, year-in-title oddballs like <code>Blade Runner 2049 (2017)</code> — survive the parser without manual intervention. Every naming variation MediaButler encounters is recorded into a persistent, hand-editable corpus so it keeps getting smarter about the shapes your own trackers produce.</p>
-<p>Built on <code>MindAttic.Vault</code> for settings (<code>%APPDATA%\MindAttic\MediaButler\settings.json</code>) and credential resolution (User Secrets / environment variables for OpenSubtitles and any LLM provider). Optional LLM fallback via <code>MindAttic.Legion</code> picks up the long tail of folders (and loose files) the regex parser can't classify.</p>
-<p>This is one of the ~25 repos in the MindAttic personal workspace and follows the shared <strong>Codex documentation standard</strong> — see <a href="#documentation-map">Documentation map</a> below for the canonical docs.</p>
-<p><strong>Why MediaButler:</strong></p>
+<p>Point MediaButler at a folder of messy torrent dumps and get a Plex-ready TV and movie library back: names cleaned, matched by FileBot, duplicates resolved, with a dry run before anything moves.</p>
+<p><a href="https://dotnet.microsoft.com/"><img src="https://img.shields.io/badge/.NET-10-512BD4" alt=".NET 10"></a> <a href="#quick-start"><img src="https://img.shields.io/badge/platform-Windows-0078D4" alt="Platform Windows"></a> <a href="#features"><img src="https://img.shields.io/badge/front%20doors-CLI%20%2B%20WPF%20%2B%20MCP-555555" alt="Front doors"></a> <a href="docs/BIBLE.md"><img src="https://img.shields.io/badge/status-active-2ea44f" alt="Status active"></a></p>
+<pre><code class="language-text"> BEFORE  M:\Torrents                                   AFTER  M:\TV  and  M:\Movies
+ ------------------------------------------------      ----------------------------------------------
+ Better.Call.Saul.S05.Complete.1080p.WEB-DL.x265-GRP   M:\TV\Better Call Saul - Season 05\
+ Bones - Season 1-12\Season 1 ... Season 12            M:\TV\Bones - Season 01 ... Bones - Season 12
+ [YTS.MX] Heat.1995.1080p.BluRay                       M:\Movies\Heat (1995)\
+ Studio.Ghibli\Spirited.Away.2001 + Howls...2004       M:\Movies\Spirited Away (2001)\ + one per film
+ Blade Runner 2049 (2017)                              M:\Movies\Blade Runner 2049 (2017)\
+ Breaking Bad Season 1-5 (empty shell, no video)       deleted after a byte-size safety check
+ The Venture Bros. - Extras                            left in place, listed under Needs manual fix</code></pre>
+<p>Illustrative run, built from the naming cases the parser and pipeline tests cover. MediaButler is a Windows console app with no hosted demo; clone it and start with <code>mb --dry-run run</code> to see the same plan for your own folders.</p>
+<h2 id="why">Why</h2>
 <ul>
-<li><strong>Dry-run first.</strong> Toggle <code>--dry-run</code> (or <code>-n</code>) and the entire pipeline prints <code>[dry: -&gt; target]</code> lines without touching disk. FileBot runs in <code>--action TEST</code> mode so its   decisions are visible without commits.</li>
-<li><strong>Idempotent by design.</strong> Canonical names (<code>Better Call Saul - Season 05</code>, <code>Heat (1995)</code>) round-trip through the parser; re-running on an already-clean library is a no-op.</li>
-<li><strong>Self-defending.</strong> Source-vs-destination guard refuses to run when <code>SourcePath</code> overlaps <code>TvDestination</code>, <code>MoviesDestination</code>, or <code>MusicDestination</code>. Empty disguised folders are   deleted only after a byte-size sanity check. Extras / Specials / Bonus folders are surfaced   for manual review, never reorganized silently.</li>
-<li><strong>One library re-organizer.</strong> <code>mediabutler relocate --source M:\Movies</code> evicts any TV folders that drifted into the movies library (and vice versa) — the only stage that legally operates   on a destination.</li>
-<li><strong>LLM-assisted long tail.</strong> Turn on <code>EnableLlmFallback</code> and unclassifiable folders (and unmatched loose files) get sent through <code>MindAttic.Legion</code> to a configurable provider   (<code>claude-api</code> by default) for a best-guess classification. Off by default to avoid surprise API   calls.</li>
-<li><strong>Plex-ready output.</strong> TV becomes <code>M:\TV\&lt;Show&gt;\Season XX\episodes</code>, movies become <code>M:\Movies\&lt;Title&gt; (YYYY)\</code>. Per-season artwork hoists up to the show root and deduplicates.</li>
-<li><strong>Duplicates are policy-resolved, not toil.</strong> Both duplicate movie folders and duplicate TV episodes default to <code>KeepLargest</code> (the bigger rip wins, the loser is audit-logged) instead of   making you triage every collision by hand.</li>
-<li><strong>Many inboxes, one call.</strong> <code>ExtraSources</code> plus repeatable <code>--source</code> process several roots per run; <code>--recursive</code> additionally treats excluded container subfolders (<code>temp</code>, <code>incomplete</code>, …)   as inboxes of their own.</li>
-<li><strong>A growing, hand-editable naming corpus.</strong> Every scan records the folder names it sees into <code>variations.json</code>; moving a name into a different section of that file pins its classification   for future runs, without touching code.</li>
+<li>See every rename, move and delete before it happens: dry-run prints <code>[dry: -&gt; target]</code> for each action and runs FileBot in <code>TEST</code> mode.</li>
+<li>Re-run it as often as you like: canonical names such as <code>Better Call Saul - Season 05</code> and <code>Heat (1995)</code> round-trip through the parser, so a clean library is a no-op.</li>
+<li>Stop triaging duplicate rips by hand: the bigger copy wins by default and the loser is written to the audit log.</li>
+<li>Never wreck an organised library by accident: MediaButler refuses to run when the source overlaps a destination.</li>
+<li>Teach it your trackers' naming quirks without touching code: every folder name it sees lands in a hand-editable <code>variations.json</code> that pins classifications.</li>
+<li>Drive it from a terminal, a desktop window or an AI agent: one pipeline, three front doors.</li>
 </ul>
-<hr>
-<h2 id="table-of-contents">Table of Contents</h2>
+<h2 id="features">Features</h2>
+<h3 id="cleaning-and-classification">Cleaning and classification</h3>
 <ul>
-<li><a href="#what-it-is--what-it-is-not">What it is / what it is not</a></li>
-<li><a href="#architecture-overview">Architecture overview</a></li>
-<li><a href="#repository-layout">Repository layout</a></li>
-<li><a href="#the-pipeline-stages">The pipeline stages</a></li>
-<li><a href="#cli-commands">CLI commands</a></li>
-<li><a href="#mbcmd-shim"><code>mb.cmd</code> shim</a></li>
-<li><a href="#library-cleanup-relocate">Library cleanup: <code>relocate</code></a></li>
-<li><a href="#safety">Safety</a></li>
-<li><a href="#duplicate-movies-and-duplicate-episodes">Duplicate movies and duplicate episodes</a></li>
-<li><a href="#configuration">Configuration</a></li>
-<li><a href="#opensubtitles-credentials">OpenSubtitles credentials</a></li>
-<li><a href="#llm-fallback-parsing">LLM fallback parsing</a></li>
-<li><a href="#the-variation-catalog">The variation catalog</a></li>
-<li><a href="#mcp-server-agents">MCP server (agents)</a></li>
-<li><a href="#mediabutlerwpf-windows-desktop-shell">MediaButler.Wpf (Windows desktop shell)</a></li>
-<li><a href="#landing-page">Landing page</a></li>
-<li><a href="#why-a-console-app-and-not-powershell">Why a console app and not PowerShell</a></li>
-<li><a href="#build-run-and-test">Build, run, and test</a></li>
-<li><a href="#documentation-map">Documentation map</a></li>
-<li><a href="#pitfalls-mediabutler-already-defends-against">Pitfalls MediaButler already defends against</a></li>
+<li>Cleans release names (<code>Better.Call.Saul.S05.Complete.1080p...</code>) into FileBot-friendly stems (<code>Better Call Saul - Season 05</code>); movies become <code>Title (YYYY)</code>.</li>
+<li>Hoists nested <code>Season N</code> folders out of multi-season dumps and pads season numbers (<code>Season 1</code> becomes <code>Season 01</code>).</li>
+<li>Files loose episode files into their <code>{Show} - Season XX</code> folder, splits multi-movie packs into one folder per film, and hoists collection husks (<code>Studio.Ghibli/</code>) into individual movies.</li>
+<li>Deletes empty disguised folders only after a byte-size sanity check; surfaces <code>Extras</code>, <code>Specials</code> and <code>Bonus</code> folders for manual review.</li>
+<li>Detects music folders so they are never deleted as empty or renamed as movies, and moves them as-is when a music destination is set.</li>
+<li>Optional LLM fallback through MindAttic.Legion classifies the long tail the regex parser cannot.</li>
 </ul>
-<hr>
-<h2 id="what-it-is-what-it-is-not">What it is / what it is not</h2>
-<p>MediaButler <strong>is</strong>:</p>
+<h3 id="matching-and-moving">Matching and moving</h3>
 <ul>
-<li>A .NET console app (<code>net10.0-windows</code>, assembly <code>mediabutler</code>) that organizes an existing folder of already-downloaded media into a Plex-compatible layout.</li>
-<li>One engine with three front doors: a Spectre.Console CLI + interactive menu, an optional <code>MediaButler.Wpf</code> desktop shell (WPF + BlazorWebView, WCAG 2.2 AA), and an MCP (Model Context   Protocol) server for agent hosts — all driving the same <code>PipelineRunner</code>.</li>
+<li>Hands cleaned folders to FileBot for TV (TheTVDB) and movie (TheMovieDB) renames, artwork, and optional OpenSubtitles subtitles.</li>
+<li>Moves TV into a flat <code>{TvDestination}\{Show} - Season XX\</code> layout and movies into <code>{MoviesDestination}\{Title} (YYYY)\</code>, merging into seasons that already exist.</li>
+<li>Routes same-name reboots to <code>{Show} (Year) - Season XX</code> once the library already holds a year-tagged folder for that show.</li>
+<li>Resolves duplicate movies and duplicate episodes by policy (<code>KeepLargest</code> or <code>Flag</code>).</li>
+<li><code>relocate</code> evicts TV folders that drifted into the movies library, and the reverse.</li>
 </ul>
-<p>MediaButler <strong>is not</strong>:</p>
+<h3 id="front-doors">Front doors</h3>
 <ul>
-<li><strong>A downloader / torrent client.</strong> It never fetches media; it organizes what is already on disk under <code>SourcePath</code>.</li>
-<li><strong>A metadata database.</strong> Episode titles, posters, and movie matching are FileBot's job (TheTVDB / TheMovieDB). MediaButler shells out to FileBot; it does not query those APIs   itself.</li>
-<li><strong>A media server.</strong> It produces a Plex-compatible folder layout; it does not stream, scan, or talk to a Plex server.</li>
-<li><strong>A PowerShell script.</strong> Earlier prototyping happened in PowerShell — see <a href="#why-a-console-app-and-not-powershell">Why a console app and not PowerShell</a>.</li>
-<li><strong>A destination editor</strong>, except for the explicit <code>relocate</code> command — every other stage only ever touches <code>SourcePath</code>.</li>
-<li><strong>Vendor-locked to one LLM.</strong> Fallback parsing routes through <code>MindAttic.Legion</code>; no provider SDK is hard-coded.</li>
-<li><strong>A music organizer.</strong> Music is detected so it's never deleted as "empty" or renamed as a movie, and can be moved as-is — but tagging/restructuring music libraries is a different   tool's job.</li>
+<li>Spectre.Console CLI with subcommands plus an interactive menu.</li>
+<li><code>MediaButler.Wpf</code>: an optional WPF + BlazorWebView desktop shell with Run and Settings tabs, built to WCAG 2.2 AA.</li>
+<li><code>mediabutler mcp</code>: a Model Context Protocol server over stdio for agent hosts.</li>
 </ul>
-<p>The full canon for these facts (with law IDs and verifying tests) lives in <a href="docs/BIBLE.md"><code>docs/BIBLE.md</code></a>; this README only summarizes.</p>
-<h2 id="architecture-overview">Architecture overview</h2>
-<pre><code>        M:\Torrents + ExtraSources (+ --recursive container subfolders)
+<h2 id="quick-start">Quick start</h2>
+<p>Prerequisites: Windows, the .NET 10 SDK, and FileBot (default path <code>C:\Program Files\FileBot\filebot.exe</code>). The project references the <code>MindAttic.Vault</code> and <code>MindAttic.Legion</code> NuGet packages.</p>
+<pre><code class="language-powershell">git clone https://github.com/mindattic/MediaButler.git
+cd MediaButler
+dotnet build MediaButler.slnx
+
+# See what would happen, touching nothing
+.\mb.cmd --dry-run run --source "M:\Torrents"
+
+# Do it for real
+.\mb.cmd run --source "M:\Torrents" --live</code></pre>
+<p>You should see a per-item log, then a final report with counts for renamed, hoisted, consolidated, split, moved, FileBot matches, artwork and subtitles, errors, and a <code>Needs manual fix</code> list. Run <code>.\mb.cmd</code> with no arguments for the interactive menu, where Settings are edited and saved to <code>%APPDATA%\MindAttic\MediaButler\settings.json</code>.</p>
+<h2 id="how-it-works">How it works</h2>
+<pre><code class="language-text">        M:\Torrents + ExtraSources (+ --recursive container subfolders)
                             |   one pass per source, exit codes combined (1 &gt; 2 &gt; 0)
                             v
    MediaScanner --classify--&gt; MediaItem { Kind, ... }
@@ -182,9 +181,9 @@ pre:hover .cpbtn{opacity:1}
                     PathGuard.ValidatePaths (refuse on source/destination overlap)
                             v
    RenameStage -&gt; FileBotStage -&gt; MoveStage        [relocate is a separate command]
-   (local clean,   (filebot.exe:    (cross-volume move to Plex layout,
-    hoist seasons,  TV/Movies/subs/  hoist show art, merge into existing
-    consolidate     artwork)         seasons, move music as-is)
+   (local clean,   (filebot.exe:    (cross-volume move to the flat Plex
+    hoist seasons,  TV/Movies/subs/  layout, merge into existing seasons,
+    consolidate     artwork)         move music as-is)
     episodes, split
     packs, wrap loose
     files, merge dups,
@@ -201,7 +200,16 @@ pre:hover .cpbtn{opacity:1}
 
    Settings:    %APPDATA%\MindAttic\MediaButler\settings.json    (via MindAttic.Vault)
    Variations:  %APPDATA%\MindAttic\MediaButler\variations.json  (naming corpus + pins)</code></pre>
-<p>Six sub-projects sit around the console app:</p>
+<h3 id="pipeline-stages">Pipeline stages</h3>
+<ol>
+<li>Self-rename pass (<code>RenameStage</code>). Cleans messy folder names into FileBot-friendly stems, <code>Title (YYYY)</code> for movies. Hoists nested <code>Season N</code> subfolders out of multi-season parent dumps onto the source root and pads season numbers. Consolidates loose episode files into their <code>{Show} - Season XX</code> folder, splits multi-movie packs into one folder per film, hoists collection husks (<code>MovieCollection</code>) into individual movie folders, and merges duplicate-season dumps file by file. Empty disguised folders (no video underneath, under the safety byte floor) are deleted. <code>Extras</code>, <code>Specials</code> and <code>Bonus</code> folders stay in place and appear in the final report.</li>
+<li>FileBot rename pass (<code>FileBotStage</code>). Renames TV episodes via TheTVDB, renames movies via TheMovieDB, fetches show artwork (<code>fn:artwork.tvdb</code>) and movie artwork (<code>fn:artwork</code>, after writing xattr via rename, which works around the <code>artwork.tmdb</code> script bug).</li>
+<li>Optional subtitle pass. Calls <code>filebot -get-subtitles</code> when <code>EnableSubtitles</code> is on. Credentials come from the MindAttic Vault chain; see <a href="#opensubtitles-credentials">OpenSubtitles credentials</a>.</li>
+<li>Move-to-Plex pass (<code>MoveStage</code>). TV seasons move to <code>{TvDestination}\{Show} - Season XX\</code>, one flat folder per season with its own artwork; movies move to <code>{MoviesDestination}\{Title} (YYYY)\</code>; music folders move as-is to <code>MusicDestination</code> when configured. Reboot-safe routing sends year-tagged TV to <code>{Show} (Year) - Season XX</code> once the destination already has a year-tagged folder for that show.</li>
+<li>Final report. Items renamed, hoisted, consolidated, pack-split and moved, FileBot successes, artwork and subtitle counts, errors, and a <code>Needs manual fix</code> list (Unknown, Extras, and any item that hit a pre-existing target).</li>
+</ol>
+<p><code>relocate</code> is a separate command that intentionally operates on a destination rather than a source.</p>
+<h3 id="projects">Projects</h3>
 <table><thead><tr>
 <th>Project</th>
 <th>Role</th>
@@ -209,12 +217,12 @@ pre:hover .cpbtn{opacity:1}
 </tr></thead><tbody>
 <tr>
 <td><code>MediaButler/</code></td>
-<td>The console app itself — Spectre.Console CLI + interactive menu + MCP server. References <code>MindAttic.Vault</code> and <code>MindAttic.Legion</code>.</td>
+<td>The console app: Spectre.Console CLI, interactive menu and MCP server. References <code>MindAttic.Vault</code> and <code>MindAttic.Legion</code>.</td>
 <td>done</td>
 </tr>
 <tr>
 <td><code>MediaButler.Tests/</code></td>
-<td>NUnit coverage for the parser, scanner, pipeline stages, guards, CLI, and MCP server.</td>
+<td>NUnit coverage for the parser, scanner, pipeline stages, guards, CLI and MCP server.</td>
 <td>done</td>
 </tr>
 <tr>
@@ -224,87 +232,56 @@ pre:hover .cpbtn{opacity:1}
 </tr>
 <tr>
 <td><code>MediaButler.Wpf/</code></td>
-<td>Optional WPF + BlazorWebView GUI shell (<code>net10.0-windows10.0.19041.0</code>) hosting <code>MediaButler.Wpf.UI.App</code>. Windows-desktop only; not part of the headless test gate.</td>
+<td>Optional WPF + BlazorWebView GUI shell (<code>net10.0-windows10.0.19041.0</code>) hosting <code>MediaButler.Wpf.UI.App</code>. Windows desktop only; not part of the headless test gate.</td>
 <td>partial</td>
 </tr>
 <tr>
 <td><code>MediaButler.Wpf.UiTests/</code></td>
-<td>FlaUI smoke tests that drive the WPF shell's window/buttons. Windows-desktop only.</td>
+<td>FlaUI smoke tests that drive the WPF shell's window and buttons. Windows desktop only.</td>
 <td>partial</td>
 </tr>
 <tr>
 <td><code>MediaButler.Wpf.AccessibilityTests/</code></td>
-<td>bUnit markup-contract tests + a real-Chromium axe-core WCAG 2.2 AA scan. Windows-desktop only.</td>
+<td>bUnit markup-contract tests plus a real-Chromium axe-core WCAG 2.2 AA scan. Windows desktop only.</td>
 <td>partial</td>
 </tr>
 <tr>
 <td><code>MediaButler.Landing.Tests/</code></td>
-<td>Playwright tests against the repo-root <code>index.htm</code> landing page.</td>
+<td>Playwright tests against the repo-root <code>index.htm</code> page.</td>
 <td>done (needs Playwright browser binaries)</td>
 </tr>
 </tbody></table>
-<h2 id="repository-layout">Repository layout</h2>
-<pre><code>MediaButler/                     the console app (this is what mb.cmd runs)
-  Commands/                      Spectre.Console.Cli subcommands (run, scan, rename, hoist, ...)
-  FileBot/                       FileBotClient — shells out to filebot.exe
-  Llm/                           LegionFallbackParser — MindAttic.Legion long-tail classification
-  Mcp/                           McpServer — stdio JSON-RPC 2.0 front door
-  Media/                         MediaItem/MediaKind domain model, MediaScanner, NameParser,
-                                 VariationCatalog, MasterVariations
-  Pipeline/                      PipelineRunner, RenameStage, FileBotStage, MoveStage,
-                                 RelocateStage, SeasonMerger, PathGuard, AuditLog, PipelineReport
-  Settings/                      MediaButlerSettings, SubtitleCredentials
-  Ui/                            interactive-menu helpers (Verbosity, etc.)
-  Program.cs                     Spectre.Console.Cli app wiring / subcommand registration
-
-MediaButler.Tests/                NUnit test project (headless gate)
-MediaButler.Wpf.UI/                Razor Class Library: the shell's markup + services
-  Pages/                          Run.razor, Settings.razor
-  Layout/, Shared/                TabShell.razor (tabs), ConfirmDialog.razor (accessible modal)
-  Services/                       PipelineRunner (Wpf-side), ConsoleCaptureWriter, DialogService
-MediaButler.Wpf/                   optional Windows desktop GUI shell (WPF host + BlazorWebView)
-MediaButler.Wpf.UiTests/           FlaUI UI-automation smoke tests for the WPF shell
-MediaButler.Wpf.AccessibilityTests/ bUnit + real-Chromium axe-core WCAG 2.2 AA scan
-MediaButler.Landing.Tests/         Playwright tests against index.htm
-
-docs/                             Codex canon (BIBLE, AMENDMENTS, USER_STORIES, rfc/, digest)
-scripts/cli/                      legacy/dead — do not invoke (see docs/BIBLE.md §4.1)
-tools/                            codex.ps1 (docs linter) and build-readme.ps1 (this file -&gt; HTML)
-
-mb.cmd                           CLI shim: forwards every argument to `dotnet run --project MediaButler`
-index.htm                        landing-page HTML (deployed via the sibling MindAttic.Deploy repo)
-package.json                     legacy README-&gt;index.htm renderer scaffold; scripts/cli/* no longer exist
-MediaButler.slnx                 solution file (all seven projects)</code></pre>
-<h2 id="the-pipeline-stages">The pipeline stages</h2>
-<ol>
-<li><strong>Self-rename pass (<code>RenameStage</code>).</strong> Cleans messy folder names (<code>Better.Call.Saul.S05.Complete.1080p...</code>) into FileBot-friendly stems    (<code>Better Call Saul - Season 05</code>). Movies become <code>Title (YYYY)</code>. Hoists nested <code>Season N</code>    subfolders out of multi-season parent dumps onto the source root and pads season numbers with    a leading zero. Consolidates loose episode files into their <code>{Show} - Season XX</code> folder,    splits multi-movie packs into one folder per film, hoists "collection husk" folders    (<code>MovieCollection</code>) into individual movie folders, and merges duplicate-season dumps    file-by-file. Empty disguised folders (no video underneath, under the safety byte floor) are    deleted. <code>Extras</code> / <code>Specials</code> / <code>Bonus</code> folders are left in place and surfaced in the final    report.</li>
-<li><strong>FileBot rename pass (<code>FileBotStage</code>).</strong> Renames TV episodes via TheTVDB, renames movies via TheMovieDB, fetches show artwork (<code>fn:artwork.tvdb</code>) and movie artwork (<code>fn:artwork</code>, after    writing xattr via rename — works around the <code>artwork.tmdb</code> script bug).</li>
-<li><strong>Optional subtitle pass.</strong> Calls <code>filebot -get-subtitles</code> when <code>EnableSubtitles</code> is on. Credentials come from the MindAttic Vault chain (User Secrets → env vars); see    <a href="#opensubtitles-credentials">OpenSubtitles credentials</a>.</li>
-<li><strong>Move-to-Plex pass (<code>MoveStage</code>).</strong> TV folders become <code>M:\TV\&lt;Show&gt;\Season XX\episodes...</code>, movies become <code>M:\Movies\&lt;Title&gt; (YYYY)\...</code>, music folders move as-is to    <code>MusicDestination</code> when configured. Show-level artwork is hoisted from each season folder up    to the show root and deduplicated. Reboot-safe routing sends year-tagged TV content to    <code>ShowName (YEAR)\Season NN</code> once the destination already has a year-tagged folder for that    show.</li>
-<li><strong>Final report.</strong> Prints a consolidated summary: items renamed, hoisted, consolidated, pack-split, moved, FileBot successes, artwork / subtitle counts, errors, and a    <code>Needs manual fix</code> list (Unknown, Extras, and any item that hit a pre-existing target).</li>
-</ol>
-<p><code>relocate</code> (below) is a separate, sixth command that intentionally operates on a destination rather than a source.</p>
-<h2 id="cli-commands">CLI commands</h2>
-<p>All commands share the flags in <code>MediaButler/Commands/BaseSettings.cs</code> (<code>--dry-run</code>/<code>-n</code>, <code>--live</code>, <code>--source</code> (repeatable), <code>--subtitles</code>, <code>--recursive</code>/<code>-r</code>, <code>--tv-dest</code>, <code>--movies-dest</code>, <code>--music-dest</code>, <code>--limit</code>, <code>--duplicates</code>, <code>--tv-duplicates</code>, <code>--no-guard</code>, <code>--quiet</code>/<code>-q</code>, <code>--verbose</code>).</p>
+<h3 id="what-it-is-not">What it is not</h3>
+<ul>
+<li>A downloader or torrent client. It never fetches media; it organises what is already on disk under <code>SourcePath</code>.</li>
+<li>A metadata database. Episode titles, posters and movie matching are FileBot's job (TheTVDB, TheMovieDB); MediaButler shells out to FileBot and does not query those APIs itself.</li>
+<li>A media server. It produces a Plex-compatible folder layout; it does not stream, scan or talk to a Plex server.</li>
+<li>A destination editor, except for the explicit <code>relocate</code> command. Every other stage only touches <code>SourcePath</code>.</li>
+<li>Vendor-locked to one LLM. Fallback parsing routes through <code>MindAttic.Legion</code>; no provider SDK is hard-coded.</li>
+<li>A music organiser. Music is detected so it is never deleted or renamed as a movie, and can be moved as-is, but tagging and restructuring music libraries is another tool's job.</li>
+</ul>
+<p>The canon for these facts, with law IDs and verifying tests, lives in <a href="docs/BIBLE.md">docs/BIBLE.md</a>.</p>
+<h2 id="commands">Commands</h2>
+<p>All commands share the flags in <code>MediaButler/Commands/BaseSettings.cs</code>: <code>--dry-run</code> or <code>-n</code>, <code>--live</code>, <code>--source</code> (repeatable), <code>--subtitles</code>, <code>--recursive</code> or <code>-r</code>, <code>--tv-dest</code>, <code>--movies-dest</code>, <code>--music-dest</code>, <code>--limit</code>, <code>--duplicates</code>, <code>--tv-duplicates</code>, <code>--no-guard</code>, <code>--quiet</code> or <code>-q</code>, <code>--verbose</code>.</p>
 <table><thead><tr>
 <th>Command</th>
 <th>What it runs</th>
 </tr></thead><tbody>
 <tr>
 <td><code>mediabutler run</code></td>
-<td>The full pipeline: rename → FileBot → move. Alias for <code>rename</code>.</td>
+<td>The full pipeline: rename, FileBot, move.</td>
 </tr>
 <tr>
 <td><code>mediabutler scan</code></td>
-<td>Read-only classification pass — prints what each item would be classified as.</td>
+<td>Read-only classification pass; prints what each item would be classified as.</td>
 </tr>
 <tr>
 <td><code>mediabutler rename</code></td>
-<td>Stage 1 (local rename/hoist/consolidate/split) followed by FileBot and move — same as <code>run</code>.</td>
+<td>Stage 1 followed by FileBot and move, same as <code>run</code>.</td>
 </tr>
 <tr>
 <td><code>mediabutler hoist</code></td>
-<td>Stage 1 only — local rename, hoist nested seasons, wrap loose movie files. No FileBot, no move.</td>
+<td>Stage 1 only: local rename, hoist nested seasons, wrap loose movie files. No FileBot, no move.</td>
 </tr>
 <tr>
 <td><code>mediabutler filebot-tv</code></td>
@@ -324,7 +301,7 @@ MediaButler.slnx                 solution file (all seven projects)</code></pre>
 </tr>
 <tr>
 <td><code>mediabutler relocate</code></td>
-<td>Destination-eviction pass — see <a href="#library-cleanup-relocate">Library cleanup</a>.</td>
+<td>Destination-eviction pass; see <a href="#library-cleanup-with-relocate">Library cleanup with relocate</a>.</td>
 </tr>
 <tr>
 <td><code>mediabutler status</code></td>
@@ -332,16 +309,16 @@ MediaButler.slnx                 solution file (all seven projects)</code></pre>
 </tr>
 <tr>
 <td><code>mediabutler mcp</code></td>
-<td>Serves the Model Context Protocol over stdio — see <a href="#mcp-server-agents">MCP server</a>.</td>
+<td>Serves the Model Context Protocol over stdio; see <a href="#mcp-server">MCP server</a>.</td>
 </tr>
 <tr>
-<td><code>mediabutler version</code> / <code>mediabutler --version</code> / <code>-v</code></td>
+<td><code>mediabutler version</code>, <code>--version</code>, <code>-v</code></td>
 <td>Prints the version and exits 0.</td>
 </tr>
 </tbody></table>
 <p>With no subcommand, MediaButler launches the interactive Spectre.Console menu (<code>MainMenuCommand</code>).</p>
-<h2 id="mbcmd-shim"><code>mb.cmd</code> shim</h2>
-<p>The <code>mb.cmd</code> shim at the repo root forwards every argument to <code>dotnet run --project MediaButler -- &lt;args&gt;</code>, so the build stays current without a separate publish/install step:</p>
+<h3 id="the-mbcmd-shim">The mb.cmd shim</h3>
+<p><code>mb.cmd</code> at the repo root forwards every argument to <code>dotnet run --project MediaButler -- &lt;args&gt;</code>, so the build stays current without a separate publish or install step:</p>
 <pre><code class="language-powershell">mb run --source "M:\Torrents" --live
 mb scan --source "M:\Torrents"
 mb hoist --source "M:\Torrents\My.Show.S01-S03"
@@ -350,42 +327,42 @@ mb relocate --source "M:\Movies"
 mb status
 mb --dry-run run --source "M:\Torrents"
 mb --version</code></pre>
-<h2 id="library-cleanup-relocate">Library cleanup: <code>relocate</code></h2>
-<p><code>mediabutler relocate --source &lt;path&gt;</code> scans an already-organized destination and moves out anything that doesn't belong there:</p>
+<h2 id="library-cleanup-with-relocate">Library cleanup with relocate</h2>
+<p><code>mediabutler relocate --source &lt;path&gt;</code> scans an already-organised destination and moves out anything that does not belong there:</p>
 <ul>
-<li>Scanning <code>M:\Movies</code> → expected kind is Movie; any <code>TvSeason</code> folder gets sent to <code>TvDestination</code>.</li>
-<li>Scanning <code>M:\TV</code> → expected kind is TvSeason; any <code>Movie</code> folder gets sent to <code>MoviesDestination</code>.</li>
+<li>Scanning <code>M:\Movies</code>: the expected kind is Movie; any <code>TvSeason</code> folder is sent to <code>TvDestination</code>.</li>
+<li>Scanning <code>M:\TV</code>: the expected kind is TvSeason; any <code>Movie</code> folder is sent to <code>MoviesDestination</code>.</li>
 </ul>
-<p>Items already in the right place are left alone. Combine with <code>--dry-run</code> to preview the eviction list before committing:</p>
+<p>Items already in the right place are left alone. Combine with <code>--dry-run</code> to preview the eviction list:</p>
 <pre><code class="language-powershell">mediabutler relocate --dry-run --source "M:\Movies"
 mediabutler relocate           --source "M:\Movies"</code></pre>
-<p>This is the one command that intentionally runs against a destination, so the source-vs-destination guard doesn't apply.</p>
+<p>This is the one command that intentionally runs against a destination, so the source-vs-destination guard does not apply.</p>
 <h2 id="safety">Safety</h2>
 <ul>
-<li><strong>Dry-run mode.</strong> Toggle from the Settings menu or launch with <code>mediabutler --dry-run</code> (<code>-n</code>). In dry-run no files are renamed, moved, or deleted; FileBot is invoked with <code>--action TEST</code>;   artwork and subtitle fetches are skipped. Every action prints as <code>[dry: -&gt; target]</code> so you can   see what would have happened.</li>
-<li><strong>Source-vs-destination guard (<code>PathGuard</code>).</strong> MediaButler refuses to run when <code>SourcePath</code> equals, contains, or is contained by <code>TvDestination</code> / <code>MoviesDestination</code> / <code>MusicDestination</code>.   Pointing the source at <code>M:\TV</code> would otherwise treat every show folder as a multi-season parent   to hoist and destroy the library. Dry-run downgrades the refusal to a warning so you can inspect   classification of an already-organized library; live mode hard-refuses. <code>--no-guard</code> bypasses   this deliberately for repair runs.</li>
-<li><strong>Idempotent operations.</strong> Re-running the pipeline on an already-clean library is a no-op: canonical folder names (<code>Better Call Saul - Season 05</code>, <code>Heat (1995)</code>) round-trip through the   parser without changing. TV seasons that already exist at the target merge file-by-file   (episode collisions resolve per the <a href="#duplicate-movies-and-duplicate-episodes">duplicate policy</a>);   duplicate movies resolve the same way.</li>
-<li><strong>Three exit codes.</strong> Headless runs return <code>0</code> (clean), <code>1</code> (errors), or <code>2</code> (no errors but items need a human eye — Unknown folders, duplicate-rip conflicts left over from <code>Flag</code> policy,   Extras). Multi-source runs combine per-source codes by severity (<code>1 &gt; 2 &gt; 0</code>). Treat <code>2</code> as   actionable in cron jobs, not silent success.</li>
+<li>Dry-run mode. Toggle it from the Settings menu or launch with <code>mediabutler --dry-run</code> (<code>-n</code>). No files are renamed, moved or deleted; FileBot is invoked with <code>--action TEST</code>; artwork and subtitle fetches are skipped. Every action prints as <code>[dry: -&gt; target]</code>.</li>
+<li>Source-vs-destination guard (<code>PathGuard</code>). MediaButler refuses to run when <code>SourcePath</code> equals, contains or is contained by <code>TvDestination</code>, <code>MoviesDestination</code> or <code>MusicDestination</code>. Pointing the source at <code>M:\TV</code> would otherwise treat every show folder as a multi-season parent to hoist. Dry-run downgrades the refusal to a warning so you can inspect classification of an organised library; live mode hard-refuses. <code>--no-guard</code> bypasses it deliberately for repair runs.</li>
+<li>Idempotent operations. Re-running on a clean library is a no-op: canonical names round-trip through the parser unchanged. TV seasons that already exist at the target merge file by file, with episode collisions resolved by the <a href="#duplicate-movies-and-episodes">duplicate policy</a>; duplicate movies resolve the same way.</li>
+<li>Three exit codes. Headless runs return <code>0</code> (clean), <code>1</code> (errors) or <code>2</code> (no errors, but items need a human: Unknown folders, duplicate conflicts left by the <code>Flag</code> policy, Extras). Multi-source runs combine per-source codes by severity (<code>1 &gt; 2 &gt; 0</code>). Treat <code>2</code> as actionable in scheduled jobs.</li>
 </ul>
-<h2 id="duplicate-movies-and-duplicate-episodes">Duplicate movies and duplicate episodes</h2>
-<p>Both policies share the same <code>DuplicateMovieAction</code> enum (<code>KeepLargest</code> | <code>Flag</code>) and default to <code>KeepLargest</code>.</p>
-<p><strong>Movies</strong> — when a movie's destination folder already exists with content, the <code>duplicateMovieAction</code> setting decides what happens:</p>
+<h2 id="duplicate-movies-and-episodes">Duplicate movies and episodes</h2>
+<p>Both policies share the <code>DuplicateMovieAction</code> enum (<code>KeepLargest</code> or <code>Flag</code>) and default to <code>KeepLargest</code>.</p>
+<p>Movies: when a movie's destination folder already exists with content, <code>duplicateMovieAction</code> decides.</p>
 <ul>
-<li><strong><code>KeepLargest</code></strong> (default) — the copy with the larger primary video file (the largest non-sample video) wins. If the incoming rip is larger, the destination's video is replaced and   the existing artwork is kept; if the incoming rip is smaller or equal, it is deleted from the   inbox. Either way the loser is recorded in the audit log (<code>duplicate-replace</code> /   <code>duplicate-discard</code>). If either side has no video to compare, MediaButler refuses to guess and   flags the item instead.</li>
-<li><strong><code>Flag</code></strong> — the classic behaviour: leave both copies untouched and surface the conflict as needs-manual (exit code <code>2</code>).</li>
+<li><code>KeepLargest</code> (default). The copy with the larger primary video file (the largest non-sample video) wins. If the incoming rip is larger, the destination's video is replaced and existing artwork is kept; if it is smaller or equal, it is deleted from the inbox. The loser is recorded in the audit log (<code>duplicate-replace</code> or <code>duplicate-discard</code>). If either side has no video to compare, MediaButler flags the item instead of guessing.</li>
+<li><code>Flag</code>. Leaves both copies untouched and surfaces the conflict as needs-manual (exit code <code>2</code>).</li>
 </ul>
-<p><strong>TV episodes</strong> — <code>duplicateEpisodeAction</code> applies the same policy at the season-merge point (<code>SeasonMerger.MergeFiles</code>) when an incoming episode's name or parsed episode number already exists at the destination:</p>
+<p>TV episodes: <code>duplicateEpisodeAction</code> applies the same policy at the season-merge point (<code>SeasonMerger.MergeFiles</code>) when an incoming episode's name or parsed episode number already exists at the destination.</p>
 <ul>
-<li><strong><code>KeepLargest</code></strong> (default) — the larger video file wins; the smaller one is deleted (audit-logged the same way as movies). Only fires when both sides are real video files —   subtitle sidecars keep the old exact-name-only conflict check.</li>
-<li><strong><code>Flag</code></strong> — restores the original leave-both-and-flag behaviour.</li>
+<li><code>KeepLargest</code> (default). The larger video file wins and the smaller one is deleted, audit-logged like movies. It only fires when both sides are real video files; subtitle sidecars keep the exact-name-only conflict check.</li>
+<li><code>Flag</code>. Restores the leave-both-and-flag behaviour.</li>
 </ul>
 <p>Override either policy per run:</p>
-<pre><code class="language-powershell">mediabutler run --duplicates flag         # movies: nothing is ever auto-deleted this run
+<pre><code class="language-powershell">mediabutler run --duplicates flag         # movies: nothing is auto-deleted this run
 mediabutler move --duplicates keep-largest
 mediabutler run --tv-duplicates flag      # TV episodes: leave collisions for a human</code></pre>
-<p>Source-side raw-dump merging (<code>RenameStage.ConsolidateEpisode</code>, the flat-episode filing inside <code>HoistParent</code>) compares pre-FileBot scene filenames by exact name only, with no episode-number awareness, and always flags — the duplicate policies above apply at the canonical destination-side merge.</p>
+<p>Source-side raw-dump merging (<code>RenameStage.ConsolidateEpisode</code>, and the flat-episode filing inside <code>HoistParent</code>) compares pre-FileBot scene filenames by exact name only and always flags; the policies above apply at the destination-side merge.</p>
 <h2 id="configuration">Configuration</h2>
-<p>Settings live at <code>%APPDATA%\MindAttic\MediaButler\settings.json</code> and are managed through the in-app Settings menu (or CLI flags, which override the persisted value for a single run). Defaults (see <code>MediaButler/Settings/MediaButlerSettings.cs</code>):</p>
+<p>Settings live at <code>%APPDATA%\MindAttic\MediaButler\settings.json</code> and are managed through the in-app Settings menu. CLI flags override the persisted value for a single run. Defaults from <code>MediaButler/Settings/MediaButlerSettings.cs</code>:</p>
 <table><thead><tr>
 <th>Setting</th>
 <th>Default</th>
@@ -418,7 +395,7 @@ mediabutler run --tv-duplicates flag      # TV episodes: leave collisions for a 
 </tr>
 <tr>
 <td><code>musicDestination</code></td>
-<td><code>""</code> (disabled)</td>
+<td>empty (disabled)</td>
 <td>music moved as-is when set; flagged otherwise</td>
 </tr>
 <tr>
@@ -439,10 +416,10 @@ mediabutler run --tv-duplicates flag      # TV episodes: leave collisions for a 
 <tr>
 <td><code>enableSubtitles</code></td>
 <td><code>false</code></td>
-<td>needs OpenSubtitles login</td>
+<td>needs an OpenSubtitles login</td>
 </tr>
 <tr>
-<td><code>renameEpisodes</code> / <code>renameMovies</code> / <code>fetchArtwork</code></td>
+<td><code>renameEpisodes</code>, <code>renameMovies</code>, <code>fetchArtwork</code></td>
 <td><code>true</code></td>
 <td>individual FileBot sub-passes</td>
 </tr>
@@ -454,17 +431,17 @@ mediabutler run --tv-duplicates flag      # TV episodes: leave collisions for a 
 <tr>
 <td><code>limit</code></td>
 <td><code>null</code> (unlimited)</td>
-<td>cap items processed per stage, for smoke-testing</td>
+<td>caps items processed per stage, for smoke tests</td>
 </tr>
 <tr>
 <td><code>duplicateMovieAction</code></td>
 <td><code>KeepLargest</code> (or <code>Flag</code>)</td>
-<td>see <a href="#duplicate-movies-and-duplicate-episodes">above</a></td>
+<td>see <a href="#duplicate-movies-and-episodes">Duplicate movies and episodes</a></td>
 </tr>
 <tr>
 <td><code>duplicateEpisodeAction</code></td>
 <td><code>KeepLargest</code> (or <code>Flag</code>)</td>
-<td>see <a href="#duplicate-movies-and-duplicate-episodes">above</a></td>
+<td>see <a href="#duplicate-movies-and-episodes">Duplicate movies and episodes</a></td>
 </tr>
 <tr>
 <td><code>excludedFolders</code></td>
@@ -479,7 +456,7 @@ mediabutler run --tv-duplicates flag      # TV episodes: leave collisions for a 
 <tr>
 <td><code>audioExtensions</code></td>
 <td><code>.mp3 .flac .m4a .aac .ogg .opus .wav .wma .ape .alac .aiff .dsf</code></td>
-<td>marks a folder Music (not Empty)</td>
+<td>marks a folder Music, not Empty</td>
 </tr>
 <tr>
 <td><code>emptyDeleteSafetyBytes</code></td>
@@ -489,12 +466,12 @@ mediabutler run --tv-duplicates flag      # TV episodes: leave collisions for a 
 <tr>
 <td><code>sampleMaxBytes</code></td>
 <td><code>300 MB</code></td>
-<td>sample-named videos under this size don't block shell cleanup</td>
+<td>sample-named videos under this size do not block shell cleanup</td>
 </tr>
 <tr>
 <td><code>subtitleExtensions</code></td>
 <td><code>.srt .sub .idx .ass .ssa</code></td>
-<td>travel with a video during consolidation/merge</td>
+<td>travel with a video during consolidation and merge</td>
 </tr>
 <tr>
 <td><code>enableLlmFallback</code></td>
@@ -503,56 +480,35 @@ mediabutler run --tv-duplicates flag      # TV episodes: leave collisions for a 
 </tr>
 <tr>
 <td><code>llmProvider</code></td>
-<td><code>claude-api</code></td>
+<td><code>claude</code></td>
 <td>any Legion-supported provider id</td>
 </tr>
 <tr>
 <td><code>variationCatalogPath</code></td>
-<td><code>""</code></td>
+<td>empty</td>
 <td>resolves to <code>%APPDATA%\MindAttic\MediaButler\variations.json</code></td>
-</tr>
-<tr>
-<td><code>showLevelArtFiles</code></td>
-<td><code>poster.jpg banner.jpg fanart.jpg backdrop.jpg folder.jpg landscape.jpg clearart.png logo.png tvshow.nfo</code></td>
-<td></td>
 </tr>
 <tr>
 <td><code>titleYearOverrides</code></td>
 <td><code>Blade Runner 2049</code>, <code>Wonder Woman 1984</code>, <code>1917</code>, <code>2001 A Space Odyssey</code>, <code>2012</code>, <code>1984</code>, <code>1922</code>, <code>300</code></td>
-<td>titles whose leading/trailing number is part of the title, not a release year</td>
+<td>titles whose leading or trailing number is part of the title, not a release year</td>
 </tr>
 </tbody></table>
-<h2 id="opensubtitles-credentials">OpenSubtitles credentials</h2>
-<p>Credentials are <strong>never</strong> stored in <code>settings.json</code> (which lives unencrypted in roaming app-data). Place them in the canonical Subtitles credential file <code>%APPDATA%\MindAttic\Subtitles\providers.json</code>:</p>
+<h3 id="opensubtitles-credentials">OpenSubtitles credentials</h3>
+<p>Credentials are never stored in <code>settings.json</code>, which lives unencrypted in roaming app data. Put them in the canonical Subtitles credential file <code>%APPDATA%\MindAttic\Subtitles\providers.json</code>:</p>
 <pre><code class="language-json">{
-  "OpenSubtitles": { "user": "ryandebraal", "password": "***" }
+  "OpenSubtitles": { "user": "your-username", "password": "***" }
 }</code></pre>
-<p>Or as environment variables (CI / containers):</p>
-<pre><code class="language-powershell">$env:MindAttic__Vault__Subtitles__OpenSubtitles__user     = 'ryandebraal'
+<p>Or as environment variables (CI, containers):</p>
+<pre><code class="language-powershell">$env:MindAttic__Vault__Subtitles__OpenSubtitles__user     = 'your-username'
 $env:MindAttic__Vault__Subtitles__OpenSubtitles__password = '***'</code></pre>
-<p>When both values resolve, MediaButler passes them to FileBot per call as <code>--def osdb.user=… osdb.pwd=…</code>. If they're missing the pipeline still runs — FileBot falls back to whatever is configured in its own Preferences and MediaButler reports the auth failure (and which key to set) on a 401.</p>
-<h2 id="llm-fallback-parsing">LLM fallback parsing</h2>
-<p>When <code>EnableLlmFallback</code> is <code>true</code>, any folder (or unmatched loose file) the regex-based <code>NameParser</code> fails to classify is forwarded to <code>MindAttic.Legion</code> for a best-guess at title / kind / season. The configured <code>LlmProvider</code> (default <code>claude-api</code>) is called with the messy name; the response is mapped back into the same <code>MediaItem</code> shape the regex parser produces. <code>LegionFallbackParser</code> returns <code>null</code> on any failure (disabled, unparseable, provider error) — MediaButler skips the item rather than rename it wrong.</p>
-<table><thead><tr>
-<th>Setting</th>
-<th>Default</th>
-<th>Meaning</th>
-</tr></thead><tbody>
-<tr>
-<td><code>EnableLlmFallback</code></td>
-<td><code>false</code></td>
-<td>Off by default to avoid surprise API calls.</td>
-</tr>
-<tr>
-<td><code>LlmProvider</code></td>
-<td><code>claude-api</code></td>
-<td>Any Legion-supported provider id (<code>claude-api</code>, <code>openai</code>, <code>gemini</code>, <code>deepseek</code>, ...).</td>
-</tr>
-</tbody></table>
-<p>Credentials are resolved through the shared <code>MindAttic.Vault</code> chain — the same <code>%APPDATA%\MindAttic\LLM\providers.json</code> keyring every other MindAttic project reads from. If the provider key isn't configured, the fallback is skipped silently and the item is surfaced in the final report's "Needs manual fix" list.</p>
-<h2 id="the-variation-catalog">The variation catalog</h2>
-<p>Every scan appends the top-level names it classifies into <code>%APPDATA%\MindAttic\MediaButler\variations.json</code> (sections <code>movie</code> / <code>tv</code> / <code>music</code> / <code>unknown</code>), created on first run as a clone of the hardcoded <code>MasterVariations</code> list (<code>MediaButler/Media/MasterVariations.cs</code>) and merged with new master entries on upgrade. The file is hand-editable: moving a name into a different section pins that name's category for all future classification (exact match, case-insensitive). A corrupted or unparseable file disables saving for the run so a manual edit is never clobbered.</p>
-<h2 id="mcp-server-agents">MCP server (agents)</h2>
+<p>When both values resolve, MediaButler passes them to FileBot per call as <code>--def osdb.user=... osdb.pwd=...</code>. If they are missing the pipeline still runs: FileBot falls back to its own Preferences and MediaButler reports the auth failure, and which key to set, on a 401.</p>
+<h3 id="llm-fallback-parsing">LLM fallback parsing</h3>
+<p>When <code>EnableLlmFallback</code> is <code>true</code>, any folder or unmatched loose file the regex-based <code>NameParser</code> cannot classify is forwarded to <code>MindAttic.Legion</code> for a best guess at title, kind and season. The configured <code>LlmProvider</code> is called with the messy name, and the response is mapped back into the same <code>MediaItem</code> shape the regex parser produces. <code>LegionFallbackParser</code> returns <code>null</code> on any failure (disabled, unparseable, provider error), and MediaButler skips the item rather than rename it wrong.</p>
+<p>Credentials are resolved through the shared <code>MindAttic.Vault</code> chain, the same <code>%APPDATA%\MindAttic\LLM\providers.json</code> keyring other MindAttic projects read. If the provider key is not configured, the fallback is skipped and the item appears in the <code>Needs manual fix</code> list.</p>
+<h3 id="the-variation-catalog">The variation catalog</h3>
+<p>Every scan appends the top-level names it classifies into <code>%APPDATA%\MindAttic\MediaButler\variations.json</code> (sections <code>movie</code>, <code>tv</code>, <code>music</code>, <code>unknown</code>). The file is created on first run as a clone of the hardcoded <code>MasterVariations</code> list (<code>MediaButler/Media/MasterVariations.cs</code>) and merged with new master entries on upgrade. It is hand-editable: moving a name into a different section pins that name's category for all future classification (exact match, case-insensitive). A corrupted or unparseable file disables saving for the run, so a manual edit is never clobbered.</p>
+<h2 id="mcp-server">MCP server</h2>
 <p><code>mediabutler mcp</code> serves the <a href="https://modelcontextprotocol.io">Model Context Protocol</a> over stdio, so agent hosts (Claude Code, Claude Desktop, anything MCP-aware) can drive MediaButler directly:</p>
 <table><thead><tr>
 <th>Tool</th>
@@ -560,7 +516,7 @@ $env:MindAttic__Vault__Subtitles__OpenSubtitles__password = '***'</code></pre>
 </tr></thead><tbody>
 <tr>
 <td><code>scan</code></td>
-<td>Read-only classification of every inbox item, as JSON (kind + canonical target).</td>
+<td>Read-only classification of every inbox item, as JSON (kind and canonical target).</td>
 </tr>
 <tr>
 <td><code>status</code></td>
@@ -568,39 +524,41 @@ $env:MindAttic__Vault__Subtitles__OpenSubtitles__password = '***'</code></pre>
 </tr>
 <tr>
 <td><code>run</code></td>
-<td>The full pipeline. <strong>Dry-run by default</strong> — pass <code>dryRun: false</code> to actually organize. Returns the pipeline log and exit code.</td>
+<td>The full pipeline. Dry-run by default; pass <code>dryRun: false</code> to organise for real. Returns the pipeline log and exit code.</td>
 </tr>
 </tbody></table>
 <p>Register it with Claude Code:</p>
 <pre><code class="language-powershell">claude mcp add mediabutler -- mediabutler mcp</code></pre>
-<p>It's the same engine as the CLI and interactive menu — one engine, many front doors (<code>MediaButler/Mcp/McpServer.cs</code>). stdout carries protocol frames only; pipeline narration goes to stderr and rides inside tool results.</p>
-<h2 id="mediabutlerwpf-windows-desktop-shell">MediaButler.Wpf (Windows desktop shell)</h2>
-<p><code>MediaButler.Wpf/</code> is an optional WPF host (<code>net10.0-windows10.0.19041.0</code> — BlazorWebView's WinRT composition control needs the SDK-versioned TFM) that embeds a single <code>BlazorWebView</code> window. Its Razor markup lives in the separate <code>MediaButler.Wpf.UI/</code> Razor Class Library — a "Run" tab (the pipeline buttons, dry-run toggle, live output log) and a "Settings" tab, switched via an accessible WAI-ARIA tabs pattern with both panels kept mounted so an in-flight run survives a tab switch. It wraps the same pipeline via its own <code>Services/PipelineRunner</code> and <code>ConsoleCaptureWriter</code> (which redirects console-style pipeline narration into the log pane), and references <code>MediaButler/MediaButler.csproj</code> directly, so it stays on the same pipeline logic as the console app.</p>
-<p>The shell targets <strong>WCAG 2.2 AA</strong>: real <code>&lt;label for&gt;</code> associations on every Settings field, <code>role="switch"</code>/<code>aria-checked</code> toggles, <code>aria-live="polite"</code> status announcements (never the log pane, to avoid spamming a screen reader on a full-library run), a focus-trapping accessible modal (<code>Shared/ConfirmDialog.razor</code>) replacing the old confirm/prompt dialogs, and the same contrast-audited colors as CSS custom properties.</p>
-<p><code>MediaButler.Wpf.UiTests/</code> drives the built shell through FlaUI (UI Automation) for smoke testing — window opens, buttons respond, the dry-run badge starts correct. WebView2's Chromium content exposes its own accessibility tree through the same UIA bridge FlaUI already used for native controls.</p>
-<p><code>MediaButler.Wpf.AccessibilityTests/</code> proves the WCAG 2.2 AA claim two ways: bUnit renders <code>Run</code>/<code>Settings</code> into a fake DOM for fast, always-on structural checks (label/role contract), and a real headless-Chromium axe-core scan (<code>wcag2a</code>/<code>wcag2aa</code>/<code>wcag22aa</code> tags) — hosted by the standalone <code>MediaButler.Wpf.AccessibilityTests.Harness</code> executable, launched as a subprocess — checks actual computed contrast and touch-target size against the real production component tree.</p>
-<p>Both projects are Windows-desktop only and are <strong>not</strong> part of the headless test gate; treat them as verified only when actually run on Windows desktop (see <code>docs/BIBLE.md</code> §6).</p>
-<h2 id="landing-page">Landing page</h2>
-<p><code>index.htm</code> at the repo root is the MediaButler marketing/landing page, deployed to <code>mindattic.com/mediabutler.htm</code> via the sibling <code>MindAttic.Deploy</code> repo. <code>MediaButler.Landing.Tests</code> drives it headlessly with Playwright — checks visible content, link resolution, and console errors.</p>
-<p>Per <code>docs/BIBLE.md</code> §4.1, the in-repo <code>scripts/cli/*</code> renderer and its <code>package.json</code> scaffold (a Node/<code>marked</code>-based README → HTML pipeline) are legacy and no longer used to produce <code>index.htm</code>; <code>scripts/cli/</code> is currently empty. Do not invoke <code>npm run build</code> / <code>npm run deploy</code> expecting them to regenerate the landing page — deployment goes through <code>MindAttic.Deploy</code> instead. This is distinct from <code>tools/build-readme.ps1</code> (see below), which renders this <code>README.md</code> into a separate <code>README.htm</code> engineering-reference page, not the marketing landing page.</p>
-<h2 id="why-a-console-app-and-not-powershell">Why a console app and not PowerShell</h2>
-<p>Earlier prototyping happened in PowerShell. Switched to .NET because MediaButler needs <code>MindAttic.Vault</code> for shared credential resolution (OpenSubtitles, LLM providers, plus future cloud storage). The Vault chain (User Secrets → environment variables → providers.json) is the same one every other MindAttic app uses.</p>
-<h2 id="build-run-and-test">Build, run, and test</h2>
+<p>It is the same engine as the CLI and the menu (<code>MediaButler/Mcp/McpServer.cs</code>). stdout carries protocol frames only; pipeline narration goes to stderr and rides inside tool results.</p>
+<h2 id="desktop-shell">Desktop shell</h2>
+<p><code>MediaButler.Wpf/</code> is an optional WPF host (<code>net10.0-windows10.0.19041.0</code>, because BlazorWebView's WinRT composition control needs the SDK-versioned TFM) that embeds a single <code>BlazorWebView</code> window. Its Razor markup lives in the <code>MediaButler.Wpf.UI/</code> Razor Class Library: a Run tab (pipeline buttons, dry-run toggle, live output log) and a Settings tab, switched through an accessible WAI-ARIA tabs pattern with both panels kept mounted so an in-flight run survives a tab switch. It wraps the same pipeline through its own <code>Services/PipelineRunner</code> and <code>ConsoleCaptureWriter</code> (which redirects console narration into the log pane) and references <code>MediaButler/MediaButler.csproj</code> directly.</p>
+<p>The shell targets WCAG 2.2 AA: real label associations on every Settings field, <code>role="switch"</code> and <code>aria-checked</code> toggles, <code>aria-live="polite"</code> status announcements (never the log pane, so a screen reader is not flooded on a full-library run), a focus-trapping accessible modal (<code>Shared/ConfirmDialog.razor</code>), and contrast-audited colours as CSS custom properties.</p>
+<ul>
+<li><code>MediaButler.Wpf.UiTests/</code> drives the built shell through FlaUI (UI Automation): window opens, buttons respond, the dry-run badge starts correct. WebView2 content exposes its accessibility tree through the same UIA bridge.</li>
+<li><code>MediaButler.Wpf.AccessibilityTests/</code> checks the WCAG 2.2 AA claim two ways: bUnit renders <code>Run</code> and <code>Settings</code> into a fake DOM for fast structural checks, and a real headless-Chromium axe-core scan (<code>wcag2a</code>, <code>wcag2aa</code>, <code>wcag22aa</code> tags), hosted by the standalone <code>MediaButler.Wpf.AccessibilityTests.Harness</code> executable, checks computed contrast and touch-target size against the production component tree.</li>
+</ul>
+<p>Both projects are Windows desktop only and are not part of the headless test gate; treat them as verified only when run on a Windows desktop (see <a href="docs/BIBLE.md">docs/BIBLE.md</a> section 6).</p>
+<h2 id="building">Building</h2>
 <pre><code class="language-powershell"># Main console app
 dotnet build MediaButler/MediaButler.csproj
 dotnet run   --project MediaButler                # interactive menu
 dotnet run   --project MediaButler -- --dry-run    # force dry-run for the session
 
-# Headless test gate
-dotnet test  MediaButler.Tests/MediaButler.Tests.csproj
-
 # Whole solution (all seven projects)
 dotnet build MediaButler.slnx
-dotnet test  MediaButler.slnx
 
-# Windows-desktop-only projects (not part of the headless gate)
-dotnet build MediaButler.Wpf/MediaButler.Wpf.csproj
-dotnet test  MediaButler.Wpf.UiTests/MediaButler.Wpf.UiTests.csproj --filter Category=Ui
+# Windows-desktop-only shell (not part of the headless gate)
+dotnet build MediaButler.Wpf/MediaButler.Wpf.csproj</code></pre>
+<p>The <code>mb.cmd</code> shim is equivalent to <code>dotnet run --project MediaButler -- %*</code>.</p>
+<h2 id="testing">Testing</h2>
+<pre><code class="language-powershell"># Headless test gate
+dotnet test MediaButler.Tests/MediaButler.Tests.csproj
+
+# Whole solution
+dotnet test MediaButler.slnx
+
+# Windows-desktop-only UI smoke tests
+dotnet test MediaButler.Wpf.UiTests/MediaButler.Wpf.UiTests.csproj --filter Category=Ui
 
 # WCAG 2.2 AA scan (Playwright; installs once per machine)
 dotnet build MediaButler.Wpf.AccessibilityTests/MediaButler.Wpf.AccessibilityTests.csproj
@@ -611,23 +569,78 @@ dotnet test  MediaButler.Wpf.AccessibilityTests/MediaButler.Wpf.AccessibilityTes
 dotnet build MediaButler.Landing.Tests/MediaButler.Landing.Tests.csproj
 pwsh MediaButler.Landing.Tests/bin/Debug/net10.0/playwright.ps1 install chromium
 dotnet test  MediaButler.Landing.Tests/MediaButler.Landing.Tests.csproj</code></pre>
-<p>The <code>mb.cmd</code> shim at the repo root is equivalent to <code>dotnet run --project MediaButler -- %*</code> — see <a href="#mbcmd-shim"><code>mb.cmd</code> shim</a>.</p>
 <p><code>MediaButler.Tests/</code> (NUnit) is the headless gate and covers:</p>
 <ul>
-<li><code>NameParserTests</code>, <code>EpisodeParsingAndCatalogTests</code> — every dirty-name pitfall from this README, round-trip / idempotency invariants for <code>FormatSeasonFolder</code> and <code>FormatMovieFolder</code>,   and the variation catalog's classify/persist/pin behaviour.</li>
-<li><code>MediaScannerTests</code> — classification against a real temp directory (Empty, Movie, TvSeason, MultiSeasonParent via name or structure signal, Extras, Music, MovieCollection, excluded   folders).</li>
-<li><code>RenameStageTests</code>, <code>PathologicalLibraryPipelineTests</code>, <code>RealWorldLibraryPipelineTests</code> — full pipeline-stage tests: dry-run leaves disk untouched, live rename produces canonical names,   idempotent re-runs, multi-season hoist, pack split, collection-husk hoist, Extras left in   place.</li>
-<li><code>MoveStageTests</code> — <code>SanitizeForFs</code>, cross-volume detection, same-volume rename, reboot-year routing.</li>
-<li><code>DuplicateMovieActionTests</code>, <code>DuplicateEpisodeActionTests</code> — <code>KeepLargest</code> / <code>Flag</code> policy resolution for movies and TV episodes.</li>
-<li><code>SubtitleCredentialsTests</code> — <code>IsComplete</code> semantics and configuration binding.</li>
-<li><code>PathGuardTests</code> — the source-vs-destination overlap detector.</li>
-<li><code>FileBotClientTests</code> — FileBot argument construction (TEST vs live action, subtitle/artwork args, secret <code>@path</code> references).</li>
-<li><code>McpServerTests</code> — the <code>scan</code> / <code>status</code> / <code>run</code> MCP tools.</li>
-<li><code>CliEndToEndTests</code> — subcommand wiring, exit codes, <code>--version</code>.</li>
+<li><code>NameParserTests</code>, <code>EpisodeParsingAndCatalogTests</code>: every dirty-name pitfall below, round-trip and idempotency invariants for <code>FormatSeasonFolder</code> and <code>FormatMovieFolder</code>, and the variation catalog's classify, persist and pin behaviour.</li>
+<li><code>MediaScannerTests</code>: classification against a real temp directory (Empty, Movie, TvSeason, MultiSeasonParent by name or structure, Extras, Music, MovieCollection, excluded folders).</li>
+<li><code>RenameStageTests</code>, <code>PathologicalLibraryPipelineTests</code>, <code>RealWorldLibraryPipelineTests</code>: full pipeline-stage tests covering dry-run leaving disk untouched, canonical live renames, idempotent re-runs, multi-season hoist, pack split, collection-husk hoist, Extras left in place.</li>
+<li><code>MoveStageTests</code>, <code>RelocateStageTests</code>: <code>SanitizeForFs</code>, cross-volume detection, same-volume rename, reboot-year routing, relocate targets.</li>
+<li><code>DuplicateMovieActionTests</code>, <code>DuplicateEpisodeActionTests</code>: <code>KeepLargest</code> and <code>Flag</code> resolution for movies and TV episodes.</li>
+<li><code>SubtitleCredentialsTests</code>: <code>IsComplete</code> semantics and configuration binding.</li>
+<li><code>PathGuardTests</code>: the source-vs-destination overlap detector.</li>
+<li><code>FileBotClientTests</code>: FileBot argument construction (TEST vs live action, subtitle and artwork args, secret <code>@path</code> references).</li>
+<li><code>SettingsEditorTests</code>: the interactive settings editor.</li>
+<li><code>McpServerTests</code>: the <code>scan</code>, <code>status</code> and <code>run</code> MCP tools.</li>
+<li><code>CliEndToEndTests</code>: subcommand wiring, exit codes, <code>--version</code>.</li>
 </ul>
-<pre><code class="language-powershell">dotnet test MediaButler.slnx</code></pre>
-<h2 id="documentation-map">Documentation map</h2>
-<p>This repo follows the MindAttic Codex documentation standard — a fact lives in exactly one layer, cross-referenced by stable ID:</p>
+<h2 id="pitfalls-it-already-defends-against">Pitfalls it already defends against</h2>
+<p>These came from manual runs on real libraries; the code now handles them automatically.</p>
+<ul>
+<li>PowerShell brackets. Names like <code>[YTS.MX]</code> and <code>[TGx]</code> are wildcards in PowerShell; every file operation here uses literal-path semantics via <code>System.IO</code>.</li>
+<li>Empty disguised folders. <code>Breaking Bad (2008) Season 1-5 ...</code> was an empty shell; folders with zero video files (under the safety byte floor) are deleted.</li>
+<li>Multi-season parents with mixed nesting. Bones used <code>Season N</code>, Sherlock used <code>Show.Season.N.S0N...</code>, The Following used <code>Season N</code>; all three patterns are detected by name signal or by two or more season subfolders.</li>
+<li>Orphan show-level files. Files such as <code>Bones_Large.jpg</code> and <code>Info.txt</code> are relocated into the first hoisted season folder so they are not lost when the parent is deleted.</li>
+<li>Collection husks. A <code>Studio.Ghibli/</code> folder holding <code>Spirited.Away.2001/</code> and <code>Howl's.Moving.Castle.2004/</code> is recognised as <code>MovieCollection</code>, so FileBot is never asked to match a studio name.</li>
+<li>FileBot's <code>artwork.tmdb</code> is broken in 5.2.1. Movies are renamed via <code>--db TheMovieDB --action MOVE</code> first (which writes xattr), then the generic <code>fn:artwork</code> script runs.</li>
+<li>Subtitle flag. It is <code>-get-subtitles</code>, not <code>-get-missing-subtitles</code>. A 401 is reported with the key to fix instead of crashing the pipeline.</li>
+<li><code>--action xattr</code> does not exist in 5.2.1. Valid values are MOVE, COPY, KEEPLINK, SYMLINK, HARDLINK, CLONE, DUPLICATE and TEST; dry-run uses TEST.</li>
+<li>Leading-zero season padding. <code>Season 1</code> always becomes <code>Season 01</code>.</li>
+<li>Trailing-dash idempotency. Re-parsing <code>The Mentalist - Season 04</code> used to leave <code>The Mentalist -</code> as the show name; <code>CleanShowName</code> now strips trailing dashes.</li>
+<li>Release-group and index prefixes. Folders like <code>www.UIndex.org    -    A Knight of the Seven Kingdoms S01E01...</code> lose the prefix before parsing.</li>
+<li>Extras and Specials. A top-level <code>The Venture Bros. - Extras</code> is classified as <code>Extras</code>, not as a movie, and surfaced in the manual list.</li>
+<li>Same source and destination. Pointing at <code>M:\TV</code> is refused before any folder is touched in live mode, and downgraded to a warning in dry-run.</li>
+<li>Year-in-title movies. <code>Blade Runner 2049</code>, <code>Wonder Woman 1984</code>, <code>1917</code> and <code>2001 A Space Odyssey</code> would otherwise lose the number as a release year; the <code>TitleYearOverrides</code> allowlist holds these.</li>
+<li>Year-prefixed titles. <code>1917 (2019)</code> and <code>2009 Lost Memories (2002)</code> used to drop the title; the parser now prefers a parenthesised year when both forms are present.</li>
+<li>Same-name TV reboots. A reboot of a show already in the library routes to <code>{Show} (Year) - Season XX</code> once the existing folders carry their own year, instead of merging two shows' episodes.</li>
+<li>Duplicate rip pileups. A re-arrived season colliding episode by episode with a filed copy is resolved by <code>duplicateEpisodeAction: KeepLargest</code> instead of a manual pick per episode.</li>
+</ul>
+<h2 id="why-a-console-app-and-not-powershell">Why a console app and not PowerShell</h2>
+<p>Early prototyping happened in PowerShell. MediaButler moved to .NET because it needs <code>MindAttic.Vault</code> for shared credential resolution (OpenSubtitles, LLM providers). The Vault chain (User Secrets, then environment variables, then <code>providers.json</code>) is the same one every other MindAttic app uses.</p>
+<h2 id="project-layout">Project layout</h2>
+<pre><code class="language-text">MediaButler/                     the console app (this is what mb.cmd runs)
+  Commands/                      Spectre.Console.Cli subcommands (run, scan, rename, hoist, ...)
+  FileBot/                       FileBotClient: shells out to filebot.exe
+  Llm/                           LegionFallbackParser: MindAttic.Legion long-tail classification
+  Mcp/                           McpServer: stdio JSON-RPC 2.0 front door
+  Media/                         MediaItem/MediaKind model, MediaScanner, NameParser,
+                                 VariationCatalog, MasterVariations
+  Pipeline/                      PipelineRunner, RenameStage, FileBotStage, MoveStage,
+                                 RelocateStage, SeasonMerger, PathGuard, AuditLog, PipelineReport
+  Settings/                      MediaButlerSettings, SubtitleCredentials
+  Ui/                            interactive-menu helpers
+  Program.cs                     Spectre.Console.Cli wiring and subcommand registration
+
+MediaButler.Tests/               NUnit test project (headless gate)
+MediaButler.Wpf.UI/              Razor Class Library: the shell's markup and services
+  Pages/                         Run.razor, Settings.razor
+  Layout/, Shared/               TabShell.razor (tabs), ConfirmDialog.razor (accessible modal)
+  Services/                      PipelineRunner (shell side), ConsoleCaptureWriter, DialogService
+MediaButler.Wpf/                 optional Windows desktop shell (WPF host + BlazorWebView)
+MediaButler.Wpf.UiTests/         FlaUI UI-automation smoke tests
+MediaButler.Wpf.AccessibilityTests/  bUnit + real-Chromium axe-core WCAG 2.2 AA scan
+MediaButler.Landing.Tests/       Playwright tests against index.htm
+
+docs/                            Codex canon (BIBLE, AMENDMENTS, USER_STORIES, rfc/, digest)
+scripts/cli/                     legacy, empty; do not invoke (see docs/BIBLE.md section 4.1)
+tools/                           codex.ps1 (docs linter) and build-readme.ps1 (README to HTML)
+
+mb.cmd                           CLI shim: forwards every argument to dotnet run --project MediaButler
+index.htm                        legacy static landing page, kept for MediaButler.Landing.Tests
+package.json                     legacy README-to-index.htm renderer scaffold (unused)
+MediaButler.slnx                 solution file (all seven projects)</code></pre>
+<p>The project page is this README on GitHub. The <code>mindattic.com/mediabutler.htm</code> landing page that <code>MindAttic.Deploy</code> used to publish was retired (MindAttic.Deploy DEP-A6). Per <a href="docs/BIBLE.md">docs/BIBLE.md</a> section 4.1, the in-repo <code>scripts/cli/</code> renderer and its <code>package.json</code> scaffold are legacy and no longer produce <code>index.htm</code>; do not run <code>npm run build</code> or <code>npm run deploy</code> expecting them to. <code>tools/build-readme.ps1</code> renders this README into <code>README.htm</code>, a separate page.</p>
+<h2 id="documentation">Documentation</h2>
+<p>This repo follows the MindAttic Codex documentation standard: a fact lives in exactly one layer, cross-referenced by stable ID.</p>
 <table><thead><tr>
 <th>Layer</th>
 <th>File</th>
@@ -635,12 +648,12 @@ dotnet test  MediaButler.Landing.Tests/MediaButler.Landing.Tests.csproj</code></
 </tr></thead><tbody>
 <tr>
 <td>L0</td>
-<td><a href="docs/BIBLE.md"><code>docs/BIBLE.md</code></a></td>
-<td>What MediaButler IS / is NOT, the architecture canon, and the Laws (<code>MB-LAW-n</code>).</td>
+<td><a href="docs/BIBLE.md">docs/BIBLE.md</a></td>
+<td>What MediaButler is and is not, the architecture canon, and the Laws (<code>MB-LAW-n</code>).</td>
 </tr>
 <tr>
 <td>L1</td>
-<td><a href="docs/AMENDMENTS.md"><code>docs/AMENDMENTS.md</code></a></td>
+<td><a href="docs/AMENDMENTS.md">docs/AMENDMENTS.md</a></td>
 <td>Append-only change log (<code>MB-A&lt;n&gt;</code>); an amendment wins over the bible.</td>
 </tr>
 <tr>
@@ -650,39 +663,21 @@ dotnet test  MediaButler.Landing.Tests/MediaButler.Landing.Tests.csproj</code></
 </tr>
 <tr>
 <td>rfc</td>
-<td><a href="docs/rfc/"><code>docs/rfc/</code></a></td>
-<td>Design notes that graduate into the bible + stories, then get marked superseded.</td>
+<td><a href="docs/rfc">docs/rfc</a></td>
+<td>Design notes that graduate into the bible and stories.</td>
 </tr>
 <tr>
 <td>generated</td>
-<td><code>docs/BIBLE.digest.md</code></td>
+<td><a href="docs/BIBLE.digest.md">docs/BIBLE.digest.md</a></td>
 <td>Produced by <code>tools/codex.ps1 digest</code>; never hand-edit.</td>
 </tr>
 </tbody></table>
-<p>Org-wide laws live in <code>MindAttic.HouseRules.md</code> (in the workspace root) and are inherited by reference from BIBLE §5 rather than restated here. See <code>CLAUDE.md</code> in this repo for the day-to-day working rules (when to regenerate the digest, when to run <code>tools/codex.ps1 doctor</code>, etc.).</p>
-<h2 id="pitfalls-mediabutler-already-defends-against">Pitfalls MediaButler already defends against</h2>
-<p>These came from manual runs on real libraries; the code now handles them automatically:</p>
-<ul>
-<li><strong>PowerShell brackets.</strong> Folder names like <code>[YTS.MX]</code> and <code>[TGx]</code> are wildcards in PowerShell — every file operation here uses <code>LiteralPath</code> semantics via <code>System.IO</code> (no shell expansion).</li>
-<li><strong>Empty disguised folders.</strong> <code>Breaking Bad (2008) Season 1-5 ...</code> was an empty shell. MediaButler deletes folders that contain zero video files (under the safety byte floor).</li>
-<li><strong>Multi-season parents with mixed nesting.</strong> Bones used <code>Season N</code>, Sherlock used <code>Show.Season.N.S0N...</code>, The Following used <code>Season N</code>. MediaButler detects all three patterns   (name signal and / or two-or-more season subfolders).</li>
-<li><strong>Orphan show-level files.</strong> Bones had <code>Bones_Large.jpg</code>, <code>Info.txt</code>. These get relocated into the first hoisted season folder so they aren't lost when the parent is deleted.</li>
-<li><strong>Collection husks.</strong> A <code>Studio.Ghibli/</code> folder holding <code>Spirited.Away.2001/</code>, <code>Howl's.Moving.Castle.2004/</code> is recognized as <code>MovieCollection</code>, not mis-classified as a movie   — FileBot is never asked to match a studio name against a movie database and fail.</li>
-<li><strong>FileBot's <code>artwork.tmdb</code> is broken</strong> in 5.2.1. Workaround: rename movies via <code>--db TheMovieDB --action MOVE</code> first (which writes xattr), then run the generic <code>fn:artwork</code>   script.</li>
-<li><strong>Subtitle flag.</strong> It's <code>-get-subtitles</code>, not <code>-get-missing-subtitles</code>. Auth failures return a 401 and MediaButler reports it gracefully (with the User Secrets key to fix) instead of   crashing the pipeline.</li>
-<li><strong><code>--action xattr</code> doesn't exist</strong> in 5.2.1; valid values are MOVE / COPY / KEEPLINK / SYMLINK / HARDLINK / CLONE / DUPLICATE / TEST. Dry-run uses TEST.</li>
-<li><strong>Leading-zero season padding.</strong> <code>Season 1</code> → <code>Season 01</code> always.</li>
-<li><strong>Trailing-dash idempotency.</strong> Re-parsing <code>The Mentalist - Season 04</code> used to leave the show name as <code>The Mentalist -</code>, which would re-rename the folder to   <code>The Mentalist - - Season 04</code> on the next run. <code>CleanShowName</code> now strips trailing dashes.</li>
-<li><strong>Release-group / index prefixes.</strong> Folders like <code>www.UIndex.org    -    A Knight of the Seven Kingdoms S01E01...</code> are stripped of the prefix   before parsing.</li>
-<li><strong>Extras / Specials.</strong> Top-level <code>The Venture Bros. - Extras</code> is classified as <code>Extras</code> (not as a movie) and surfaced in the manual list.</li>
-<li><strong>Same source and destination.</strong> Pointing at <code>M:\TV</code> is refused before any folder is touched in live mode; downgraded to a warning in dry-run so you can inspect classification of an   already-organized library.</li>
-<li><strong>Year-in-title movies.</strong> Titles like <code>Blade Runner 2049</code>, <code>Wonder Woman 1984</code>, <code>1917</code>, <code>2001 A Space Odyssey</code> would otherwise have the year-shaped number eaten as the release year.   The <code>TitleYearOverrides</code> setting holds a small allowlist of these. Add more entries when new   ones land.</li>
-<li><strong>Year-prefixed titles.</strong> <code>1917 (2019)</code> and <code>2009 Lost Memories (2002)</code> used to drop the title because the bare leading 4-digit number was matched before the parenthesised year. The parser   now prefers a parenthesised year whenever both forms are present.</li>
-<li><strong>Same-name TV reboots.</strong> A 2026 reboot of a show that already has a library folder from its original run now routes to <code>ShowName (YEAR)\Season NN</code> once the existing folder is renamed to   include its own year — instead of merging two unrelated shows' episodes into one folder.</li>
-<li><strong>Duplicate rip pileups.</strong> A re-arrived season colliding episode-by-episode with an already-filed copy used to require a manual pick per episode; <code>duplicateEpisodeAction:   KeepLargest</code> (default) now resolves it automatically, the same way movie duplicates already   were.</li>
-</ul>
+<p>Org-wide laws live in <code>MindAttic.HouseRules.md</code> in the workspace root and are inherited by reference from BIBLE section 5. Agents and contributors: start with <a href="AGENTS.md">AGENTS.md</a> for the working rules (when to regenerate the digest, when to run <code>tools/codex.ps1 doctor</code>).</p>
+<h2 id="license">License</h2>
+<p>This repository has no LICENSE file; all rights are reserved.</p>
+<p>Part of <a href="https://mindattic.com">MindAttic</a> — see more projects at <a href="https://github.com/mindattic">github.com/mindattic</a>. Related: <a href="https://github.com/mindattic/MindAttic.Vault">MindAttic.Vault</a> (settings and credentials), <a href="https://github.com/mindattic/MindAttic.Legion">MindAttic.Legion</a> (LLM fallback).</p>
 
-    <p class="codex-footer">Generated 2026-09-25 by the shared MindAttic Codex engine (<code>codex-standard/build-readme.ps1</code>) from <code>README.md</code>. Edit the Markdown source, not this file.</p>
+    <p class="codex-footer">Generated 2026-10-03 by the shared MindAttic Codex engine (<code>codex-standard/build-readme.ps1</code>) from <code>README.md</code>. Edit the Markdown source, not this file.</p>
   </main>
 </div>
 <script>(function(){

@@ -5,7 +5,7 @@ code: MB
 layer: digest
 status: living
 generatedFrom: MB-§1
-updated: 2026-09-25
+updated: 2026-10-03
 ---
 
 AUTHORITATIVE — full detail in docs/BIBLE.md

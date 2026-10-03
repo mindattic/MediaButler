@@ -1,20 +1,7 @@
-Deploy the MediaButler landing page (`mindattic.com/mediabutler.htm`) via **MindAttic.Deploy** (sibling repo at `D:\Projects\MindAttic\MindAttic.Deploy`).
+# /deploy -- no web deploy
 
-Renders this repo's `README.md` through the catalog template (`template/index.template.htm`, Cyberspace theme, MindAttic.UiUx components loaded via jsDelivr) and FTPS-uploads the single-file result. One repo owns the whole FTP pipeline — there is no per-project deploy state in this folder.
+**MediaButler has no web deploy.** Its README on GitHub -- https://github.com/mindattic/MediaButler -- is the project page. To update the project page, edit `README.md` and push to `main`.
 
-Run this command and report the result:
+The README-driven landing page `mindattic.com/mediabutler.htm` was retired together with MindAttic.Deploy's catalog mode (amendment DEP-A6 in `MindAttic.Deploy/docs/AMENDMENTS.md`, 2026-10-03). `npm run deploy -- --only mediabutler` is now rejected, so do not run MindAttic.Deploy for this project.
 
-```
-powershell -NoProfile -ExecutionPolicy Bypass -Command "cd D:\Projects\MindAttic\MindAttic.Deploy; npm run deploy -- --only mediabutler"
-```
-
-It will:
-
-1. Render `D:\Projects\MindAttic\MediaButler\README.md` through the catalog template.
-2. FTPS-upload `out/mediabutler.htm` to `/mindattic.com/mediabutler.htm`.
-
-After running, summarize the result and flag any failures.
-
-Notes:
-- Catalog entry: `MindAttic.Deploy/projects.json` -> `projects[]` slug `mediabutler` (theme: Cyberspace).
-- Credentials: MindAttic.Vault at `%APPDATA%\MindAttic\Deploy\ftp.json` (transitional fallback: `MindAttic.Deploy/secrets/ftp.json`, gitignored).
+When invoked, tell the user the above and stop.

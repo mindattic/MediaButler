@@ -138,9 +138,11 @@ user-extendable corpus.
   exe (a Blazor Web App launched as a subprocess — an in-process `dotnet test` host breaks
   ASP.NET Core's entry-assembly-keyed component/static-asset discovery).
 - **`MediaButler.Landing.Tests/`** ✅ — tests for the `README.md` -> landing-page rendering.
-- **Landing page** — `README.md` is rendered to `mediabutler.htm` and deployed via the sibling
-  `MindAttic.Deploy` repo (see `.claude/commands/deploy.md`). The in-repo `scripts/cli/*` +
-  `index.htm` are legacy/dead; do not invoke them.
+- **Landing page** — the project page is the GitHub README
+  (https://github.com/mindattic/MediaButler). The `mindattic.com/mediabutler.htm` page formerly
+  rendered by the sibling `MindAttic.Deploy` repo was retired (MindAttic.Deploy DEP-A6; see
+  `.claude/commands/deploy.md`). The in-repo `scripts/cli/*` + `index.htm` are legacy/dead; do not
+  invoke them.
 
 ### 4.2 Domain model (NOUNS)
 - **`MediaItem`** (`MediaButler/Media/MediaItem.cs`) — one classified top-level entry (folder OR
