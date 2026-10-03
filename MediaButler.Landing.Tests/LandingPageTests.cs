@@ -5,7 +5,7 @@ namespace MediaButler.Landing.Tests;
 
 /// <summary>
 /// Headless-browser tests against the MediaButler landing page
-/// (<c>index.htm</c>, deployed to <c>mindattic.com/mediabutler.htm</c>).
+/// (<c>index.htm</c>: a static HTML snapshot of the README; nothing regenerates or publishes it).
 /// Closest equivalent in .NET-land to a Cypress suite — Playwright drives a
 /// real Chromium against the local file, asserts visible content, checks
 /// links resolve, and watches the console for runtime errors.
@@ -30,7 +30,7 @@ public class LandingPageTests
     public async Task OneTimeSetUp()
     {
         // Locate the index.htm at the repo root so the test runs against the
-        // exact file MindAttic.Deploy will upload, not a stale copy.
+        // committed file itself, not a build-output copy.
         var here = Path.GetDirectoryName(typeof(LandingPageTests).Assembly.Location)!;
         var repoRoot = new DirectoryInfo(here).Parent!.Parent!.Parent!.Parent!.FullName;
         var indexPath = Path.Combine(repoRoot, "index.htm");

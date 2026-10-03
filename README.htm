@@ -247,8 +247,8 @@ dotnet build MediaButler.slnx
 </tr>
 <tr>
 <td><code>MediaButler.Landing.Tests/</code></td>
-<td>Playwright tests against the repo-root <code>index.htm</code> page.</td>
-<td>done (needs Playwright browser binaries)</td>
+<td>Playwright checks against the repo-root <code>index.htm</code>, a static snapshot of this README rendered as an HTML page. Nothing in the repo regenerates or publishes <code>index.htm</code>, so these tests guard only that file, not this README.</td>
+<td>partial (needs Playwright browser binaries)</td>
 </tr>
 </tbody></table>
 <h3 id="what-it-is-not">What it is not</h3>
@@ -595,12 +595,12 @@ dotnet test  MediaButler.Landing.Tests/MediaButler.Landing.Tests.csproj</code></
 <li>Subtitle flag. It is <code>-get-subtitles</code>, not <code>-get-missing-subtitles</code>. A 401 is reported with the key to fix instead of crashing the pipeline.</li>
 <li><code>--action xattr</code> does not exist in 5.2.1. Valid values are MOVE, COPY, KEEPLINK, SYMLINK, HARDLINK, CLONE, DUPLICATE and TEST; dry-run uses TEST.</li>
 <li>Leading-zero season padding. <code>Season 1</code> always becomes <code>Season 01</code>.</li>
-<li>Trailing-dash idempotency. Re-parsing <code>The Mentalist - Season 04</code> used to leave <code>The Mentalist -</code> as the show name; <code>CleanShowName</code> now strips trailing dashes.</li>
+<li>Trailing-dash idempotency. Re-parsing <code>The Mentalist - Season 04</code> must not leave <code>The Mentalist -</code> as the show name; <code>CleanShowName</code> strips trailing dashes.</li>
 <li>Release-group and index prefixes. Folders like <code>www.UIndex.org    -    A Knight of the Seven Kingdoms S01E01...</code> lose the prefix before parsing.</li>
 <li>Extras and Specials. A top-level <code>The Venture Bros. - Extras</code> is classified as <code>Extras</code>, not as a movie, and surfaced in the manual list.</li>
 <li>Same source and destination. Pointing at <code>M:\TV</code> is refused before any folder is touched in live mode, and downgraded to a warning in dry-run.</li>
 <li>Year-in-title movies. <code>Blade Runner 2049</code>, <code>Wonder Woman 1984</code>, <code>1917</code> and <code>2001 A Space Odyssey</code> would otherwise lose the number as a release year; the <code>TitleYearOverrides</code> allowlist holds these.</li>
-<li>Year-prefixed titles. <code>1917 (2019)</code> and <code>2009 Lost Memories (2002)</code> used to drop the title; the parser now prefers a parenthesised year when both forms are present.</li>
+<li>Year-prefixed titles. <code>1917 (2019)</code> and <code>2009 Lost Memories (2002)</code> keep their titles; the parser prefers a parenthesised year when both forms are present.</li>
 <li>Same-name TV reboots. A reboot of a show already in the library routes to <code>{Show} (Year) - Season XX</code> once the existing folders carry their own year, instead of merging two shows' episodes.</li>
 <li>Duplicate rip pileups. A re-arrived season colliding episode by episode with a filed copy is resolved by <code>duplicateEpisodeAction: KeepLargest</code> instead of a manual pick per episode.</li>
 </ul>
@@ -631,14 +631,13 @@ MediaButler.Wpf.AccessibilityTests/  bUnit + real-Chromium axe-core WCAG 2.2 AA 
 MediaButler.Landing.Tests/       Playwright tests against index.htm
 
 docs/                            Codex canon (BIBLE, AMENDMENTS, USER_STORIES, rfc/, digest)
-scripts/cli/                     legacy, empty; do not invoke (see docs/BIBLE.md section 4.1)
 tools/                           codex.ps1 (docs linter) and build-readme.ps1 (README to HTML)
 
 mb.cmd                           CLI shim: forwards every argument to dotnet run --project MediaButler
-index.htm                        legacy static landing page, kept for MediaButler.Landing.Tests
-package.json                     legacy README-to-index.htm renderer scaffold (unused)
+index.htm                        static HTML snapshot of this README; read only by MediaButler.Landing.Tests
+package.json                     npm manifest whose build/deploy scripts point at scripts/cli/ files that are not in the repo
 MediaButler.slnx                 solution file (all seven projects)</code></pre>
-<p>The project page is this README on GitHub. The <code>mindattic.com/mediabutler.htm</code> landing page that <code>MindAttic.Deploy</code> used to publish was retired (MindAttic.Deploy DEP-A6). Per <a href="docs/BIBLE.md">docs/BIBLE.md</a> section 4.1, the in-repo <code>scripts/cli/</code> renderer and its <code>package.json</code> scaffold are legacy and no longer produce <code>index.htm</code>; do not run <code>npm run build</code> or <code>npm run deploy</code> expecting them to. <code>tools/build-readme.ps1</code> renders this README into <code>README.htm</code>, a separate page.</p>
+<p>The project page is this README on GitHub; MediaButler has no web deploy. <code>tools/build-readme.ps1</code> renders this README into <code>README.htm</code>. <code>index.htm</code> is a separate, hand-frozen HTML snapshot that nothing regenerates or publishes; <code>npm run build</code> and <code>npm run deploy</code> fail because the <code>scripts/cli/</code> files they call are not in the repo (see <a href="docs/BIBLE.md">docs/BIBLE.md</a> section 4.1).</p>
 <h2 id="documentation">Documentation</h2>
 <p>This repo follows the MindAttic Codex documentation standard: a fact lives in exactly one layer, cross-referenced by stable ID.</p>
 <table><thead><tr>
@@ -654,7 +653,7 @@ MediaButler.slnx                 solution file (all seven projects)</code></pre>
 <tr>
 <td>L1</td>
 <td><a href="docs/AMENDMENTS.md">docs/AMENDMENTS.md</a></td>
-<td>Append-only change log (<code>MB-A&lt;n&gt;</code>); an amendment wins over the bible.</td>
+<td>Pending decisions not yet folded into the bible (normally empty).</td>
 </tr>
 <tr>
 <td>L2</td>

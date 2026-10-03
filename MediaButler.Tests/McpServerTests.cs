@@ -6,7 +6,7 @@ using NUnit.Framework;
 namespace MediaButler.Tests;
 
 /// <summary>
-/// The MCP front door (MB-A6): JSON-RPC 2.0 dispatch and the scan/status/run
+/// The MCP front door (docs/BIBLE.md section 4.3, McpServer): JSON-RPC 2.0 dispatch and the scan/status/run
 /// tools, driven message-by-message without a transport. The settings loader
 /// is injected so nothing here reads %APPDATA% or the real inboxes.
 /// </summary>

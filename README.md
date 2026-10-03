@@ -126,7 +126,7 @@ You should see a per-item log, then a final report with counts for renamed, hois
 | `MediaButler.Wpf/` | Optional WPF + BlazorWebView GUI shell (`net10.0-windows10.0.19041.0`) hosting `MediaButler.Wpf.UI.App`. Windows desktop only; not part of the headless test gate. | partial |
 | `MediaButler.Wpf.UiTests/` | FlaUI smoke tests that drive the WPF shell's window and buttons. Windows desktop only. | partial |
 | `MediaButler.Wpf.AccessibilityTests/` | bUnit markup-contract tests plus a real-Chromium axe-core WCAG 2.2 AA scan. Windows desktop only. | partial |
-| `MediaButler.Landing.Tests/` | Playwright tests against the repo-root `index.htm` page. | done (needs Playwright browser binaries) |
+| `MediaButler.Landing.Tests/` | Playwright checks against the repo-root `index.htm`, a static snapshot of this README rendered as an HTML page. Nothing in the repo regenerates or publishes `index.htm`, so these tests guard only that file, not this README. | partial (needs Playwright browser binaries) |
 
 ### What it is not
 
@@ -379,12 +379,12 @@ These came from manual runs on real libraries; the code now handles them automat
 - Subtitle flag. It is `-get-subtitles`, not `-get-missing-subtitles`. A 401 is reported with the key to fix instead of crashing the pipeline.
 - `--action xattr` does not exist in 5.2.1. Valid values are MOVE, COPY, KEEPLINK, SYMLINK, HARDLINK, CLONE, DUPLICATE and TEST; dry-run uses TEST.
 - Leading-zero season padding. `Season 1` always becomes `Season 01`.
-- Trailing-dash idempotency. Re-parsing `The Mentalist - Season 04` used to leave `The Mentalist -` as the show name; `CleanShowName` now strips trailing dashes.
+- Trailing-dash idempotency. Re-parsing `The Mentalist - Season 04` must not leave `The Mentalist -` as the show name; `CleanShowName` strips trailing dashes.
 - Release-group and index prefixes. Folders like `www.UIndex.org    -    A Knight of the Seven Kingdoms S01E01...` lose the prefix before parsing.
 - Extras and Specials. A top-level `The Venture Bros. - Extras` is classified as `Extras`, not as a movie, and surfaced in the manual list.
 - Same source and destination. Pointing at `M:\TV` is refused before any folder is touched in live mode, and downgraded to a warning in dry-run.
 - Year-in-title movies. `Blade Runner 2049`, `Wonder Woman 1984`, `1917` and `2001 A Space Odyssey` would otherwise lose the number as a release year; the `TitleYearOverrides` allowlist holds these.
-- Year-prefixed titles. `1917 (2019)` and `2009 Lost Memories (2002)` used to drop the title; the parser now prefers a parenthesised year when both forms are present.
+- Year-prefixed titles. `1917 (2019)` and `2009 Lost Memories (2002)` keep their titles; the parser prefers a parenthesised year when both forms are present.
 - Same-name TV reboots. A reboot of a show already in the library routes to `{Show} (Year) - Season XX` once the existing folders carry their own year, instead of merging two shows' episodes.
 - Duplicate rip pileups. A re-arrived season colliding episode by episode with a filed copy is resolved by `duplicateEpisodeAction: KeepLargest` instead of a manual pick per episode.
 
@@ -419,16 +419,15 @@ MediaButler.Wpf.AccessibilityTests/  bUnit + real-Chromium axe-core WCAG 2.2 AA 
 MediaButler.Landing.Tests/       Playwright tests against index.htm
 
 docs/                            Codex canon (BIBLE, AMENDMENTS, USER_STORIES, rfc/, digest)
-scripts/cli/                     legacy, empty; do not invoke (see docs/BIBLE.md section 4.1)
 tools/                           codex.ps1 (docs linter) and build-readme.ps1 (README to HTML)
 
 mb.cmd                           CLI shim: forwards every argument to dotnet run --project MediaButler
-index.htm                        legacy static landing page, kept for MediaButler.Landing.Tests
-package.json                     legacy README-to-index.htm renderer scaffold (unused)
+index.htm                        static HTML snapshot of this README; read only by MediaButler.Landing.Tests
+package.json                     npm manifest whose build/deploy scripts point at scripts/cli/ files that are not in the repo
 MediaButler.slnx                 solution file (all seven projects)
 ```
 
-The project page is this README on GitHub. The `mindattic.com/mediabutler.htm` landing page that `MindAttic.Deploy` used to publish was retired (MindAttic.Deploy DEP-A6). Per [docs/BIBLE.md](docs/BIBLE.md) section 4.1, the in-repo `scripts/cli/` renderer and its `package.json` scaffold are legacy and no longer produce `index.htm`; do not run `npm run build` or `npm run deploy` expecting them to. `tools/build-readme.ps1` renders this README into `README.htm`, a separate page.
+The project page is this README on GitHub; MediaButler has no web deploy. `tools/build-readme.ps1` renders this README into `README.htm`. `index.htm` is a separate, hand-frozen HTML snapshot that nothing regenerates or publishes; `npm run build` and `npm run deploy` fail because the `scripts/cli/` files they call are not in the repo (see [docs/BIBLE.md](docs/BIBLE.md) section 4.1).
 
 ## Documentation
 
@@ -437,7 +436,7 @@ This repo follows the MindAttic Codex documentation standard: a fact lives in ex
 | Layer | File | Purpose |
 | --- | --- | --- |
 | L0 | [docs/BIBLE.md](docs/BIBLE.md) | What MediaButler is and is not, the architecture canon, and the Laws (`MB-LAW-n`). |
-| L1 | [docs/AMENDMENTS.md](docs/AMENDMENTS.md) | Append-only change log (`MB-A<n>`); an amendment wins over the bible. |
+| L1 | [docs/AMENDMENTS.md](docs/AMENDMENTS.md) | Pending decisions not yet folded into the bible (normally empty). |
 | L2 | [`docs/USER_STORIES.md`](docs/USER_STORIES.md) | Test-cited stories (`MB-US-<Epic><n>`); every done story names its verifying test. |
 | rfc | [docs/rfc](docs/rfc) | Design notes that graduate into the bible and stories. |
 | generated | [docs/BIBLE.digest.md](docs/BIBLE.digest.md) | Produced by `tools/codex.ps1 digest`; never hand-edit. |

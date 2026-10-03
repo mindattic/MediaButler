@@ -6,7 +6,7 @@
   doctor  validates the docs/ canon (front-matter, IDs, cross-refs, story test tokens,
           cited paths, data schemas, digest freshness). Exits non-zero on any hard error.
   digest  regenerates docs/BIBLE.digest.md from BIBLE.md sections 1, 3, 5, 9 + a status
-          index + the latest amendment head.
+          index + any pending decisions from AMENDMENTS.md.
   No build step; Windows PowerShell 5.1 compatible.
 #>
 [CmdletBinding()]
@@ -287,14 +287,12 @@ function Invoke-Digest {
     $done    = ([regex]::Matches($storyRaw, '✅')).Count
     $partial = ([regex]::Matches($storyRaw, '🟡')).Count
     $planned = ([regex]::Matches($storyRaw, '⬜')).Count
-    $cut     = ([regex]::Matches($storyRaw, '🗑️')).Count
-
-    # Latest amendment head
-    $amendHead = ""
+    # Pending decisions (AMENDMENTS.md entries not yet folded into the bible), if any
+    $pending = @()
     if (Test-Path -LiteralPath $AmendPath) {
         $amendRaw = Read-Utf8 -Path $AmendPath
-        $am = [regex]::Matches($amendRaw, '(?ms)^##\s+MB-A\d+.*?(?=^##\s+MB-A\d+|\Z)')
-        if ($am.Count -gt 0) { $amendHead = $am[$am.Count - 1].Value.TrimEnd() }
+        $am = [regex]::Matches($amendRaw, '(?ms)^#{2,3}\s+MB-A\d+.*?(?=^#{2,3}\s+MB-A\d+|\Z)')
+        foreach ($m in $am) { $pending += $m.Value.TrimEnd() }
     }
 
     $sb = New-Object System.Text.StringBuilder
@@ -327,16 +325,16 @@ function Invoke-Digest {
     [void]$sb.AppendLine("- ✅ done: $done")
     [void]$sb.AppendLine("- 🟡 partial: $partial")
     [void]$sb.AppendLine("- ⬜ planned: $planned")
-    [void]$sb.AppendLine("- 🗑️ cut: $cut")
     [void]$sb.AppendLine("")
-    [void]$sb.AppendLine("## Latest amendment (amendment wins over the bible)")
-    [void]$sb.AppendLine("")
-    if ($amendHead) { [void]$sb.AppendLine($amendHead) } else { [void]$sb.AppendLine("(none)") }
-    [void]$sb.AppendLine("")
+    if ($pending.Count -gt 0) {
+        [void]$sb.AppendLine("## Pending decisions (not yet folded into docs/BIBLE.md)")
+        [void]$sb.AppendLine("")
+        foreach ($p in $pending) { [void]$sb.AppendLine($p); [void]$sb.AppendLine("") }
+    }
 
     Set-Content -LiteralPath $DigestPath -Value $sb.ToString() -Encoding UTF8
     Write-Host "Wrote $DigestPath" -ForegroundColor Green
-    Write-Host "Sections: 1,3,5,9 + status index (✅$done 🟡$partial ⬜$planned 🗑️$cut) + latest amendment."
+    Write-Host "Sections: 1,3,5,9 + status index (✅$done 🟡$partial ⬜$planned) + $($pending.Count) pending decision(s)."
 }
 
 switch ($Command) {

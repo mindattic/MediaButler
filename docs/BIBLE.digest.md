@@ -117,26 +117,34 @@ severity (1 > 2 > 0). Cron jobs must treat `2` as actionable, not silent success
 `Unknown_subcommand_returns_nonzero`,
 `Version_subcommand_prints_version_and_exits_zero`.)
 
-### MB-LAW-9 — Merge, never overwrite; duplicates are a human decision (TV) or policy-resolved (movies) {#MB-LAW-9}
+### MB-LAW-9 — Merge, never overwrite; duplicates are policy-resolved {#MB-LAW-9}
 **TV:** When a season's canonical target already exists (source-side rename or destination-side
-move), files merge individually. A file whose NAME or PARSED EPISODE already exists at the target
-is left behind and flagged (exit 2) — MediaButler never silently overwrites or double-files an
-episode. Emptied shells are deleted only under the sample-aware guard: every remaining video must
-be sample-named and at most `SampleMaxBytes`, with other junk at most `EmptyDeleteSafetyBytes`.
-Sample clips never travel to the library.
+move), files merge individually; MediaButler never silently overwrites or double-files an episode.
+At the destination-side merge (`MoveStage.MoveTvSeason` -> `SeasonMerger.MergeFiles`), a video
+whose NAME or PARSED EPISODE already exists at the target is resolved by `duplicateEpisodeAction`
+(CLI `--tv-duplicates keep-largest|flag`): `KeepLargest` (default) keeps the larger video and
+deletes the smaller (audit-logged `duplicate-replace` / `duplicate-discard`); `Flag` leaves the
+incoming file behind and flags it (exit 2). Both sides must be videos for the size comparison;
+subtitle sidecars keep the exact-name conflict check and are flagged. The source-side mergers
+(`RenameStage` episode consolidation and flat-episode filing) compare scene filenames by exact
+name only and always flag. Emptied shells are deleted only under the sample-aware guard: every
+remaining video must be sample-named and at most `SampleMaxBytes`, with other junk at most
+`EmptyDeleteSafetyBytes`. Sample clips never travel to the library.
 
 **Movies:** `duplicateMovieAction` (default `KeepLargest`) resolves destination collisions
 automatically. `KeepLargest` compares the largest non-sample video on each side; the larger copy
 wins (incoming larger → destination videos deleted, folder merged; incoming smaller → incoming
 deleted). Artwork and non-video files on the surviving side are preserved. When no comparable
 video exists on either side, falls back to `Flag` (no guess that could destroy media).
-`Flag` restores the TV-style leave-and-flag behaviour for movies. Both directions are audit-logged
-(`duplicate-replace` / `duplicate-discard`). Dry-run logs the decision and mutates nothing.
+`Flag` leaves both copies and flags the item. Both directions are audit-logged
+(`duplicate-replace` / `duplicate-discard`). CLI `--duplicates keep-largest|flag`.
+
+Dry-run logs every duplicate decision (TV and movies) and mutates nothing.
 
 (Verified by `True_duplicate_rips_stay_behind_and_are_flagged_for_a_human`,
 `Junk_and_sample_shells_are_cleaned_up_after_consolidation`,
 `Reruns_never_touch_destinations_and_sources_converge_to_a_steady_state`,
-`DuplicateMovieActionTests.*`.)
+`DuplicateMovieActionTests.*`, `DuplicateEpisodeActionTests.*`.)
 
 ### MB-LAW-10 — The variation catalog grows, pins, and never clobbers user edits {#MB-LAW-10}
 Every scan records each classified top-level name into
@@ -161,7 +169,7 @@ disables saving for the run — user edits are never overwritten by MediaButler.
 - **Consolidate** — file a per-episode dump or loose episode file into its `{Show} - Season XX`.
 - **Pack split** — break a multi-movie folder into one `{Title} (YYYY)` folder per film.
 - **Merge** — file-level union of a duplicate season into the existing canonical folder;
-  episode collisions stay behind for a human ([#MB-LAW-9](#MB-LAW-9)).
+  episode collisions are resolved by `duplicateEpisodeAction` ([#MB-LAW-9](#MB-LAW-9)).
 - **Sample** — a release group's promo clip (`...-sample.mkv`); junk under `SampleMaxBytes`,
   never moved to the library.
 - **Extras** — `Extras`/`Specials`/`Bonus` companion content; preserved, never reorganised.
@@ -176,13 +184,8 @@ disables saving for the run — user edits are never overwritten by MediaButler.
 - **Legion** — `MindAttic.Legion`, the provider-agnostic LLM transport.
 
 ## Status index (from docs/USER_STORIES.md)
-- ✅ done: 37
+- ✅ done: 36
 - 🟡 partial: 7
 - ⬜ planned: 1
-- 🗑️ cut: 1
-
-## Latest amendment (amendment wins over the bible)
-
-(none)
 
 

@@ -6,7 +6,7 @@ using NUnit.Framework;
 namespace MediaButler.Tests;
 
 /// <summary>
-/// The duplicate-movie policy (MB-A6): when a movie's destination folder
+/// The duplicate-movie policy (MB-LAW-9): when a movie's destination folder
 /// already exists with content, <see cref="DuplicateMovieAction.KeepLargest"/>
 /// (the default) keeps whichever copy has the larger primary video and deletes
 /// the other; <see cref="DuplicateMovieAction.Flag"/> restores the classic

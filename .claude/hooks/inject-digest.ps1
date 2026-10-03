@@ -16,8 +16,7 @@ if ([string]::IsNullOrWhiteSpace($body)) { Write-Output '{}'; return }
 $preamble = @"
 [CODEX — AUTHORITATIVE PROJECT CONTEXT for MediaButler (MB)]
 The following is the generated digest of docs/BIBLE.md. Treat it as the source of truth for what
-MediaButler IS, is NOT, and its Laws. Full detail lives in docs/BIBLE.md; amendments in
-docs/AMENDMENTS.md win over the bible. Do not contradict this without an amendment.
+MediaButler IS, is NOT, and its Laws. Full detail lives in docs/BIBLE.md.
 
 "@
 

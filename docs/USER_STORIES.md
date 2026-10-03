@@ -4,11 +4,11 @@ project: MediaButler
 code: MB
 layer: stories
 status: living
-updated: 2026-07-04
+updated: 2026-10-03
 ---
 
 # MediaButler — User Stories
-> ✅ done (shipped & tested) · 🟡 partial · ⬜ planned · 🗑️ cut. Every ✅ cites the test.
+> ✅ done (shipped & tested) · 🟡 partial · ⬜ planned. Every ✅ cites the test.
 
 ## Epic A — Classify a messy library
 - **MB-US-A1 ✅** As an operator, I can point MediaButler at a folder of dumps and have each
@@ -36,7 +36,7 @@ updated: 2026-07-04
   mis-classified as a movie, so FileBot is never asked to match a studio name against a movie
   database and fail. *(verified by `Collection_husk_with_two_year_folders_classifies_as_MovieCollection`,
   `Collection_husk_with_only_one_year_sub_dir_does_not_classify_as_MovieCollection`,
-  `Collection_husk_sub_dirs_without_video_do_not_count_toward_collection`.)* See [MB-A4](AMENDMENTS.md).
+  `Collection_husk_sub_dirs_without_video_do_not_count_toward_collection`.)*
 
 ## Epic B — Rename & canonicalize (local)
 - **MB-US-B1 ✅** As an operator, a live rename produces the canonical folder name
@@ -51,14 +51,13 @@ updated: 2026-07-04
   `Multi_season_parent_hoists_seasons_and_records_count`,
   `Loose_episode_at_multi_season_parent_is_filed_into_its_OWN_season`,
   `Unparseable_loose_video_at_multi_season_parent_stays_and_is_flagged`.)*
-  Reworded per MB-A3 in [AMENDMENTS.md](AMENDMENTS.md); original in the audit log.
 - **MB-US-B5 ✅** As an operator, each movie sub-folder inside a collection husk is hoisted to the
   source root (renamed to `{Title} (YYYY)/`), the husk is deleted, and each hoisted folder is then
   processed by FileBot individually — so films like "Spirited Away" and "Howl's Moving Castle" in a
   `Studio.Ghibli/` husk are renamed, receive artwork, and have their folder names synced. *(verified
   by `MovieCollection_hoist_moves_sub_folders_to_source_root_and_deletes_husk`,
   `MovieCollection_hoist_dry_run_leaves_disk_untouched_but_counts_hoisted`,
-  `HoistMovieCollections_pre_pass_hoists_collection_and_leaves_normal_movies_untouched`.)* See [MB-A4](AMENDMENTS.md).
+  `HoistMovieCollections_pre_pass_hoists_collection_and_leaves_normal_movies_untouched`.)*
 - **MB-US-B4 ✅** As an operator, an empty disguised folder is deleted, but only below the byte
   safety floor — a large folder with an unknown video extension is surfaced for manual review
   instead. *(verified by `Empty_disguised_folder_is_deleted`,
@@ -80,7 +79,7 @@ updated: 2026-07-04
   `LooksLikeAuthFailure_detects_invalid_credentials_message`.)* See [#MB-LAW-7](BIBLE.md#MB-LAW-7).
 
 ## Epic D — Move to Plex layout
-- **MB-US-D1 ✅** As an operator, renamed TV lands at `M:\TV\<Show>\Season XX\...` and movies at
+- **MB-US-D1 ✅** As an operator, renamed TV lands at `M:\TV\<Show> - Season XX\...` (flat, no per-show container) and movies at
   `M:\Movies\<Title> (YYYY)\...`. *(verified by
   `RenameThenMove_lands_every_TV_season_at_Plex_canonical_path`,
   `RenameThenMove_lands_every_movie_at_Plex_canonical_path`.)*
@@ -99,7 +98,7 @@ updated: 2026-07-04
   `Flag_leaves_both_copies_and_surfaces_needs_manual`,
   `KeepLargest_without_a_comparable_video_falls_back_to_flagging`,
   `KeepLargest_dry_run_mutates_nothing_in_either_direction`,
-  `Duplicates_cli_flag_overlays_the_persisted_setting`.)* See [MB-A6](AMENDMENTS.md).
+  `Duplicates_cli_flag_overlays_the_persisted_setting`.)*
 
 ## Epic E — Safety & operability
 - **MB-US-E1 ✅** As an operator, dry-run prints `[dry: -> target]` and mutates nothing on disk.
@@ -126,7 +125,7 @@ updated: 2026-07-04
   success signal), so false errors never mask real ones. *(verified by
   `LooksLikeTestPass_detects_dry_run_plan_lines_despite_exit_1`,
   `LooksLikeTestPass_is_false_when_nothing_was_processed`,
-  `LooksLikeTestPass_is_false_for_real_failures`.)* See [MB-A5](AMENDMENTS.md).
+  `LooksLikeTestPass_is_false_for_real_failures`.)*
 - **MB-US-E7 ✅** As an agent host (Claude Code, Claude Desktop), I can drive MediaButler over
   the Model Context Protocol: `mediabutler mcp` serves stdio JSON-RPC with `scan` (read-only
   classification), `status` (config snapshot), and `run` (pipeline; dry-run by default, mutation
@@ -135,9 +134,9 @@ updated: 2026-07-04
   `ToolsList_exposes_scan_status_run_with_safe_run_default`,
   `Scan_tool_classifies_a_movie_folder`,
   `Run_tool_defaults_to_dry_run_and_mutates_nothing`,
-  `Unknown_tool_reports_isError_instead_of_a_protocol_fault`.)* See [MB-A6](AMENDMENTS.md).
+  `Unknown_tool_reports_isError_instead_of_a_protocol_fault`.)*
 
-## Epic I — Real-inbox conversion contract (MB-A3)
+## Epic I — Real-inbox conversion contract
 - **MB-US-I1 ✅** As an operator, every naming variation inventoried from my real inboxes
   (scene-dotted movies, YTS brackets, duplicated years, per-episode folders, flat complete
   collections, website prefixes, `3x09`/`1.09`/`Episode 05`/scene-code episode files, multi-movie
@@ -159,7 +158,7 @@ updated: 2026-07-04
   Overridable per run via `--tv-duplicates keep-largest|flag`. *(verified by
   `DuplicateEpisodeActionTests.*`,
   `True_duplicate_rips_stay_behind_and_are_flagged_for_a_human` (Flag path),
-  `ParseEpisodeNumberInSeason_resolves_context_only_shapes`.)* See [MB-A9](AMENDMENTS.md).
+  `ParseEpisodeNumberInSeason_resolves_context_only_shapes`.)*
 - **MB-US-I5 ✅** As an operator, partial-download dotfiles (`.parts`) are never touched.
   *(verified by `Dot_parts_partial_download_file_is_ignored_entirely`.)*
 - **MB-US-I6 ✅** As an operator, re-runs never touch the destinations and the whole tree reaches
@@ -207,22 +206,11 @@ updated: 2026-07-04
   are outside the headless `MediaButler.Tests` gate — 🟡 until a CI/desktop runner proves them
   continuously.
 
-## Epic H — Landing page
-- **MB-US-H1 ✅** As a maintainer, the `README.md` renders into the published landing page so the
-  marketing copy and the docs stay in sync. *(verified by `LandingPageTests`.)*
-
 ## Priority backlog
-1. **MB-US-F1** — add a mocked/recorded Legion test so the LLM fallback can graduate to ✅.
+1. **MB-US-F1** — add a mocked/recorded Legion test so the LLM fallback can graduate to ✅ (see
+   [docs/rfc/0001-llm-fallback-test-strategy.md](rfc/0001-llm-fallback-test-strategy.md)).
 2. **MB-US-G1** — wire a CI/desktop runner that executes `WpfAppSmokeTests` and
    `MediaButler.Wpf.AccessibilityTests`, promoting the shell to ✅.
 3. Live-integration harness for FileBot + OpenSubtitles (currently arg-construction tests only).
-4. Expand `TitleYearOverrides` coverage as new year-in-title releases appear (see
-   [docs/rfc/0001-llm-fallback-test-strategy.md](rfc/0001-llm-fallback-test-strategy.md)).
+4. Expand `TitleYearOverrides` coverage as new year-in-title releases appear.
 
-### Audit log
-- **MB-US-B3 (original spec — audit log, superseded by MB-A3 in [AMENDMENTS.md](AMENDMENTS.md)):** "As an
-  operator, multi-season parents have their seasons hoisted and counted, and loose video at the
-  parent is not misfiled into a season. *(verified by
-  `Multi_season_parent_hoists_seasons_and_records_count`,
-  `Loose_video_at_multi_season_parent_is_not_misfiled_into_a_season`.)*" — the loose-video rule
-  evolved: parseable episodes are now filed into their OWN season; only unparseable ones stay.

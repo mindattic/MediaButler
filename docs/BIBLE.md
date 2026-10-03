@@ -4,7 +4,7 @@ project: MediaButler
 code: MB
 layer: bible
 status: living
-updated: 2026-07-17
+updated: 2026-10-03
 ---
 
 # MediaButler — Project Bible
@@ -38,13 +38,12 @@ user-extendable corpus.
   (default `claude`). Off by default. See [#MB-LAW-6](#MB-§5).
 - **Plex-ready output.** TV becomes `M:\TV\<Show> - Season XX\episodes` (flat — no per-show
   container folder, matching the user's library), movies become `M:\Movies\<Title> (YYYY)\`.
-- **Merge, never overwrite (TV).** A second dump of the same season merges file-by-file into the
-  existing canonical folder; a file whose name or parsed episode already exists at the target
-  stays behind and is flagged — duplicate rips are a human decision. See [#MB-LAW-9](#MB-§5).
-- **KeepLargest for movies.** When a movie's destination folder already has content, the copy with
-  the larger primary video wins by default (`duplicateMovieAction: KeepLargest`); the smaller copy
-  is deleted. Set `duplicateMovieAction: Flag` to restore the manual-review behaviour. See
-  [#MB-LAW-9](#MB-§5).
+- **Merge, never overwrite.** A second dump of the same season merges file-by-file into the
+  existing canonical folder. A true duplicate (same file name or parsed episode at the destination
+  season, or a movie whose destination folder already has content) is resolved by policy:
+  `KeepLargest` (default) keeps the copy with the larger video and deletes the other, audit-logged;
+  `Flag` leaves both and asks a human. Movies use `duplicateMovieAction`, TV episodes
+  `duplicateEpisodeAction`. See [#MB-LAW-9](#MB-§5).
 - **Reboot-safe TV routing.** When a TV show is rebooted under the same name, MediaButler routes
   year-tagged content to `ShowName (YEAR) - Season NN` automatically — once the user renames the
   existing bare season folder(s) to include the year. See [#MB-LAW-4](#MB-§5).
@@ -122,7 +121,7 @@ user-extendable corpus.
 - **`MediaButler.Tests/`** ✅ — NUnit test project covering parser, scanner, stages, guards, CLI.
 - **`MediaButler.Wpf.UI/`** 🟡 — Razor Class Library: the WPF shell's markup (`Pages/Run.razor`,
   `Pages/Settings.razor`, `Layout/TabShell.razor`, `Shared/ConfirmDialog.razor`) plus its own
-  `Services/PipelineRunner` and `ConsoleCaptureWriter`, ported unchanged from the old MAUI shell.
+  `Services/PipelineRunner` and `ConsoleCaptureWriter`.
   WCAG 2.2 AA: real `<label for>` associations, `role="switch"`/`aria-checked` toggles, `role="tab"`
   tabs (WAI-ARIA APG pattern), `aria-live="polite"` status regions (never the log pane), and the
   same already-audited contrast colors as CSS custom properties.
@@ -137,12 +136,15 @@ user-extendable corpus.
   `MediaButler.Wpf.UI.App`, hosted by the standalone `MediaButler.Wpf.AccessibilityTests.Harness`
   exe (a Blazor Web App launched as a subprocess — an in-process `dotnet test` host breaks
   ASP.NET Core's entry-assembly-keyed component/static-asset discovery).
-- **`MediaButler.Landing.Tests/`** ✅ — tests for the `README.md` -> landing-page rendering.
-- **Landing page** — the project page is the GitHub README
-  (https://github.com/mindattic/MediaButler). The `mindattic.com/mediabutler.htm` page formerly
-  rendered by the sibling `MindAttic.Deploy` repo was retired (MindAttic.Deploy DEP-A6; see
-  `.claude/commands/deploy.md`). The in-repo `scripts/cli/*` + `index.htm` are legacy/dead; do not
-  invoke them.
+- **`MediaButler.Landing.Tests/`** 🟡 — Playwright checks (`LandingPageTests`: title/heading, CTA
+  links, README content, no console errors) against the repo-root `index.htm`. `index.htm` is a
+  static HTML snapshot of the README (dated 2026-05-23); nothing in the repo regenerates or
+  publishes it, so these tests guard only that file, not the live README. They skip when Playwright
+  browser binaries are absent and are outside the headless `MediaButler.Tests` gate.
+- **Project page** — the GitHub README (https://github.com/mindattic/MediaButler);
+  `tools/build-readme.ps1` renders it into `README.htm`. MediaButler has no web deploy.
+  `package.json`'s `build`/`deploy` scripts call `scripts/cli/*` files that are not in the repo, so
+  they fail; do not use them.
 
 ### 4.2 Domain model (NOUNS)
 - **`MediaItem`** (`MediaButler/Media/MediaItem.cs`) — one classified top-level entry (folder OR
@@ -161,7 +163,9 @@ user-extendable corpus.
   `MusicDestination`, `FileBotPath`, subtitle/artwork toggles, `DryRun`,
   `EnableLlmFallback`/`LlmProvider`, `ExcludedFolders`, `VideoExtensions`, `AudioExtensions`,
   `SubtitleExtensions`, `EmptyDeleteSafetyBytes`, `SampleMaxBytes`,
-  `TitleYearOverrides`, `VariationCatalogPath`, `duplicateMovieAction` (`KeepLargest` | `Flag`).
+  `TitleYearOverrides`, `VariationCatalogPath`, `duplicateMovieAction` and
+  `duplicateEpisodeAction` (both `DuplicateMovieAction`: `KeepLargest` | `Flag`, default
+  `KeepLargest`).
 - **`VariationCatalog`** (`MediaButler/Media/VariationCatalog.cs`) — the persistent naming-
   variation corpus + category pins; seeded from **`MasterVariations`**
   (`MediaButler/Media/MasterVariations.cs`).
@@ -193,7 +197,8 @@ user-extendable corpus.
   (`MoviePack` → one folder per film) + collection hoisting (`MovieCollection` husk → one
   `{Title} (YYYY)/` per sub-dir at source root) + loose-movie wrapping + duplicate-season merge.
 - **`SeasonMerger`** (`MediaButler/Pipeline/SeasonMerger.cs`) — episode-aware file-level merge into
-  an existing canonical season folder + sample-aware shell cleanup (shared by Rename and Move).
+  an existing canonical season folder + sample-aware shell cleanup (shared by Rename and Move);
+  `MergeFiles` applies `duplicateEpisodeAction` to video collisions.
 - **`FileBotStage`** (`MediaButler/Pipeline/FileBotStage.cs`) — drives `filebot.exe` for TV, movies,
   subtitles, and artwork via `FileBotClient` (`MediaButler/FileBot/FileBotClient.cs`).
 - **`MoveStage.Run()`** (`MediaButler/Pipeline/MoveStage.cs`) — cross-volume move to a flat season
@@ -286,26 +291,34 @@ severity (1 > 2 > 0). Cron jobs must treat `2` as actionable, not silent success
 `Unknown_subcommand_returns_nonzero`,
 `Version_subcommand_prints_version_and_exits_zero`.)
 
-### MB-LAW-9 — Merge, never overwrite; duplicates are a human decision (TV) or policy-resolved (movies) {#MB-LAW-9}
+### MB-LAW-9 — Merge, never overwrite; duplicates are policy-resolved {#MB-LAW-9}
 **TV:** When a season's canonical target already exists (source-side rename or destination-side
-move), files merge individually. A file whose NAME or PARSED EPISODE already exists at the target
-is left behind and flagged (exit 2) — MediaButler never silently overwrites or double-files an
-episode. Emptied shells are deleted only under the sample-aware guard: every remaining video must
-be sample-named and at most `SampleMaxBytes`, with other junk at most `EmptyDeleteSafetyBytes`.
-Sample clips never travel to the library.
+move), files merge individually; MediaButler never silently overwrites or double-files an episode.
+At the destination-side merge (`MoveStage.MoveTvSeason` -> `SeasonMerger.MergeFiles`), a video
+whose NAME or PARSED EPISODE already exists at the target is resolved by `duplicateEpisodeAction`
+(CLI `--tv-duplicates keep-largest|flag`): `KeepLargest` (default) keeps the larger video and
+deletes the smaller (audit-logged `duplicate-replace` / `duplicate-discard`); `Flag` leaves the
+incoming file behind and flags it (exit 2). Both sides must be videos for the size comparison;
+subtitle sidecars keep the exact-name conflict check and are flagged. The source-side mergers
+(`RenameStage` episode consolidation and flat-episode filing) compare scene filenames by exact
+name only and always flag. Emptied shells are deleted only under the sample-aware guard: every
+remaining video must be sample-named and at most `SampleMaxBytes`, with other junk at most
+`EmptyDeleteSafetyBytes`. Sample clips never travel to the library.
 
 **Movies:** `duplicateMovieAction` (default `KeepLargest`) resolves destination collisions
 automatically. `KeepLargest` compares the largest non-sample video on each side; the larger copy
 wins (incoming larger → destination videos deleted, folder merged; incoming smaller → incoming
 deleted). Artwork and non-video files on the surviving side are preserved. When no comparable
 video exists on either side, falls back to `Flag` (no guess that could destroy media).
-`Flag` restores the TV-style leave-and-flag behaviour for movies. Both directions are audit-logged
-(`duplicate-replace` / `duplicate-discard`). Dry-run logs the decision and mutates nothing.
+`Flag` leaves both copies and flags the item. Both directions are audit-logged
+(`duplicate-replace` / `duplicate-discard`). CLI `--duplicates keep-largest|flag`.
+
+Dry-run logs every duplicate decision (TV and movies) and mutates nothing.
 
 (Verified by `True_duplicate_rips_stay_behind_and_are_flagged_for_a_human`,
 `Junk_and_sample_shells_are_cleaned_up_after_consolidation`,
 `Reruns_never_touch_destinations_and_sources_converge_to_a_steady_state`,
-`DuplicateMovieActionTests.*`.)
+`DuplicateMovieActionTests.*`, `DuplicateEpisodeActionTests.*`.)
 
 ### MB-LAW-10 — The variation catalog grows, pins, and never clobbers user edits {#MB-LAW-10}
 Every scan records each classified top-level name into
@@ -319,25 +332,19 @@ disables saving for the run — user edits are never overwritten by MediaButler.
 `Corrupted_file_disables_saving_so_user_edits_survive`.)
 
 ## 6. Verified state {#MB-§6}
-> Latest evidence 2026-07-17 — see [#MB-§8](#MB-§8) for the bar.
+> Latest evidence 2026-10-03 — see [#MB-§8](#MB-§8) for the bar.
 
-- **Build (2026-07-17):** `dotnet build MediaButler.Tests/MediaButler.Tests.csproj` — **succeeded,
-  0 warnings, 0 errors** (net10.0-windows; covers main project and all tests).
-- **Core tests (2026-07-17):** `dotnet test MediaButler.Tests/MediaButler.Tests.csproj` — **Passed:
-  245, Failed: 0, Skipped: 0** (NUnit). Suite covers `NameParserTests`, `EpisodeParsingTests`,
+- **Core build + tests (2026-10-03):** `dotnet test MediaButler.Tests/MediaButler.Tests.csproj` —
+  builds the main project and tests, **Passed: 283, Failed: 0, Skipped: 0** (NUnit). Suite covers `NameParserTests`, `EpisodeParsingTests`,
   `VariationCatalogTests`, `MediaScannerTests`, `RenameStageTests`, `MoveStageTests`,
   `RelocateStageTests`, `PathGuardTests`, `SubtitleCredentialsTests`, `FileBotClientTests`,
   `CliEndToEndTests`, `PathologicalLibraryPipelineTests`, `RealWorldLibraryPipelineTests`,
-  `DuplicateMovieActionTests`, `McpServerTests`, `LooksLikeTestPassTests`.
-- **Real-disk verification (2026-07-17):** Full `run --live` over `M:\Torrents` with `--subtitles`;
-  all items classified and moved correctly including the LHOTP 2026 reboot (routed at the time to
-  a nested `M:\TV\Little House on the Prairie (2026)\Season 01`). Zero Unknown items. **Superseded
-  2026-09-23 (MB-A10):** the nested show-container layout this run exercised was reverted in favor
-  of the flat `M:\TV\<Show> (Year) - Season NN` layout the user's library actually uses.
-- **Proven working (✅):** everything from previous verified state, plus: movie-collection husk
-  hoisting (`MovieCollection`), dry-run FileBot TEST-pass detection (`FileBotResult.LooksLikeTestPass`),
-  `KeepLargest` / `Flag` duplicate-movie policy, MCP front door (`mediabutler mcp`),
-  reboot/same-name TV disambiguation (year-tagged staging + `IsShowDisambiguated` routing).
+  `DuplicateMovieActionTests`, `DuplicateEpisodeActionTests`, `McpServerTests`, `SettingsEditorTests`.
+- **Proven working (✅):** every ✅ story in `docs/USER_STORIES.md`, including movie-collection
+  husk hoisting (`MovieCollection`), dry-run FileBot TEST-pass detection
+  (`FileBotResult.LooksLikeTestPass`), `KeepLargest` / `Flag` duplicate policy for movies and TV
+  episodes, the flat `{Show} - Season NN` TV layout, MCP front door (`mediabutler mcp`), and
+  reboot/same-name TV disambiguation (`IsShowDisambiguated` routing).
 - **Partial (🟡):** the WPF shell (`MediaButler.Wpf`), its FlaUI smoke tests, and its
   bUnit/axe-core accessibility scan run only on Windows desktop and are not part of the headless
   `MediaButler.Tests` gate; treated as 🟡 pending a CI/desktop runner even though all three have
@@ -349,7 +356,8 @@ disables saving for the run — user edits are never overwritten by MediaButler.
   Legion fallback for folders AND unmatched files is implemented but has no mocked-transport test
   yet). `LandingPageTests` and `MediaButler.Wpf.AccessibilityTests`' axe-core scan both require
   Playwright browser binaries (`playwright.ps1 install chromium`) and skip gracefully when
-  absent — treated as 🟡 in headless CI until binaries are provisioned.
+  absent — treated as 🟡 in headless CI until binaries are provisioned (and `LandingPageTests`
+  checks only the static `index.htm` snapshot, see [§4.1](#MB-§4)).
 
 ## 7. Active frontier {#MB-§7}
 - See `docs/rfc/` for open design notes.
@@ -383,7 +391,7 @@ Otherwise it is 🟡/⬜. Inherits [HOUSE-LAW-8](../../MindAttic.HouseRules.md#H
 - **Consolidate** — file a per-episode dump or loose episode file into its `{Show} - Season XX`.
 - **Pack split** — break a multi-movie folder into one `{Title} (YYYY)` folder per film.
 - **Merge** — file-level union of a duplicate season into the existing canonical folder;
-  episode collisions stay behind for a human ([#MB-LAW-9](#MB-LAW-9)).
+  episode collisions are resolved by `duplicateEpisodeAction` ([#MB-LAW-9](#MB-LAW-9)).
 - **Sample** — a release group's promo clip (`...-sample.mkv`); junk under `SampleMaxBytes`,
   never moved to the library.
 - **Extras** — `Extras`/`Specials`/`Bonus` companion content; preserved, never reorganised.

@@ -343,9 +343,9 @@ public class RealWorldLibraryPipelineTests
     [Test]
     public void True_duplicate_rips_stay_behind_and_are_flagged_for_a_human()
     {
-        // MB-A9 made KeepLargest the default for TV episodes too (see
-        // DuplicateEpisodeActionTests); this test exercises the Flag opt-out,
-        // which restores the original MB-LAW-9 leave-both-and-ask behaviour.
+        // KeepLargest is the default for TV episodes (see DuplicateEpisodeActionTests);
+        // this test exercises the Flag policy, which leaves both copies and flags
+        // the collision for a human (MB-LAW-9).
         var report = RunLocalPipelineOverAllSources(duplicateEpisodeAction: DuplicateMovieAction.Flag);
 
         Assert.Multiple(() =>

@@ -6,7 +6,7 @@ using NUnit.Framework;
 namespace MediaButler.Tests;
 
 /// <summary>
-/// The duplicate-episode policy (MB-A9): when a TV season merge finds an
+/// The duplicate-episode policy (MB-LAW-9): when a TV season merge finds an
 /// incoming episode whose name or parsed episode number already exists at the
 /// destination season folder, <see cref="DuplicateMovieAction.KeepLargest"/>
 /// (the default) keeps whichever copy has the larger video and deletes the
