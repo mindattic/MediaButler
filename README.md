@@ -126,7 +126,6 @@ You should see a per-item log, then a final report with counts for renamed, hois
 | `MediaButler.Wpf/` | Optional WPF + BlazorWebView GUI shell (`net10.0-windows10.0.19041.0`) hosting `MediaButler.Wpf.UI.App`. Windows desktop only; not part of the headless test gate. | partial |
 | `MediaButler.Wpf.UiTests/` | FlaUI smoke tests that drive the WPF shell's window and buttons. Windows desktop only. | partial |
 | `MediaButler.Wpf.AccessibilityTests/` | bUnit markup-contract tests plus a real-Chromium axe-core WCAG 2.2 AA scan. Windows desktop only. | partial |
-| `MediaButler.Landing.Tests/` | Playwright checks against the repo-root `index.htm`, a static snapshot of this README rendered as an HTML page. Nothing in the repo regenerates or publishes `index.htm`, so these tests guard only that file, not this README. | partial (needs Playwright browser binaries) |
 
 ### What it is not
 
@@ -345,11 +344,6 @@ dotnet test MediaButler.Wpf.UiTests/MediaButler.Wpf.UiTests.csproj --filter Cate
 dotnet build MediaButler.Wpf.AccessibilityTests/MediaButler.Wpf.AccessibilityTests.csproj
 pwsh MediaButler.Wpf.AccessibilityTests/bin/Debug/net10.0-windows/playwright.ps1 install chromium
 dotnet test  MediaButler.Wpf.AccessibilityTests/MediaButler.Wpf.AccessibilityTests.csproj
-
-# Landing-page tests (Playwright; installs once per machine)
-dotnet build MediaButler.Landing.Tests/MediaButler.Landing.Tests.csproj
-pwsh MediaButler.Landing.Tests/bin/Debug/net10.0/playwright.ps1 install chromium
-dotnet test  MediaButler.Landing.Tests/MediaButler.Landing.Tests.csproj
 ```
 
 `MediaButler.Tests/` (NUnit) is the headless gate and covers:
@@ -416,18 +410,15 @@ MediaButler.Wpf.UI/              Razor Class Library: the shell's markup and ser
 MediaButler.Wpf/                 optional Windows desktop shell (WPF host + BlazorWebView)
 MediaButler.Wpf.UiTests/         FlaUI UI-automation smoke tests
 MediaButler.Wpf.AccessibilityTests/  bUnit + real-Chromium axe-core WCAG 2.2 AA scan
-MediaButler.Landing.Tests/       Playwright tests against index.htm
 
 docs/                            Codex canon (BIBLE, AMENDMENTS, USER_STORIES, rfc/, digest)
 tools/                           codex.ps1 (docs linter) and build-readme.ps1 (README to HTML)
 
 mb.cmd                           CLI shim: forwards every argument to dotnet run --project MediaButler
-index.htm                        static HTML snapshot of this README; read only by MediaButler.Landing.Tests
-package.json                     npm manifest whose build/deploy scripts point at scripts/cli/ files that are not in the repo
 MediaButler.slnx                 solution file (all seven projects)
 ```
 
-The project page is this README on GitHub; MediaButler has no web deploy. `tools/build-readme.ps1` renders this README into `README.htm`. `index.htm` is a separate, hand-frozen HTML snapshot that nothing regenerates or publishes; `npm run build` and `npm run deploy` fail because the `scripts/cli/` files they call are not in the repo (see [docs/BIBLE.md](docs/BIBLE.md) section 4.1).
+The project page is this README on GitHub; MediaButler has no web deploy. `tools/build-readme.ps1` renders this README into `README.htm`.
 
 ## Documentation
 

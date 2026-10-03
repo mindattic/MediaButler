@@ -136,15 +136,8 @@ user-extendable corpus.
   `MediaButler.Wpf.UI.App`, hosted by the standalone `MediaButler.Wpf.AccessibilityTests.Harness`
   exe (a Blazor Web App launched as a subprocess — an in-process `dotnet test` host breaks
   ASP.NET Core's entry-assembly-keyed component/static-asset discovery).
-- **`MediaButler.Landing.Tests/`** 🟡 — Playwright checks (`LandingPageTests`: title/heading, CTA
-  links, README content, no console errors) against the repo-root `index.htm`. `index.htm` is a
-  static HTML snapshot of the README (dated 2026-05-23); nothing in the repo regenerates or
-  publishes it, so these tests guard only that file, not the live README. They skip when Playwright
-  browser binaries are absent and are outside the headless `MediaButler.Tests` gate.
 - **Project page** — the GitHub README (https://github.com/mindattic/MediaButler);
   `tools/build-readme.ps1` renders it into `README.htm`. MediaButler has no web deploy.
-  `package.json`'s `build`/`deploy` scripts call `scripts/cli/*` files that are not in the repo, so
-  they fail; do not use them.
 
 ### 4.2 Domain model (NOUNS)
 - **`MediaItem`** (`MediaButler/Media/MediaItem.cs`) — one classified top-level entry (folder OR
@@ -354,10 +347,9 @@ disables saving for the run — user edits are never overwritten by MediaButler.
   wcag2a/wcag2aa/wcag22aa violations). Live FileBot/OpenSubtitles/LLM paths require external
   binaries and credentials and are exercised by construction tests, not live integration (the
   Legion fallback for folders AND unmatched files is implemented but has no mocked-transport test
-  yet). `LandingPageTests` and `MediaButler.Wpf.AccessibilityTests`' axe-core scan both require
-  Playwright browser binaries (`playwright.ps1 install chromium`) and skip gracefully when
-  absent — treated as 🟡 in headless CI until binaries are provisioned (and `LandingPageTests`
-  checks only the static `index.htm` snapshot, see [§4.1](#MB-§4)).
+  yet). `MediaButler.Wpf.AccessibilityTests`' axe-core scan requires Playwright browser binaries
+  (`playwright.ps1 install chromium`) and skips gracefully when absent — treated as 🟡 in headless
+  CI until binaries are provisioned.
 
 ## 7. Active frontier {#MB-§7}
 - See `docs/rfc/` for open design notes.

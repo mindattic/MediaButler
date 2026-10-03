@@ -19,7 +19,7 @@
     <!-- Renders Razor components to static markup with no browser — fast, always runs. -->
     <PackageReference Include="bunit" Version="1.35.3" />
     <!--
-      Real headless Chromium, same as MediaButler.Landing.Tests. After build,
+      Real headless Chromium. After build,
       install browser binaries once per machine:
           pwsh bin/Debug/net10.0-windows/playwright.ps1 install chromium
       Without this step AxeScanTests Assert.Ignore()s with a clear message.

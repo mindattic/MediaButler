@@ -12,8 +12,7 @@ namespace MediaButler.Wpf.AccessibilityTests;
 /// <c>MediaButler.Wpf.AccessibilityTests.Harness</c> executable as a
 /// subprocess (a tiny standalone Blazor Server host wrapping the actual
 /// <c>MediaButler.Wpf.UI.App</c> component tree — same production markup the
-/// WPF shell hosts), drives it with headless Chromium via Playwright (same
-/// dependency <c>MediaButler.Landing.Tests</c> already uses), and asserts
+/// WPF shell hosts), drives it with headless Chromium via Playwright, and asserts
 /// zero axe-core violations tagged wcag2a/wcag2aa/wcag22aa.
 ///
 /// <para><b>Before running for the first time:</b> Playwright needs its browser

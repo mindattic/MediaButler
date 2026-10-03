@@ -6,5 +6,4 @@
   <Project Path="MediaButler.Wpf.UiTests/MediaButler.Wpf.UiTests.csproj" />
   <Project Path="MediaButler.Wpf.AccessibilityTests/MediaButler.Wpf.AccessibilityTests.csproj" />
   <Project Path="MediaButler.Wpf.AccessibilityTests.Harness/MediaButler.Wpf.AccessibilityTests.Harness.csproj" />
-  <Project Path="MediaButler.Landing.Tests/MediaButler.Landing.Tests.csproj" />
 </Solution>

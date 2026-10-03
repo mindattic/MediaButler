@@ -245,11 +245,6 @@ dotnet build MediaButler.slnx
 <td>bUnit markup-contract tests plus a real-Chromium axe-core WCAG 2.2 AA scan. Windows desktop only.</td>
 <td>partial</td>
 </tr>
-<tr>
-<td><code>MediaButler.Landing.Tests/</code></td>
-<td>Playwright checks against the repo-root <code>index.htm</code>, a static snapshot of this README rendered as an HTML page. Nothing in the repo regenerates or publishes <code>index.htm</code>, so these tests guard only that file, not this README.</td>
-<td>partial (needs Playwright browser binaries)</td>
-</tr>
 </tbody></table>
 <h3 id="what-it-is-not">What it is not</h3>
 <ul>
@@ -563,12 +558,7 @@ dotnet test MediaButler.Wpf.UiTests/MediaButler.Wpf.UiTests.csproj --filter Cate
 # WCAG 2.2 AA scan (Playwright; installs once per machine)
 dotnet build MediaButler.Wpf.AccessibilityTests/MediaButler.Wpf.AccessibilityTests.csproj
 pwsh MediaButler.Wpf.AccessibilityTests/bin/Debug/net10.0-windows/playwright.ps1 install chromium
-dotnet test  MediaButler.Wpf.AccessibilityTests/MediaButler.Wpf.AccessibilityTests.csproj
-
-# Landing-page tests (Playwright; installs once per machine)
-dotnet build MediaButler.Landing.Tests/MediaButler.Landing.Tests.csproj
-pwsh MediaButler.Landing.Tests/bin/Debug/net10.0/playwright.ps1 install chromium
-dotnet test  MediaButler.Landing.Tests/MediaButler.Landing.Tests.csproj</code></pre>
+dotnet test  MediaButler.Wpf.AccessibilityTests/MediaButler.Wpf.AccessibilityTests.csproj</code></pre>
 <p><code>MediaButler.Tests/</code> (NUnit) is the headless gate and covers:</p>
 <ul>
 <li><code>NameParserTests</code>, <code>EpisodeParsingAndCatalogTests</code>: every dirty-name pitfall below, round-trip and idempotency invariants for <code>FormatSeasonFolder</code> and <code>FormatMovieFolder</code>, and the variation catalog's classify, persist and pin behaviour.</li>
@@ -628,16 +618,13 @@ MediaButler.Wpf.UI/              Razor Class Library: the shell's markup and ser
 MediaButler.Wpf/                 optional Windows desktop shell (WPF host + BlazorWebView)
 MediaButler.Wpf.UiTests/         FlaUI UI-automation smoke tests
 MediaButler.Wpf.AccessibilityTests/  bUnit + real-Chromium axe-core WCAG 2.2 AA scan
-MediaButler.Landing.Tests/       Playwright tests against index.htm
 
 docs/                            Codex canon (BIBLE, AMENDMENTS, USER_STORIES, rfc/, digest)
 tools/                           codex.ps1 (docs linter) and build-readme.ps1 (README to HTML)
 
 mb.cmd                           CLI shim: forwards every argument to dotnet run --project MediaButler
-index.htm                        static HTML snapshot of this README; read only by MediaButler.Landing.Tests
-package.json                     npm manifest whose build/deploy scripts point at scripts/cli/ files that are not in the repo
 MediaButler.slnx                 solution file (all seven projects)</code></pre>
-<p>The project page is this README on GitHub; MediaButler has no web deploy. <code>tools/build-readme.ps1</code> renders this README into <code>README.htm</code>. <code>index.htm</code> is a separate, hand-frozen HTML snapshot that nothing regenerates or publishes; <code>npm run build</code> and <code>npm run deploy</code> fail because the <code>scripts/cli/</code> files they call are not in the repo (see <a href="docs/BIBLE.md">docs/BIBLE.md</a> section 4.1).</p>
+<p>The project page is this README on GitHub; MediaButler has no web deploy. <code>tools/build-readme.ps1</code> renders this README into <code>README.htm</code>.</p>
 <h2 id="documentation">Documentation</h2>
 <p>This repo follows the MindAttic Codex documentation standard: a fact lives in exactly one layer, cross-referenced by stable ID.</p>
 <table><thead><tr>
