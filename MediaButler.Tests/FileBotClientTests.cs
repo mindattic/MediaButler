@@ -60,14 +60,46 @@ public class FileBotClientTests
     }
 
     [Test]
-    public void BuildFetchTvArtworkArgs_invokes_artwork_tvdb_script()
+    public void BuildFetchTvArtworkArgs_invokes_mediabutlers_own_tv_artwork_script()
     {
-        var args = FileBotClient.BuildFetchTvArtworkArgs(@"M:\TV\Show\Season 01");
+        // NOT fn:artwork.tvdb: that bundled script picks "seriesDir" vs
+        // "seasonDir" by folder-name similarity, which breaks under
+        // MediaButler's flat {Show} - Season NN layout (no parent {Show}
+        // folder) and silently stops fetching season-specific posters.
+        var args = FileBotClient.BuildFetchTvArtworkArgs(@"M:\TV\Show - Season 01");
         Assert.Multiple(() =>
         {
             Assert.That(args, Does.Contain("-script"));
-            Assert.That(args, Does.Contain("fn:artwork.tvdb"));
+            Assert.That(args, Does.Contain(@"M:\TV\Show - Season 01"));
+            Assert.That(args, Does.Not.Contain("fn:artwork.tvdb"));
+            Assert.That(args.Any(a => a.EndsWith(FileBotClient.ArtworkTvScriptFileName, StringComparison.Ordinal)), Is.True);
         });
+    }
+
+    [Test]
+    public void ArtworkTvScriptPath_points_at_a_file_that_ships_with_the_build()
+    {
+        Assert.That(File.Exists(FileBotClient.ArtworkTvScriptPath), Is.True,
+            $"Expected {FileBotClient.ArtworkTvScriptPath} to exist -- check the <None Include=\"FileBot\\Scripts\\*.groovy\"> copy-to-output entry in MediaButler.csproj.");
+    }
+
+    [Test]
+    public void LooksLikeSeasonArtFallback_detects_marker_in_stdout()
+    {
+        var r = new FileBotResult
+        {
+            ExitCode = 0,
+            StdOut = "[mediabutler] season-art-fallback: M:\\Torrents\\Show - Season 03 (no season 3 art on TheTVDB)",
+            StdErr = "",
+        };
+        Assert.That(r.LooksLikeSeasonArtFallback, Is.True);
+    }
+
+    [Test]
+    public void LooksLikeSeasonArtFallback_is_false_when_season_art_was_found()
+    {
+        var r = new FileBotResult { ExitCode = 0, StdOut = "Fetching poster.jpg => https://...", StdErr = "" };
+        Assert.That(r.LooksLikeSeasonArtFallback, Is.False);
     }
 
     [Test]

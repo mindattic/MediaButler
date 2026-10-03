@@ -80,6 +80,8 @@ public sealed class FileBotStage
                 {
                     var aw = fileBot.FetchTvArtwork(folderPath);
                     RecordFileBotOutcome("artwork", folderPath, aw, dryRun: false, ok => report.ArtworkOk += ok ? 1 : 0);
+                    if (aw.LooksLikeSeasonArtFallback)
+                        ApplySeasonBadge(folderPath);
                 }
                 Status.NewLine();
             }
@@ -88,6 +90,20 @@ public sealed class FileBotStage
                 EndItemWithError(item, ex);
             }
         }
+    }
+
+    /// <summary>
+    /// Every season folder must look visually distinct (not just the show's
+    /// series poster repeated). TheTVDB had no season-specific art for this
+    /// one, so superimpose the season number instead — see
+    /// <see cref="FileBot.SeasonPosterBadge"/>.
+    /// </summary>
+    private static void ApplySeasonBadge(string folderPath)
+    {
+        var season = Media.NameParser.ParseSingleSeason(Path.GetFileName(folderPath))?.Season;
+        if (season is null) return;
+        FileBot.SeasonPosterBadge.Apply(folderPath, season.Value);
+        Status.Inline($"  [badge: Season {season}]", Theme.Dim);
     }
 
     public void RunMovies()

@@ -290,8 +290,18 @@ public sealed class FileBotClient
          "--action", dryRun ? "TEST" : "MOVE",
          "-non-strict"];
 
+    /// <summary>
+    /// Filename of MediaButler's own TV artwork script (see the file's header
+    /// comment for why it replaces FileBot's bundled <c>fn:artwork.tvdb</c>).
+    /// </summary>
+    internal const string ArtworkTvScriptFileName = "mediabutler-artwork-tv.groovy";
+
+    /// <summary>Resolve the script's on-disk path next to the running executable.</summary>
+    internal static string ArtworkTvScriptPath =>
+        Path.Combine(AppContext.BaseDirectory, "FileBot", "Scripts", ArtworkTvScriptFileName);
+
     internal static string[] BuildFetchTvArtworkArgs(string seasonFolder) =>
-        ["-script", "fn:artwork.tvdb", seasonFolder];
+        ["-script", ArtworkTvScriptPath, seasonFolder];
 
     internal static string[] BuildFetchMovieArtworkArgs(string movieFolder) =>
         ["-script", "fn:artwork", movieFolder];
@@ -434,6 +444,16 @@ public sealed class FileBotResult
     public bool LooksLikeNoOp =>
         StdOut.Contains("Processed 0 files", StringComparison.OrdinalIgnoreCase) ||
         StdErr.Contains("Processed 0 files", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// True when <c>mediabutler-artwork-tv.groovy</c> found no season-specific
+    /// poster on TheTVDB for this folder and fell back to the series-level
+    /// poster. Every season must still look visually distinct, so the caller
+    /// should superimpose a season number on top (see <c>SeasonPosterBadge</c>).
+    /// </summary>
+    public bool LooksLikeSeasonArtFallback =>
+        StdOut.Contains("[mediabutler] season-art-fallback", StringComparison.Ordinal) ||
+        StdErr.Contains("[mediabutler] season-art-fallback", StringComparison.Ordinal);
 
     /// <summary>
     /// True when a <c>--action TEST</c> invocation matched files and printed its
