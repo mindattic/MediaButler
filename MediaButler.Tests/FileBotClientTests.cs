@@ -41,6 +41,26 @@ public class FileBotClientTests
     }
 
     [Test]
+    public void BuildRenameTvArgs_omits_q_when_no_tvdb_id_given()
+    {
+        var args = FileBotClient.BuildRenameTvArgs(@"M:\TV\Show - Season 01", dryRun: false);
+        Assert.That(args, Does.Not.Contain("--q"));
+    }
+
+    [Test]
+    public void BuildRenameTvArgs_appends_q_with_tvdb_id_override()
+    {
+        // Some shows (e.g. "Kian's Bizarre B&B") aren't findable by any title
+        // variant in TheTVDB's name-search index but resolve by numeric id.
+        var args = FileBotClient.BuildRenameTvArgs(@"M:\TV\Kians Bizarre B and B - Season 02", dryRun: false, tvdbId: "453851");
+        Assert.Multiple(() =>
+        {
+            Assert.That(args, Does.Contain("--q"));
+            Assert.That(args, Does.Contain("453851"));
+        });
+    }
+
+    [Test]
     public void BuildRenameMovieArgs_uses_TheMovieDB_and_year_format()
     {
         var args = FileBotClient.BuildRenameMovieArgs(@"M:\Movies\Heat (1995)", dryRun: false);
@@ -57,6 +77,24 @@ public class FileBotClientTests
     {
         var args = FileBotClient.BuildRenameMovieArgs(@"M:\Movies\Heat (1995)", dryRun: true);
         Assert.That(args, Does.Contain("TEST"));
+    }
+
+    [Test]
+    public void BuildRenameMovieArgs_omits_q_when_no_tmdb_id_given()
+    {
+        var args = FileBotClient.BuildRenameMovieArgs(@"M:\Movies\Heat (1995)", dryRun: false);
+        Assert.That(args, Does.Not.Contain("--q"));
+    }
+
+    [Test]
+    public void BuildRenameMovieArgs_appends_q_with_tmdb_id_override()
+    {
+        var args = FileBotClient.BuildRenameMovieArgs(@"M:\Movies\Heat (1995)", dryRun: false, tmdbId: "949");
+        Assert.Multiple(() =>
+        {
+            Assert.That(args, Does.Contain("--q"));
+            Assert.That(args, Does.Contain("949"));
+        });
     }
 
     [Test]

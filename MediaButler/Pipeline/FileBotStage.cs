@@ -69,7 +69,10 @@ public sealed class FileBotStage
             {
                 if (settings.RenameEpisodes)
                 {
-                    var rn = fileBot.RenameTvEpisodes(folderPath, dryRun: settings.DryRun);
+                    var tvdbId = item.ShowName is null ? null : settings.GetTvdbIdOverride(item.ShowName);
+                    if (tvdbId is not null)
+                        Status.Inline($"  [tvdb:{tvdbId}]", Theme.Dim);
+                    var rn = fileBot.RenameTvEpisodes(folderPath, dryRun: settings.DryRun, tvdbId: tvdbId);
                     RecordFileBotOutcome("rename", folderPath, rn, settings.DryRun, ok => report.FileBotTvOk += ok ? 1 : 0);
                     // Sync the season folder name to the renamed episodes so the folder
                     // always matches the canonical Show - Season XX format.
@@ -143,7 +146,10 @@ public sealed class FileBotStage
                 // metadata the artwork script needs.
                 if (settings.RenameMovies)
                 {
-                    var rn = fileBot.RenameMovie(folderPath, dryRun: settings.DryRun);
+                    var tmdbId = item.MovieTitle is null ? null : settings.GetTmdbIdOverride(item.MovieTitle);
+                    if (tmdbId is not null)
+                        Status.Inline($"  [tmdb:{tmdbId}]", Theme.Dim);
+                    var rn = fileBot.RenameMovie(folderPath, dryRun: settings.DryRun, tmdbId: tmdbId);
                     RecordFileBotOutcome("rename", folderPath, rn, settings.DryRun, ok => report.FileBotMoviesOk += ok ? 1 : 0);
                     // Sync the folder name to the renamed file so the folder
                     // always matches its primary video (Aladdin.2019/ → Aladdin (2019)/).

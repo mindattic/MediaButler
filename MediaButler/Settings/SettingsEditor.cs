@@ -82,6 +82,10 @@ public sealed class SettingsEditor
                     Tag = (Action)(() => EditList("Excluded folders (comma-separated)", v => v.ExcludedFolders, (v, x) => v.ExcludedFolders = x)) },
             new() { Name = "Open Variations File", Description = Media.VariationCatalog.ResolvePath(s) + " (movie/tv/music sections; hand-edits pin a name's category)",
                     Tag = (Action)OpenVariationsFile },
+            new() { Name = "TVDB ID Overrides",    Description = s.TvdbIdOverrides.Count == 0 ? "(none)" : string.Join(", ", s.TvdbIdOverrides.Select(kv => $"{kv.Key}={kv.Value}")),
+                    Tag = (Action)EditTvdbIdOverrides },
+            new() { Name = "TMDB ID Overrides",    Description = s.TmdbIdOverrides.Count == 0 ? "(none)" : string.Join(", ", s.TmdbIdOverrides.Select(kv => $"{kv.Key}={kv.Value}")),
+                    Tag = (Action)EditTmdbIdOverrides },
             new() { Name = "Reset to Defaults",   Description = "overwrites " + path,
                     Tag = (Action)ResetDefaults },
             new() { Name = "Open Settings File",  Description = path,
@@ -175,6 +179,39 @@ public sealed class SettingsEditor
         {
             Status.Print("Cancelled.", Theme.Dim);
         }
+        Screen.PressAnyKey();
+    }
+
+    private void EditTvdbIdOverrides() =>
+        EditIdOverrides("Show", "TheTVDB series id", s => s.TvdbIdOverrides);
+
+    private void EditTmdbIdOverrides() =>
+        EditIdOverrides("Movie", "TheMovieDB id", s => s.TmdbIdOverrides);
+
+    /// <summary>
+    /// Add, update, or remove a single entry in a per-title id-override
+    /// dictionary (<see cref="MediaButlerSettings.TvdbIdOverrides"/> or
+    /// <see cref="MediaButlerSettings.TmdbIdOverrides"/>). The title must
+    /// match the folder's on-disk parsed name (shown in the pipeline's
+    /// per-item line); blank id removes an existing entry.
+    /// </summary>
+    private void EditIdOverrides(string titleLabel, string idLabel, Func<MediaButlerSettings, Dictionary<string, string>> getDict)
+    {
+        var title = Screen.Prompt($"{titleLabel} name (as it appears on disk, blank to cancel)", "");
+        if (string.IsNullOrWhiteSpace(title)) return;
+
+        var current = getDict(settings.Load())
+            .FirstOrDefault(kv => string.Equals(kv.Key, title, StringComparison.OrdinalIgnoreCase));
+        var id = Screen.Prompt($"{idLabel} for '{title}' (blank to remove)", current.Value ?? "");
+        if (id is null) return;
+
+        settings.Update(s =>
+        {
+            var dict = getDict(s);
+            if (current.Key is not null) dict.Remove(current.Key);
+            if (!string.IsNullOrWhiteSpace(id)) dict[title] = id.Trim();
+        });
+        Status.Print(string.IsNullOrWhiteSpace(id) ? "Removed." : "Saved.", Theme.Ok);
         Screen.PressAnyKey();
     }
 

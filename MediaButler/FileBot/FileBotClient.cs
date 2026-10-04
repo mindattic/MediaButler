@@ -206,19 +206,25 @@ public sealed class FileBotClient
     /// Rename TV episodes inside a season folder using TheTVDB. Format produces
     /// <c>Show - S01E01 - Title.ext</c> which Plex parses cleanly.
     /// When <paramref name="dryRun"/> is true, runs with <c>--action TEST</c> so
-    /// FileBot prints its plan but doesn't touch files.
+    /// FileBot prints its plan but doesn't touch files. <paramref name="tvdbId"/>,
+    /// when supplied, forces the lookup to that TheTVDB series id instead of
+    /// FileBot's filename-derived title search — see
+    /// <see cref="Settings.MediaButlerSettings.TvdbIdOverrides"/>.
     /// </summary>
-    public FileBotResult RenameTvEpisodes(string seasonFolder, bool dryRun = false) =>
-        Run(BuildRenameTvArgs(seasonFolder, dryRun));
+    public FileBotResult RenameTvEpisodes(string seasonFolder, bool dryRun = false, string? tvdbId = null) =>
+        Run(BuildRenameTvArgs(seasonFolder, dryRun, tvdbId));
 
     /// <summary>
     /// Rename a movie folder's contents to <c>Title (YYYY).ext</c>. Side effect:
     /// writes xattr metadata that <see cref="FetchMovieArtwork"/> relies on.
     /// When <paramref name="dryRun"/> is true, runs with <c>--action TEST</c> so
-    /// FileBot prints its plan but doesn't touch files.
+    /// FileBot prints its plan but doesn't touch files. <paramref name="tmdbId"/>,
+    /// when supplied, forces the lookup to that TheMovieDB numeric id instead
+    /// of FileBot's filename-derived title search — see
+    /// <see cref="Settings.MediaButlerSettings.TmdbIdOverrides"/>.
     /// </summary>
-    public FileBotResult RenameMovie(string movieFolder, bool dryRun = false) =>
-        Run(BuildRenameMovieArgs(movieFolder, dryRun));
+    public FileBotResult RenameMovie(string movieFolder, bool dryRun = false, string? tmdbId = null) =>
+        Run(BuildRenameMovieArgs(movieFolder, dryRun, tmdbId));
 
     /// <summary>
     /// Fetch movie artwork via the generic <c>fn:artwork</c> script. Requires
@@ -276,19 +282,48 @@ public sealed class FileBotClient
 
     // ----- Pure argument builders (testable without spawning processes) -----
 
-    internal static string[] BuildRenameTvArgs(string seasonFolder, bool dryRun) =>
-        ["-rename", seasonFolder,
-         "--db", "TheTVDB",
-         "--format", "{n} - {s00e00} - {t}",
-         "--action", dryRun ? "TEST" : "MOVE",
-         "-non-strict"];
+    internal static string[] BuildRenameTvArgs(string seasonFolder, bool dryRun, string? tvdbId = null)
+    {
+        var args = new List<string>
+        {
+            "-rename", seasonFolder,
+            "--db", "TheTVDB",
+            "--format", "{n} - {s00e00} - {t}",
+            "--action", dryRun ? "TEST" : "MOVE",
+            "-non-strict",
+        };
+        // Some shows (observed: "Kian's Bizarre B&B") are simply absent from
+        // TheTVDB's name-search index under any title variant, but resolve
+        // fine by numeric series id. --q overrides FileBot's filename-derived
+        // title query with this exact value.
+        if (!string.IsNullOrWhiteSpace(tvdbId))
+        {
+            args.Add("--q");
+            args.Add(tvdbId);
+        }
+        return args.ToArray();
+    }
 
-    internal static string[] BuildRenameMovieArgs(string movieFolder, bool dryRun) =>
-        ["-rename", movieFolder,
-         "--db", "TheMovieDB",
-         "--format", "{n} ({y})",
-         "--action", dryRun ? "TEST" : "MOVE",
-         "-non-strict"];
+    internal static string[] BuildRenameMovieArgs(string movieFolder, bool dryRun, string? tmdbId = null)
+    {
+        var args = new List<string>
+        {
+            "-rename", movieFolder,
+            "--db", "TheMovieDB",
+            "--format", "{n} ({y})",
+            "--action", dryRun ? "TEST" : "MOVE",
+            "-non-strict",
+        };
+        // Mirrors the TheTVDB --q override (see BuildRenameTvArgs): some movies
+        // aren't findable by any title variant in TheMovieDB's name-search
+        // index but resolve fine by numeric id.
+        if (!string.IsNullOrWhiteSpace(tmdbId))
+        {
+            args.Add("--q");
+            args.Add(tmdbId);
+        }
+        return args.ToArray();
+    }
 
     /// <summary>
     /// Filename of MediaButler's own TV artwork script (see the file's header

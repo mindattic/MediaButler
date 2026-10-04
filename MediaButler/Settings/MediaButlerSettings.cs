@@ -229,4 +229,35 @@ public sealed class MediaButlerSettings
     public string[] TitleYearOverrides { get; set; } =
         ["Blade Runner 2049", "Wonder Woman 1984", "1917",
          "2001 A Space Odyssey", "2012", "1984", "1922", "300"];
+
+    /// <summary>
+    /// Per-show TheTVDB series id overrides, keyed by the show name as it
+    /// appears on disk (the folder's parsed <c>ShowName</c>, e.g. "Kians
+    /// Bizarre B and B"). Some shows aren't findable by any title variant in
+    /// TheTVDB's name-search index but resolve fine by numeric id — add an
+    /// entry here once (found via <c>filebot -list --db TheTVDB --q "the id"</c>
+    /// against a candidate id, or the show's TheTVDB URL) and every future
+    /// rename for that show uses <c>--q {id}</c> instead of FileBot's
+    /// filename-derived title search. Lookup is case-insensitive; see
+    /// <see cref="GetTvdbIdOverride"/>.
+    /// </summary>
+    public Dictionary<string, string> TvdbIdOverrides { get; set; } = new();
+
+    /// <summary>Case-insensitive lookup into <see cref="TvdbIdOverrides"/>.</summary>
+    public string? GetTvdbIdOverride(string showName) =>
+        TvdbIdOverrides.FirstOrDefault(kv => string.Equals(kv.Key, showName, StringComparison.OrdinalIgnoreCase)).Value;
+
+    /// <summary>
+    /// Per-movie TheMovieDB id overrides, keyed by the movie title as it
+    /// appears on disk (the folder's parsed <c>MovieTitle</c>, e.g. "Heat").
+    /// Mirrors <see cref="TvdbIdOverrides"/> for the rare movie that isn't
+    /// findable by any title variant in TheMovieDB's name-search index but
+    /// resolves fine by numeric id. Lookup is case-insensitive; see
+    /// <see cref="GetTmdbIdOverride"/>.
+    /// </summary>
+    public Dictionary<string, string> TmdbIdOverrides { get; set; } = new();
+
+    /// <summary>Case-insensitive lookup into <see cref="TmdbIdOverrides"/>.</summary>
+    public string? GetTmdbIdOverride(string movieTitle) =>
+        TmdbIdOverrides.FirstOrDefault(kv => string.Equals(kv.Key, movieTitle, StringComparison.OrdinalIgnoreCase)).Value;
 }
