@@ -1,4 +1,5 @@
 using System.Windows;
+using MediaButler.Diagnostics;
 using MediaButler.Settings;
 using MediaButler.Wpf.UI.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,6 +11,19 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Previously unhandled exceptions here had no record at all — not even a console (this
+        // is a GUI app). CrashLog is shared with the CLI front door; both land in the same
+        // rolled MindAttic.Log files under %LOCALAPPDATA%\MindAttic\MediaButler.
+        DispatcherUnhandledException += (_, args) =>
+        {
+            CrashLog.Fatal("WPF dispatcher unhandled exception", args.Exception);
+            args.Handled = true;
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            if (args.ExceptionObject is Exception ex) CrashLog.Fatal("AppDomain unhandled exception", ex);
+        };
 
         var services = new ServiceCollection();
         services.AddWpfBlazorWebView();

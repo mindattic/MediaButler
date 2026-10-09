@@ -1,4 +1,5 @@
 using MediaButler.Commands;
+using MediaButler.Diagnostics;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -77,6 +78,10 @@ try
 }
 catch (Exception ex)
 {
+    // Previously this was the end of the story: printed to a console that closes when the
+    // window does, nothing survived for a cron-driven/unattended run. See CrashLog's own doc
+    // comment for why this is a MindAttic.Log file, not another NDJSON log like AuditLog.
+    CrashLog.Fatal($"{args.FirstOrDefault() ?? "(no command)"} failed", ex);
     AnsiConsole.WriteException(ex, ExceptionFormats.ShortenEverything);
     return 1;
 }
