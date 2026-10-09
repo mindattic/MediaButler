@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using MindAttic.Export.Artifacts;
 
 namespace MediaButler.FileBot;
 
@@ -55,7 +56,21 @@ public static class SeasonPosterBadge
             g.DrawImage(original, 0, 0, canvas.Width, canvas.Height);
             DrawBadge(g, canvas.Width, canvas.Height, text);
         }
-        canvas.Save(path, ImageFormat.Jpeg);
+        // Route the in-place overwrite through MindAttic.Export: same GDI+ JPEG
+        // encoder and default parameters (identical bytes), written to a temp file
+        // in the season folder and moved over the original, so a failure mid-save
+        // can no longer leave a truncated poster behind. The path is exact, so no
+        // name sanitizing.
+        ArtifactWriter.WriteViaPathAsync(
+                Path.GetDirectoryName(path)!,
+                Path.GetFileName(path),
+                (target, _) =>
+                {
+                    canvas.Save(target, ImageFormat.Jpeg);
+                    return Task.CompletedTask;
+                },
+                new ArtifactOptions { Existing = ExistingArtifact.Overwrite, SanitizeName = false })
+            .GetAwaiter().GetResult();
     }
 
     /// <summary>
