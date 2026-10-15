@@ -1,3 +1,5 @@
+using Microsoft.Data.Sqlite;
+using MindAttic.Log.Migration;
 using MindAttic.Log.Sinks;
 using MindAttic.Vault.Paths;
 using Serilog.Events;
@@ -14,8 +16,11 @@ namespace MediaButler.Diagnostics;
 /// nothing survived past the window closing, which is exactly the gap this closes for
 /// cron-driven/unattended runs.
 /// <para>
-/// Rolled monthly under the same <c>%LOCALAPPDATA%\MindAttic\MediaButler</c> directory
-/// <see cref="Pipeline.AuditLog"/> already uses, so both files live side by side.
+/// Phase 2 (MindAttic.Log 3.0.0, see its docs/BIBLE.md §1.1): lives in its own standalone
+/// <c>MindAttic.Log.db</c> under Vault's shared roaming root (<c>VaultPaths.LoggingDbPath</c>), not
+/// the rolled files Phase 1 kept under <c>%LOCALAPPDATA%\MindAttic\MediaButler</c> alongside
+/// <see cref="Pipeline.AuditLog"/> — superseded so clearing that local folder can no longer take the
+/// crash history with it.
 /// </para>
 /// </summary>
 public static class CrashLog
@@ -25,9 +30,10 @@ public static class CrashLog
     private static readonly object Lock = new();
     private static MindAtticSqliteSink? sink;
 
-    /// <summary>Test-only seam: redirects the rolled-file directory away from the real
-    /// %LOCALAPPDATA%\MindAttic\MediaButler, and forces a fresh sink on next use. Set back to
-    /// null when done.</summary>
+    /// <summary>Test-only seam: redirects where Phase 1's rolled files are read from for the
+    /// one-time migration, and forces a fresh sink on next use. The destination itself redirects
+    /// via Vault's own <c>MINDATTIC_VAULT_ROAMING_ROOT</c> env var (VLT-LAW-6), not this property.
+    /// Set back to null when done.</summary>
     internal static string? DirectoryOverrideForTests
     {
         get => directoryOverride;
@@ -67,9 +73,23 @@ public static class CrashLog
 
     private static MindAtticSqliteSink CreateSink()
     {
-        var directory = directoryOverride ?? VaultPaths.LocalApp(AppFolder);
-        VaultPaths.Ensure(directory);
-        LogFileRoller.PruneOldFiles(directory, retainedFileCount: 12);
-        return new MindAtticSqliteSink(LogFileRoller.CurrentPath(directory, DateTime.UtcNow), application: "MediaButler");
+        var dbPath = VaultPaths.LoggingDbPath(AppFolder);
+
+        // Phase 2: carry forward any rows left in Phase 1's rolled MindAttic.Log.<yyyy-MM>.db
+        // files (LogFileRoller is retired, so these are never written to again), then remove the
+        // now-empty rolled files. Idempotent and a clean no-op on every later startup.
+        var oldDirectory = directoryOverride ?? VaultPaths.LocalApp(AppFolder);
+        if (Directory.Exists(oldDirectory))
+        {
+            foreach (var rolledFile in Directory.GetFiles(oldDirectory, "MindAttic.Log.*.db"))
+            {
+                MindAtticLogMigrator.MigrateFromSqliteAsync(rolledFile, dbPath, dropSource: true)
+                    .GetAwaiter().GetResult();
+                SqliteConnection.ClearAllPools();
+                try { File.Delete(rolledFile); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            }
+        }
+
+        return new MindAtticSqliteSink(dbPath, application: "MediaButler");
     }
 }

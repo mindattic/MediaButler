@@ -1,6 +1,7 @@
 using MediaButler.Diagnostics;
 using Microsoft.Data.Sqlite;
 using MindAttic.Log.Schema;
+using MindAttic.Vault.Paths;
 using NUnit.Framework;
 
 namespace MediaButler.Tests.Diagnostics;
@@ -8,11 +9,15 @@ namespace MediaButler.Tests.Diagnostics;
 /// <summary>
 /// Proves CrashLog.Fatal (wired into both front doors' unhandled-exception paths — Program.cs's
 /// outer catch and App.xaml.cs's DispatcherUnhandledException/AppDomain handlers) actually
-/// reaches a readable MindAttic.Log row, not just that it compiles.
+/// reaches a readable row in the standalone MindAttic.Log.db, not just that it compiles.
+/// Redirects Vault's roaming root via its env-var override (VLT-LAW-6) so this never touches the
+/// real %APPDATA%.
 /// </summary>
 public class CrashLogTests
 {
     private string directory = null!;
+    private string roamingRoot = null!;
+    private string? originalRoamingRoot;
 
     [SetUp]
     public void SetUp()
@@ -20,6 +25,10 @@ public class CrashLogTests
         directory = Path.Combine(Path.GetTempPath(), "mediabutler-crashlog-tests-" + Guid.NewGuid());
         Directory.CreateDirectory(directory);
         CrashLog.DirectoryOverrideForTests = directory;
+
+        roamingRoot = Path.Combine(Path.GetTempPath(), "mediabutler-crashlog-vault-tests-" + Guid.NewGuid());
+        originalRoamingRoot = Environment.GetEnvironmentVariable(VaultPaths.RoamingRootEnvVar);
+        Environment.SetEnvironmentVariable(VaultPaths.RoamingRootEnvVar, roamingRoot);
     }
 
     [TearDown]
@@ -27,7 +36,9 @@ public class CrashLogTests
     {
         CrashLog.DirectoryOverrideForTests = null; // disposes the test sink
         SqliteConnection.ClearAllPools();
+        Environment.SetEnvironmentVariable(VaultPaths.RoamingRootEnvVar, originalRoamingRoot);
         try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
+        try { Directory.Delete(roamingRoot, recursive: true); } catch (IOException) { }
     }
 
     [Test]
@@ -39,8 +50,8 @@ public class CrashLogTests
         // the same path TearDown uses so this test doesn't need a real sleep.
         CrashLog.DirectoryOverrideForTests = null;
 
-        var dbPath = Path.Combine(directory, $"MindAttic.Log.{DateTime.UtcNow:yyyy-MM}.db");
-        Assert.That(File.Exists(dbPath), Is.True, "Expected a rolled MindAttic.Log file to be created.");
+        var dbPath = VaultPaths.LoggingDbPath("MediaButler");
+        Assert.That(File.Exists(dbPath), Is.True, "Expected the standalone MindAttic.Log.db to be created.");
 
         using var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = dbPath }.ToString());
         connection.Open();
