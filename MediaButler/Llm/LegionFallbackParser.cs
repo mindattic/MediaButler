@@ -27,13 +27,33 @@ public sealed class LegionFallbackParser
     private static readonly ICredentialStore OwnKeys =
         new AppScopedCredentialStore("mediabutler", LlmCredentialStore.Default);
 
+    /// <summary>
+    /// The shape of a single "send prompt, get text" round trip, factored out
+    /// of <see cref="LegionClient"/> so tests can substitute a canned/throwing
+    /// stub instead of a real provider call — no live network, no credentials.
+    /// </summary>
+    internal delegate Task<string> Transport(string providerId, string systemPrompt, string userMessage, int maxTokens, double temperature, CancellationToken ct);
+
     private readonly MediaButlerSettings settings;
-    private readonly LegionClient client;
+    private readonly Transport transport;
 
     public LegionFallbackParser(MediaButlerSettings settings)
+        : this(settings, BuildDefaultTransport())
+    {
+    }
+
+    /// <summary>Test seam — lets NUnit tests inject a fake <see cref="Transport"/> instead of hitting a real provider.</summary>
+    internal LegionFallbackParser(MediaButlerSettings settings, Transport transport)
     {
         this.settings = settings;
-        client = new LegionClient(SharedHttp, options: null, keyResolver: OwnKeys.GetKey);
+        this.transport = transport;
+    }
+
+    private static Transport BuildDefaultTransport()
+    {
+        var client = new LegionClient(SharedHttp, options: null, keyResolver: OwnKeys.GetKey);
+        return (providerId, systemPrompt, userMessage, maxTokens, temperature, ct) =>
+            client.CallAsync(providerId, systemPrompt, userMessage, maxTokens, temperature, ct: ct);
     }
 
     /// <summary>
@@ -71,13 +91,13 @@ public sealed class LegionFallbackParser
 
         try
         {
-            var raw = await client.CallAsync(
-                providerId: settings.LlmProvider,
-                systemPrompt: "You are a media library classifier. Respond ONLY with the requested JSON object.",
-                userMessage: prompt,
-                maxTokens: 256,
-                temperature: 0.0,
-                ct: ct);
+            var raw = await transport(
+                settings.LlmProvider,
+                "You are a media library classifier. Respond ONLY with the requested JSON object.",
+                prompt,
+                256,
+                0.0,
+                ct);
 
             var json = ExtractJsonObject(raw);
             if (json is null) return null;
@@ -143,13 +163,13 @@ public sealed class LegionFallbackParser
 
         try
         {
-            var raw = await client.CallAsync(
-                providerId: settings.LlmProvider,
-                systemPrompt: "You are a media library classifier. Respond ONLY with the requested JSON object.",
-                userMessage: prompt,
-                maxTokens: 256,
-                temperature: 0.0,
-                ct: ct);
+            var raw = await transport(
+                settings.LlmProvider,
+                "You are a media library classifier. Respond ONLY with the requested JSON object.",
+                prompt,
+                256,
+                0.0,
+                ct);
 
             var json = ExtractJsonObject(raw);
             if (json is null) return null;
@@ -186,7 +206,7 @@ public sealed class LegionFallbackParser
     /// last-brace slice would merge two objects into invalid JSON. Returns null
     /// if no complete object is present.
     /// </summary>
-    private static string? ExtractJsonObject(string raw)
+    internal static string? ExtractJsonObject(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
         var start = raw.IndexOf('{');
