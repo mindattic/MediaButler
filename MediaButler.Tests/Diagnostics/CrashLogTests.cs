@@ -10,7 +10,7 @@ namespace MediaButler.Tests.Diagnostics;
 /// Proves CrashLog.Fatal (wired into both front doors' unhandled-exception paths — Program.cs's
 /// outer catch and App.xaml.cs's DispatcherUnhandledException/AppDomain handlers) actually
 /// reaches a readable row in the standalone MindAttic.Log.db, not just that it compiles.
-/// Redirects Vault's roaming root via its env-var override (VLT-LAW-6) so this never touches the
+/// Redirects Vault's roaming root via its env-var override (M.VALT-LAW-6) so this never touches the
 /// real %APPDATA%.
 /// </summary>
 public class CrashLogTests

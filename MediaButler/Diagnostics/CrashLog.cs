@@ -32,7 +32,7 @@ public static class CrashLog
 
     /// <summary>Test-only seam: redirects where Phase 1's rolled files are read from for the
     /// one-time migration, and forces a fresh sink on next use. The destination itself redirects
-    /// via Vault's own <c>MINDATTIC_VAULT_ROAMING_ROOT</c> env var (VLT-LAW-6), not this property.
+    /// via Vault's own <c>MINDATTIC_VAULT_ROAMING_ROOT</c> env var (M.VALT-LAW-6), not this property.
     /// Set back to null when done.</summary>
     internal static string? DirectoryOverrideForTests
     {
