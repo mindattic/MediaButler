@@ -1,7 +1,18 @@
 using MediaButler.Commands;
 using MediaButler.Diagnostics;
+using MediaButler.Settings;
+using MindAttic.Vault.Credentials;
+using MindAttic.Vault.Settings.Manifest;
 using Spectre.Console;
 using Spectre.Console.Cli;
+
+// LAMP (MB-T27): `mediabutler --write-settings-manifest` seeds settings.json (first run only) and
+// writes settings.manifest.json so MindAttic.Vault.Desktop shows the MediaButler tab, then exits.
+if (SettingsManifestCommand.TryRun<MediaButlerSettings>(args)) return 0;
+
+// A per-app "mediabutler-{provider}" key copy (the pre-LAMP app-scoped store) moves into the
+// shared named key list once and stays MediaButler's active key. Never throws; no-op when none is left.
+KeyImporter.ImportAppScopedFor(MediaButlerSettings.AppId);
 
 // UTF-8 for both interactive and headless modes — torrent dumps frequently
 // carry non-ASCII characters in folder names. Tolerate redirected stdout.

@@ -5,7 +5,8 @@ using MediaButler.Wpf.UI.Services;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 using RunPage = MediaButler.Wpf.UI.Pages.Run;
-using SettingsPage = MediaButler.Wpf.UI.Pages.Settings;
+using MediaButler.Wpf.UI.Layout;
+using MindAttic.Vault.Launch;
 
 namespace MediaButler.Wpf.AccessibilityTests;
 
@@ -72,44 +73,82 @@ public class ComponentMarkupTests
         Assert.That(label, Is.Not.Null, "dry-run toggle has no associated <label for>");
     }
 
+    /// <summary>LAMP (MB-T27): the in-app settings page is gone; settings are edited only in MindAttic Vault.</summary>
     [Test]
-    public void Settings_page_every_field_has_a_real_label_association()
+    public void Settings_page_is_gone()
     {
-        var cut = ctx.RenderComponent<SettingsPage>();
+        var uiAssembly = typeof(RunPage).Assembly;
+        Assert.That(uiAssembly.GetType("MediaButler.Wpf.UI.Pages.Settings"), Is.Null, "Settings page type still exists");
+
+        var cut = ctx.RenderComponent<TabShell>();
+        var doc = Parser.ParseDocument(cut.Markup);
+        Assert.Multiple(() =>
+        {
+            Assert.That(doc.GetElementById("tab-settings"), Is.Null, "Settings tab still rendered");
+            Assert.That(doc.GetElementById("panel-settings"), Is.Null, "Settings panel still rendered");
+            Assert.That(doc.QuerySelector(".settings-page"), Is.Null, "settings editor markup still rendered");
+        });
+    }
+
+    [Test]
+    public void Settings_cog_is_a_labeled_button()
+    {
+        var cut = ctx.RenderComponent<TabShell>();
         var doc = Parser.ParseDocument(cut.Markup);
 
-        var inputs = doc.QuerySelectorAll("input");
-        Assert.That(inputs.Length, Is.GreaterThan(0));
-        foreach (var input in inputs)
+        var cog = doc.GetElementById("settings-cog");
+        Assert.That(cog, Is.Not.Null, "settings cog missing");
+        Assert.That(cog!.TagName, Is.EqualTo("BUTTON"));
+        Assert.That(cog.GetAttribute("aria-label"), Does.Contain("Settings"));
+    }
+
+    [Test]
+    public void Settings_cog_opens_vault_at_the_MediaButler_tab()
+    {
+        var fake = new FakeLauncher { SendResult = true };
+        var original = VaultSettings.Launcher;
+        VaultSettings.Launcher = fake;
+        try
         {
-            var id = input.GetAttribute("id");
-            Assert.That(id, Is.Not.Null.And.Not.Empty, $"input missing id: {input.OuterHtml}");
-            var label = doc.QuerySelector($"label[for='{id}']");
-            Assert.That(label, Is.Not.Null, $"no <label for='{id}'> found for input {input.OuterHtml}");
+            var cut = ctx.RenderComponent<TabShell>();
+            cut.Find("#settings-cog").Click();
+
+            Assert.That(fake.Requests, Has.Count.EqualTo(1));
+            Assert.That(fake.Requests[0].AppId, Is.EqualTo("MediaButler"));
+            Assert.That(fake.Requests[0].Setting, Is.Null);
+        }
+        finally
+        {
+            VaultSettings.Launcher = original;
         }
     }
 
     [Test]
-    public void Settings_toggles_declare_role_switch()
+    public void Settings_cog_says_so_when_vault_is_not_installed()
     {
-        var cut = ctx.RenderComponent<SettingsPage>();
-        var doc = Parser.ParseDocument(cut.Markup);
+        var fake = new FakeLauncher { SendResult = false, StartResult = false };
+        var original = VaultSettings.Launcher;
+        VaultSettings.Launcher = fake;
+        try
+        {
+            var cut = ctx.RenderComponent<TabShell>();
+            cut.Find("#settings-cog").Click();
 
-        var checkboxes = doc.QuerySelectorAll("input[type='checkbox']");
-        Assert.That(checkboxes.Length, Is.GreaterThan(0));
-        foreach (var cb in checkboxes)
-            Assert.That(cb.GetAttribute("role"), Is.EqualTo("switch"), $"checkbox missing role=switch: {cb.OuterHtml}");
+            Assert.That(cut.Find(".settings-cog-group [role=status]").TextContent, Does.Contain("isn't installed"));
+        }
+        finally
+        {
+            VaultSettings.Launcher = original;
+        }
     }
 
-    [Test]
-    public void Settings_page_groups_are_real_fieldsets()
+    private sealed class FakeLauncher : IVaultDesktopLauncher
     {
-        var cut = ctx.RenderComponent<SettingsPage>();
-        var doc = Parser.ParseDocument(cut.Markup);
+        public bool SendResult { get; init; }
+        public bool StartResult { get; init; }
+        public List<VaultOpenRequest> Requests { get; } = new();
 
-        var fieldsets = doc.QuerySelectorAll("fieldset");
-        Assert.That(fieldsets.Length, Is.EqualTo(3), "expected Paths/Options/Advanced fieldsets");
-        foreach (var fs in fieldsets)
-            Assert.That(fs.QuerySelector("legend"), Is.Not.Null, "fieldset missing <legend>");
+        public bool TrySend(VaultOpenRequest request) { Requests.Add(request); return SendResult; }
+        public bool TryStart(VaultOpenRequest request) { if (!SendResult) Requests.Add(request); return StartResult; }
     }
 }

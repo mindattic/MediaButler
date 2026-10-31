@@ -19,9 +19,8 @@ public sealed class MainMenuCommand : Command<BaseSettings>
         Status.Verbosity = cli.Verbosity;
 
         var runner = new PipelineRunner(new SettingsService());
-        // Materialize the settings folder so the Settings menu's "Open Settings
-        // File" row has a real path to point at on a fresh install. The first
-        // LoadEffective() inside the loop will write the defaults file.
+        // The first LoadEffective() inside the loop seeds the defaults file and
+        // the manifest Vault.Desktop renders as the MediaButler tab.
         runner.Settings.EnsureFolder();
 
         var exit = false;
@@ -38,7 +37,7 @@ public sealed class MainMenuCommand : Command<BaseSettings>
         return 0;
     }
 
-    private static List<MenuItem> BuildItems(
+    internal static List<MenuItem> BuildItems(
         MediaButlerSettings s,
         BaseSettings cli,
         PipelineRunner runner,
@@ -98,8 +97,8 @@ public sealed class MainMenuCommand : Command<BaseSettings>
                     Tag = (Action)(() => RunFixLibraryInteractive(runner, cli)),
                     Disabled = fileBot is null },
             new() { Name = "Settings",
-                    Description = "source, destinations, FileBot path, options, dry-run",
-                    Tag = (Action)(() => new SettingsEditor(runner.Settings).Show()) },
+                    Description = "opens MindAttic Vault at the MediaButler tab (paths, FileBot, options, dry-run, keys)",
+                    Tag = (Action)OpenSettings },
             new() { Name = "Status",
                     Description = $"FileBot: {fileBotDesc}",
                     Tag = stage("Status", runner.ShowStatus) },
@@ -107,6 +106,14 @@ public sealed class MainMenuCommand : Command<BaseSettings>
                     Description = "quit MediaButler",
                     Tag = (Action)requestExit },
         };
+    }
+
+    /// <summary>LAMP (MB-T27): settings are edited only in MindAttic Vault; the menu row opens it.</summary>
+    private static void OpenSettings()
+    {
+        var result = SettingsCog.Open();
+        Status.Print(result.Message, result.Opened ? Theme.Ok : Theme.Err);
+        if (!result.Opened) Screen.PressAnyKey();
     }
 
     private static void RunFull(PipelineRunner runner, BaseSettings cli, bool forceDryRun)

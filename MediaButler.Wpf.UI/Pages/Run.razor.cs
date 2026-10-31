@@ -48,9 +48,8 @@ public partial class Run : ComponentBase, IDisposable
         // Safety workflow: every app launch begins in dry-run mode so the
         // user can preview the planned actions before any disk mutation.
         // The toggle remains user-controllable during the session.
-        var s = SettingsSvc.Load();
-        s.DryRun = true;
-        SettingsSvc.Save(s);
+        SettingsSvc.Load(); // seeds defaults + manifest on a first run
+        SettingsSvc.SetDryRun(true);
         RefreshHeader();
 
         flushTimer = new Timer(_ => FlushLog(), null, 100, 100);
@@ -59,14 +58,10 @@ public partial class Run : ComponentBase, IDisposable
     /// <summary>
     /// Re-syncs the dry-run badge/checkbox and the paths/FileBot status lines
     /// from persisted settings. Called on load and after every action, and
-    /// must also be called by <see cref="Layout.TabShell"/> whenever this tab
-    /// is (re)activated: both panels stay mounted for the lifetime of the
-    /// circuit (see TabShell.razor), so <see cref="OnInitialized"/> only ever
-    /// runs once and cannot by itself pick up settings changes made on the
-    /// Settings tab (e.g. toggling DryRun there and saving) while this tab
-    /// was hidden — without this call the badge/checkbox would keep showing
-    /// the stale value from the last time this tab refreshed, even though
-    /// pipeline actions already honor the freshly-saved value.
+    /// by <see cref="Layout.TabShell"/> when the window regains focus after
+    /// the settings cog sent the user to MindAttic Vault: settings edited
+    /// there (e.g. paths or DryRun) would otherwise keep showing stale values
+    /// here, even though pipeline actions already honor the saved value.
     /// </summary>
     public void RefreshHeader()
     {
@@ -75,11 +70,11 @@ public partial class Run : ComponentBase, IDisposable
         pathsLine = $"Source: {s.SourcePath}    TV: {s.TvDestination}    Movies: {s.MoviesDestination}";
         var fb = FileBotClient.TryLocate(s.FileBotPath);
         fileBotLine = fb is null
-            ? "FileBot: NOT FOUND — set FileBot Path in Settings"
+            ? "FileBot: NOT FOUND — set FileBot executable in Settings (MindAttic Vault)"
             : "FileBot: " + fb;
     }
 
-    /// <summary>Called by <see cref="Layout.TabShell"/> when this tab becomes active again.</summary>
+    /// <summary>Called by <see cref="Layout.TabShell"/> to re-read settings (e.g. after the settings cog).</summary>
     public void OnTabActivated()
     {
         RefreshHeader();
@@ -88,9 +83,7 @@ public partial class Run : ComponentBase, IDisposable
 
     private void OnDryRunToggled()
     {
-        var s = SettingsSvc.Load();
-        s.DryRun = dryRun;
-        SettingsSvc.Save(s);
+        SettingsSvc.SetDryRun(dryRun);
         RefreshHeader();
     }
 

@@ -120,10 +120,10 @@ user-extendable corpus.
   CLI + interactive menu. References `MindAttic.Vault` and `MindAttic.Legion`.
 - **`MediaButler.Tests/`** ✅ — NUnit test project covering parser, scanner, stages, guards, CLI.
 - **`MediaButler.Wpf.UI/`** 🟡 — Razor Class Library: the WPF shell's markup (`Pages/Run.razor`,
-  `Pages/Settings.razor`, `Layout/TabShell.razor`, `Shared/ConfirmDialog.razor`) plus its own
+  `Layout/TabShell.razor`, `Shared/ConfirmDialog.razor`; no settings page since LAMP, MB-T27: the
+  header cog calls `SettingsCog.Open()` -> `VaultSettings.Open("MediaButler")`) plus its own
   `Services/PipelineRunner` and `ConsoleCaptureWriter`.
-  WCAG 2.2 AA: real `<label for>` associations, `role="switch"`/`aria-checked` toggles, `role="tab"`
-  tabs (WAI-ARIA APG pattern), `aria-live="polite"` status regions (never the log pane), and the
+  WCAG 2.2 AA: real `<label for>` associations, `role="switch"`/`aria-checked` toggles, a labeled settings cog button, `aria-live="polite"` status regions (never the log pane), and the
   same already-audited contrast colors as CSS custom properties.
 - **`MediaButler.Wpf/`** 🟡 — optional WPF + BlazorWebView GUI shell (`net10.0-windows10.0.19041.0`
   — BlazorWebView's WinRT composition control needs the SDK-versioned TFM; `Microsoft.NET.Sdk.Razor`
@@ -332,7 +332,7 @@ disables saving for the run — user edits are never overwritten by MediaButler.
   `VariationCatalogTests`, `MediaScannerTests`, `RenameStageTests`, `MoveStageTests`,
   `RelocateStageTests`, `PathGuardTests`, `SubtitleCredentialsTests`, `FileBotClientTests`,
   `CliEndToEndTests`, `PathologicalLibraryPipelineTests`, `RealWorldLibraryPipelineTests`,
-  `DuplicateMovieActionTests`, `DuplicateEpisodeActionTests`, `McpServerTests`, `SettingsEditorTests`.
+  `DuplicateMovieActionTests`, `DuplicateEpisodeActionTests`, `McpServerTests`, `Lamp/MediaButlerSettingTests` (one end-to-end test per setting), `Lamp/MediaButlerLampTests`.
 - **Proven working (✅):** every ✅ story in `docs/USER_STORIES.md`, including movie-collection
   husk hoisting (`MovieCollection`), dry-run FileBot TEST-pass detection
   (`FileBotResult.LooksLikeTestPass`), `KeepLargest` / `Flag` duplicate policy for movies and TV

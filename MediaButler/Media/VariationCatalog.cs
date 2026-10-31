@@ -53,11 +53,10 @@ public sealed class VariationCatalog
     private readonly HashSet<string> musicSet;
     private readonly HashSet<string> unknownSet;
 
-    /// <summary>Default on-disk location, next to settings.json.</summary>
+    /// <summary>Default on-disk location, next to settings.json (the app's Vault folder, honoring
+    /// <c>MINDATTIC_VAULT_ROAMING_ROOT</c>).</summary>
     public static string DefaultPath =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "MindAttic", SettingsService.AppName, "variations.json");
+        Path.Combine(MindAttic.Vault.Paths.VaultPaths.RoamingBucket(MediaButlerSettings.AppId), "variations.json");
 
     /// <summary>
     /// Effective path for a given settings instance. Precedence: explicit

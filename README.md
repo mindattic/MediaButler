@@ -49,7 +49,7 @@ Illustrative run, built from the naming cases the parser and pipeline tests cove
 ### Front doors
 
 - Spectre.Console CLI with subcommands plus an interactive menu.
-- `MediaButler.Wpf`: an optional WPF + BlazorWebView desktop shell with Run and Settings tabs, built to WCAG 2.2 AA.
+- `MediaButler.Wpf`: an optional WPF + BlazorWebView desktop shell (the Run page plus a settings cog that opens MindAttic Vault), built to WCAG 2.2 AA.
 - `mediabutler mcp`: a Model Context Protocol server over stdio for agent hosts.
 
 ## Quick start
@@ -192,7 +192,7 @@ This is the one command that intentionally runs against a destination, so the so
 
 ## Safety
 
-- Dry-run mode. Toggle it from the Settings menu or launch with `mediabutler --dry-run` (`-n`). No files are renamed, moved or deleted; FileBot is invoked with `--action TEST`; artwork and subtitle fetches are skipped. Every action prints as `[dry: -> target]`.
+- Dry-run mode. Toggle it in MindAttic Vault (MediaButler tab, Safety), from the WPF Run page's dry-run switch, or launch with `mediabutler --dry-run` (`-n`). No files are renamed, moved or deleted; FileBot is invoked with `--action TEST`; artwork and subtitle fetches are skipped. Every action prints as `[dry: -> target]`.
 - Source-vs-destination guard (`PathGuard`). MediaButler refuses to run when `SourcePath` equals, contains or is contained by `TvDestination`, `MoviesDestination` or `MusicDestination`. Pointing the source at `M:\TV` would otherwise treat every show folder as a multi-season parent to hoist. Dry-run downgrades the refusal to a warning so you can inspect classification of an organised library; live mode hard-refuses. `--no-guard` bypasses it deliberately for repair runs.
 - Idempotent operations. Re-running on a clean library is a no-op: canonical names round-trip through the parser unchanged. TV seasons that already exist at the target merge file by file, with episode collisions resolved by the [duplicate policy](#duplicate-movies-and-episodes); duplicate movies resolve the same way.
 - Three exit codes. Headless runs return `0` (clean), `1` (errors) or `2` (no errors, but items need a human: Unknown folders, duplicate conflicts left by the `Flag` policy, Extras). Multi-source runs combine per-source codes by severity (`1 > 2 > 0`). Treat `2` as actionable in scheduled jobs.
@@ -223,7 +223,7 @@ Source-side raw-dump merging (`RenameStage.ConsolidateEpisode`, and the flat-epi
 
 ## Configuration
 
-Settings live at `%APPDATA%\MindAttic\MediaButler\settings.json` and are managed through the in-app Settings menu. CLI flags override the persisted value for a single run. Defaults from `MediaButler/Settings/MediaButlerSettings.cs`:
+Settings live at `%APPDATA%\MindAttic\MediaButler\settings.json` and are edited only in **MindAttic Vault** (MindAttic.Vault.Desktop, MediaButler tab): MediaButler's Settings menu row and the WPF cog open it there (LAMP, MB-T27). Each setting is described by attributes on `MediaButlerSettings`, and every load keeps `settings.manifest.json` beside the file current; `mediabutler --write-settings-manifest` seeds both on install and exits. LLM keys come from Vault's shared named key lists (MediaButler's assigned order first, with failover). CLI flags override the persisted value for a single run. Defaults from `MediaButler/Settings/MediaButlerSettings.cs`:
 
 | Setting | Default | Notes |
 | --- | --- | --- |
@@ -356,7 +356,8 @@ dotnet test  MediaButler.Wpf.AccessibilityTests/MediaButler.Wpf.AccessibilityTes
 - `SubtitleCredentialsTests`: `IsComplete` semantics and configuration binding.
 - `PathGuardTests`: the source-vs-destination overlap detector.
 - `FileBotClientTests`: FileBot argument construction (TEST vs live action, subtitle and artwork args, secret `@path` references).
-- `SettingsEditorTests`: the interactive settings editor.
+- `Lamp/MediaButlerSettingTests`: one end-to-end test per setting (today's settings.json value imports, round-trips through Vault under its `MindAttic:Settings:MediaButler:*` name, and reaches the code that uses it).
+- `Lamp/MediaButlerLampTests`: the settings manifest, first-run defaults, `--write-settings-manifest`, LLM key failover and the one-time key import, the settings cog, and the old settings editor being gone.
 - `McpServerTests`: the `scan`, `status` and `run` MCP tools.
 - `CliEndToEndTests`: subcommand wiring, exit codes, `--version`.
 
@@ -404,7 +405,7 @@ MediaButler/                     the console app (this is what mb.cmd runs)
 
 MediaButler.Tests/               NUnit test project (headless gate)
 MediaButler.Wpf.UI/              Razor Class Library: the shell's markup and services
-  Pages/                         Run.razor, Settings.razor
+  Pages/                         Run.razor
   Layout/, Shared/               TabShell.razor (tabs), ConfirmDialog.razor (accessible modal)
   Services/                      PipelineRunner (shell side), ConsoleCaptureWriter, DialogService
 MediaButler.Wpf/                 optional Windows desktop shell (WPF host + BlazorWebView)

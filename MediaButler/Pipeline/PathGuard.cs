@@ -43,7 +43,7 @@ public static class PathGuard
         if (!Directory.Exists(s.SourcePath))
         {
             Status.Print("Source path not found: " + s.SourcePath, Theme.Err);
-            Status.Print("Set it via the Settings menu.", Theme.Dim);
+            Status.Print("Set it in Settings (MindAttic Vault, MediaButler tab) or pass --source.", Theme.Dim);
             return false;
         }
 

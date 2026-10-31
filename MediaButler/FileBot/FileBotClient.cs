@@ -26,10 +26,13 @@ public sealed class FileBotClient
 
     private FileBotClient(string exePath, bool trustAll) { ExePath = exePath; _trustAll = trustAll; }
 
-    // Path where we copy + patch FileBot's bundled cacerts (user-writable, no admin required).
-    private static readonly string UserCacertsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "MindAttic", "MediaButler", "filebot-cacerts");
+    /// <summary>True when FileBot runs with the trust-all JVM options (<see cref="MediaButlerSettings.FileBotTrustAll"/>).</summary>
+    internal bool TrustAll => _trustAll;
+
+    // Path where we copy + patch FileBot's bundled cacerts (user-writable, no admin required):
+    // the app's Vault folder, which honors MINDATTIC_VAULT_ROAMING_ROOT so tests stay hermetic.
+    private static string UserCacertsPath =>
+        Path.Combine(MindAttic.Vault.Paths.VaultPaths.RoamingBucket(MediaButlerSettings.AppId), "filebot-cacerts");
 
     private static readonly object CacertsLock = new();
 

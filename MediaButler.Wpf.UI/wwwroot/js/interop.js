@@ -64,5 +64,13 @@ window.mediaButlerInterop = (function () {
         lastFocused = null;
     }
 
-    return { focusById, scrollToBottom, openDialog, closeDialog };
+    // Settings live in MindAttic Vault (LAMP); re-read them when the window
+    // regains focus so the Run header reflects edits made there.
+    function onWindowFocus(dotNetRef) {
+        window.addEventListener('focus', function () {
+            dotNetRef.invokeMethodAsync('OnWindowFocus');
+        });
+    }
+
+    return { focusById, scrollToBottom, openDialog, closeDialog, onWindowFocus };
 })();

@@ -80,23 +80,13 @@ public class AxeScanTests
     }
 
     [Test]
-    public async Task Run_tab_has_zero_wcag22_aa_violations()
+    public async Task Main_window_has_zero_wcag22_aa_violations()
     {
+        // The whole shell: Run page plus the header's settings cog (the Settings tab is gone, MB-T27).
         var page = await browser!.NewPageAsync();
         await page.GotoAsync(baseUrl, new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
-        await page.WaitForSelectorAsync("#tab-run");
-
-        var results = await page.RunAxe(Wcag22AaOptions);
-        AssertNoViolations(results);
-    }
-
-    [Test]
-    public async Task Settings_tab_has_zero_wcag22_aa_violations()
-    {
-        var page = await browser!.NewPageAsync();
-        await page.GotoAsync(baseUrl, new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
-        await page.ClickAsync("#tab-settings");
-        await page.WaitForSelectorAsync("#panel-settings:not([style*='display:none'])");
+        await page.WaitForSelectorAsync("#settings-cog");
+        await page.WaitForSelectorAsync("#pipeline-heading");
 
         var results = await page.RunAxe(Wcag22AaOptions);
         AssertNoViolations(results);

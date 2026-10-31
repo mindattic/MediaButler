@@ -3,6 +3,8 @@ using MediaButler.Diagnostics;
 using MediaButler.Settings;
 using MediaButler.Wpf.UI.Services;
 using Microsoft.Extensions.DependencyInjection;
+using MindAttic.Vault.Credentials;
+using MindAttic.Vault.Settings.Manifest;
 
 namespace MediaButler.Wpf;
 
@@ -11,6 +13,14 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // LAMP (MB-T27): same install-time switch as the CLI (seed + manifest, then exit).
+        if (SettingsManifestCommand.TryRun<MediaButlerSettings>(e.Args))
+        {
+            Shutdown(0);
+            return;
+        }
+        KeyImporter.ImportAppScopedFor(MediaButlerSettings.AppId);
 
         // Previously unhandled exceptions here had no record at all — not even a console (this
         // is a GUI app). CrashLog is shared with the CLI front door; both land in the same

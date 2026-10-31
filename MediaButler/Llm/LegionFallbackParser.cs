@@ -16,16 +16,10 @@ public sealed class LegionFallbackParser
 {
     private static readonly HttpClient SharedHttp = new() { Timeout = TimeSpan.FromSeconds(30) };
 
-    /// <summary>
-    /// MediaButler's own Vault-scoped keys (<c>"mediabutler-{providerId}"</c>), checked
-    /// before <see cref="LegionClient"/> falls back to the shared cross-app id for
-    /// <see cref="MediaButlerSettings.LlmProvider"/>. There's no settings UI to write one
-    /// yet (MediaButler has no per-key entry surface, only the shared
-    /// <c>%APPDATA%\MindAttic\LLM</c> store today) — this just puts MediaButler on the
-    /// same resolution order as every other MindAttic app ahead of one existing.
-    /// </summary>
-    private static readonly ICredentialStore OwnKeys =
-        new AppScopedCredentialStore("mediabutler", LlmCredentialStore.Default);
+    // The key KeySelector picked for the call in flight. LegionClient's keyResolver wins outright
+    // when it returns a key, so model resolution, retries and the breaker stay exactly Legion's.
+    private static readonly AsyncLocal<string?> CurrentKey = new();
+    private static readonly LegionClient Client = new(SharedHttp, options: null, keyResolver: _ => CurrentKey.Value);
 
     /// <summary>
     /// The shape of a single "send prompt, get text" round trip, factored out
@@ -33,6 +27,9 @@ public sealed class LegionFallbackParser
     /// stub instead of a real provider call — no live network, no credentials.
     /// </summary>
     internal delegate Task<string> Transport(string providerId, string systemPrompt, string userMessage, int maxTokens, double temperature, CancellationToken ct);
+
+    /// <summary>One provider call with an explicit key (the seam <see cref="KeySelector"/> fails over across).</summary>
+    internal delegate Task<string> KeyedCall(string providerId, string apiKey, string systemPrompt, string userMessage, int maxTokens, double temperature, CancellationToken ct);
 
     private readonly MediaButlerSettings settings;
     private readonly Transport transport;
@@ -49,11 +46,35 @@ public sealed class LegionFallbackParser
         this.transport = transport;
     }
 
-    private static Transport BuildDefaultTransport()
+    /// <summary>
+    /// LAMP (MB-T27): keys come from the shared named lists through <see cref="KeySelector"/>,
+    /// MediaButler's assigned order first (Vault.Desktop's Keys section), failing over to the next
+    /// key on 401/403/402/429. No per-app key copy is kept.
+    /// </summary>
+    private static Transport BuildDefaultTransport() =>
+        BuildTransport(KeySelector.ForCurrentUser(ClassifyLegionFailure), CallLegionAsync);
+
+    /// <summary>Wraps <paramref name="call"/> in key selection and failover for MediaButler.</summary>
+    internal static Transport BuildTransport(KeySelector keys, KeyedCall call) =>
+        (providerId, systemPrompt, userMessage, maxTokens, temperature, ct) =>
+            keys.ExecuteAsync(providerId, MediaButlerSettings.AppId,
+                (key, token) => call(providerId, key, systemPrompt, userMessage, maxTokens, temperature, token), ct);
+
+    private static async Task<string> CallLegionAsync(string providerId, string apiKey, string systemPrompt,
+        string userMessage, int maxTokens, double temperature, CancellationToken ct)
     {
-        var client = new LegionClient(SharedHttp, options: null, keyResolver: OwnKeys.GetKey);
-        return (providerId, systemPrompt, userMessage, maxTokens, temperature, ct) =>
-            client.CallAsync(providerId, systemPrompt, userMessage, maxTokens, temperature, ct: ct);
+        // Set inside this async method, so the value is scoped to this call's flow only.
+        CurrentKey.Value = apiKey;
+        return await Client.CallAsync(providerId, systemPrompt, userMessage, maxTokens, temperature, ct: ct);
+    }
+
+    /// <summary>Legion may wrap the provider's HTTP failure (retry/breaker); find the status underneath.</summary>
+    internal static KeyFailureException? ClassifyLegionFailure(Exception ex)
+    {
+        for (var e = ex.InnerException; e is not null; e = e.InnerException)
+            if (e is HttpRequestException { StatusCode: { } status } && KeySelector.Classify(status) is { } kind)
+                return new KeyFailureException(kind, e.GetType().Name);
+        return null;
     }
 
     /// <summary>
