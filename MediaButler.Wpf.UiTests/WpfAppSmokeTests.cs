@@ -45,6 +45,7 @@ public class WpfAppSmokeTests
     private string wpfExePath = null!;
     private Application? app;
     private UIA3Automation? automation;
+    private string? sandbox;
 
     [OneTimeSetUp]
     public void OneTimeSetUp()
@@ -68,7 +69,14 @@ public class WpfAppSmokeTests
     public void SetUp()
     {
         automation = new UIA3Automation();
-        app = Application.Launch(wpfExePath);
+        // Never the user's real %APPDATA% (M.VALT-LAW-6, MB-T29): the Run page forces and saves
+        // DryRun=true on every launch, and settings loads write settings.manifest.json.
+        sandbox = Path.Combine(Path.GetTempPath(), "mediabutler-ui-tests-" + Guid.NewGuid().ToString("N"));
+        var psi = new System.Diagnostics.ProcessStartInfo(wpfExePath) { UseShellExecute = false };
+        psi.Environment["MINDATTIC_VAULT_ROAMING_ROOT"] = Path.Combine(sandbox, "Roaming");
+        psi.Environment["MINDATTIC_VAULT_LOCAL_ROOT"] = Path.Combine(sandbox, "Local");
+        psi.Environment["MEDIABUTLER_VARIATIONS_PATH"] = Path.Combine(sandbox, "variations.json");
+        app = Application.Launch(psi);
         // BlazorWebView renders the native window quickly, but WebView2's
         // Chromium accessibility tree populates asynchronously after that —
         // give it longer than a plain native-control window needs.
@@ -82,6 +90,7 @@ public class WpfAppSmokeTests
         try { app?.Close(); } catch { /* best-effort */ }
         try { app?.Dispose(); } catch { /* best-effort */ }
         try { automation?.Dispose(); } catch { /* best-effort */ }
+        try { if (sandbox is not null && Directory.Exists(sandbox)) Directory.Delete(sandbox, recursive: true); } catch { /* best-effort */ }
     }
 
     [Test]
