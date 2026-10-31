@@ -134,7 +134,7 @@ public sealed class PipelineRunner
     internal static int CombineExit(int a, int b) =>
         a == ExitErrors || b == ExitErrors ? ExitErrors : Math.Max(a, b);
 
-    private static MediaButlerSettings Clone(MediaButlerSettings s) => new()
+    internal static MediaButlerSettings Clone(MediaButlerSettings s) => new()
     {
         SourcePath            = s.SourcePath,
         ExtraSources          = s.ExtraSources,
@@ -164,6 +164,10 @@ public sealed class PipelineRunner
         TitleYearOverrides    = s.TitleYearOverrides,
         Limit                 = s.Limit,
         NoGuard               = s.NoGuard,
+        // FileBotStage reads these per source (--q {id}); without them every
+        // pipeline run silently ignored the user's id overrides (MB-T28).
+        TvdbIdOverrides       = s.TvdbIdOverrides,
+        TmdbIdOverrides       = s.TmdbIdOverrides,
     };
 
     public int RunRelocate(MediaButlerSettings s)
