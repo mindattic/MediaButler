@@ -244,3 +244,12 @@ updated: 2026-10-03
 | MB-T20 | 2026-10-20 | docs | open | Publish MediaButler docs to GitHub Pages via the shared Agency DocFX pipeline: run adopt-docs-site.ps1 (README.md as home page, docs/*.md as articles, API reference only where the code builds in CI), enable Pages with build_type=workflow, set the repo homepage URL, retire tools/build-readme.ps1 and README.htm, confirm the docs Actions run is green and https://mindattic.github.io/MediaButler/ returns 200. Depends on MAT-T8. | — |
 | MB-T21 | 2026-10-22 | docs | closed | Update USER_STORIES.md | — |
 | MB-T22 | 2026-10-24 | docs | closed | Update USER_STORIES.md | — |
+| MB-T23 | 2026-10-30 | feature | wont-do | Extract MediaButler's settings into a Vault Dashboard settings-tab package | superseded by Epic E redesign: target MindAttic.Vault.Desktop, not Vault Dashboard |
+| MB-T24 | 2026-10-30 | chore | wont-do | Remove MediaButler's own settings page and wire its cog to open Vault Dashboard instead | superseded by Epic E redesign: target MindAttic.Vault.Desktop, not Vault Dashboard |
+| MB-T25 | 2026-10-30 | feature | wont-do | Extract MediaButler's settings into a native WPF settings-tab package for Desktop | withdrawn: plan rejected by owner 2026-10-31, see M.VALT-T26 |
+| MB-T26 | 2026-10-30 | chore | wont-do | Remove MediaButler's own settings page/window, wire its cog to MindAttic.Vault.Desktop | withdrawn: plan rejected by owner 2026-10-31, see M.VALT-T26 |
+| MB-T27 | 2026-10-31 | feature | closed | LAMP: move MediaButler's app-level settings and keys to MindAttic.Vault.Desktop (manifest, LoadOrSeed, shared named keys, cog opens Vault) | ea6d56a MediaButlerSettingTests MediaButlerLampTests |
+| MB-T28 | 2026-10-31 | fix | closed | Pipeline runs ignore TvdbIdOverrides/TmdbIdOverrides: PipelineRunner.Clone drops both dictionaries, so FileBot never gets the --q {id} override | f82b562 PipelineRunnerCloneTests |
+| MB-T29 | 2026-10-31 | fix | closed | WpfAppSmokeTests launch the real WPF app against the real %APPDATA%: every UI test run forces dryRun=true into the user's settings.json | 21e2a7a WpfAppSmokeTests |
+| MB-T30 | 2026-10-31 | chore | wont-do | Delete MediaButler's WPF UI (MediaButler.Wpf) and its UI/accessibility test projects: the user only uses MediaButler from the CLI | User changed their mind: MediaButler's WPF UI and tests stay. Nothing was deleted or committed; the one test edit was reverted. |
+| MB-T31 | 2026-10-31 | docs | closed | Update USER_STORIES.md | — |
