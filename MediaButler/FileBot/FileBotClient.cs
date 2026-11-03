@@ -401,9 +401,17 @@ public sealed class FileBotClient
             // fails SSL. Fix: point the JVM at our user-space cacerts that has ISRG Root X1
             // added. EnsureUserCacerts() does the one-time copy+import on first call.
             var userCacerts = EnsureUserCacerts();
-            var opts = userCacerts is not null
-                ? $"-Djavax.net.ssl.trustStore={userCacerts} -Djavax.net.ssl.trustStorePassword=changeit -Djavax.net.ssl.trustStoreType=PKCS12 -Dtrust.all.certs=true"
-                : "-Dtrust.all.certs=true";
+            const string tail = " -Djavax.net.ssl.trustStorePassword=changeit -Djavax.net.ssl.trustStoreType=PKCS12 -Dtrust.all.certs=true";
+            // HotSpot splits _JAVA_OPTIONS on whitespace but honours a quoted
+            // span (single or double quotes, anywhere in the token, stripped
+            // before the JVM sees it), so a profile path with spaces
+            // ("C:\Users\Jane Doe\...") must be quoted or the trustStore value
+            // is cut at the first space. FILEBOT_OPTS is word-split by a POSIX
+            // shell script that does NOT strip quotes, so it keeps the bare
+            // path (paths with spaces are rare there and can't be fixed by
+            // quoting an unquoted $FILEBOT_OPTS expansion anyway).
+            var opts   = userCacerts is not null ? $"-Djavax.net.ssl.trustStore={userCacerts}" + tail : "-Dtrust.all.certs=true";
+            var jvmOpts = userCacerts is not null ? $"\"-Djavax.net.ssl.trustStore={userCacerts}\"" + tail : opts;
 
             // Must use _JAVA_OPTIONS — FileBot's jpackage native-exe launcher on Windows
             // does NOT forward FILEBOT_OPTS to the embedded JVM; _JAVA_OPTIONS is read by
@@ -412,7 +420,7 @@ public sealed class FileBotClient
             var existingFb = psi.Environment.TryGetValue("FILEBOT_OPTS", out var fb) ? fb + " " : "";
             psi.Environment["FILEBOT_OPTS"] = existingFb + opts;
             var existingJo = psi.Environment.TryGetValue("_JAVA_OPTIONS", out var jo) ? jo + " " : "";
-            psi.Environment["_JAVA_OPTIONS"] = existingJo + opts;
+            psi.Environment["_JAVA_OPTIONS"] = existingJo + jvmOpts;
         }
 
         var stdout = new System.Text.StringBuilder();

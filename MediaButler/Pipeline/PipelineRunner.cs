@@ -69,7 +69,7 @@ public sealed class PipelineRunner
     /// <see cref="MediaButlerSettings.SourcePath"/> plus any
     /// <see cref="MediaButlerSettings.ExtraSources"/>, deduplicated, in order.
     /// </summary>
-    internal static IReadOnlyList<string> EffectiveSources(MediaButlerSettings s)
+    public static IReadOnlyList<string> EffectiveSources(MediaButlerSettings s)
     {
         var list = new List<string>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -134,7 +134,7 @@ public sealed class PipelineRunner
     internal static int CombineExit(int a, int b) =>
         a == ExitErrors || b == ExitErrors ? ExitErrors : Math.Max(a, b);
 
-    internal static MediaButlerSettings Clone(MediaButlerSettings s) => new()
+    public static MediaButlerSettings Clone(MediaButlerSettings s) => new()
     {
         SourcePath            = s.SourcePath,
         ExtraSources          = s.ExtraSources,

@@ -12,7 +12,9 @@ namespace MediaButler.Pipeline;
 /// different shapes ("Criminal Minds Season 2" with scene codes next to
 /// "Criminal Minds Season 2 Complete WEB x264 [i_c]") — usually with
 /// complementary episode subsets. Files move individually; a file whose name
-/// or parsed episode already exists at the target is a duplicate. Under
+/// or parsed episode span already exists at the target is a duplicate (the
+/// span must match exactly: S01E01E02 is not a duplicate of S01E01, and both
+/// are kept). Under
 /// <see cref="DuplicateMovieAction.KeepLargest"/> (the default, via
 /// <see cref="MediaButlerSettings.DuplicateEpisodeAction"/>) the larger video
 /// wins and the other is deleted, mirroring MoveStage's movie-duplicate
@@ -43,7 +45,10 @@ public static class SeasonMerger
         // Index the target once: file names + parsed episode numbers, keeping
         // full paths so a KeepLargest conflict can compare sizes and replace.
         var targetPathByName    = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var targetPathByEpisode = new Dictionary<int, string>();
+        // Keyed by the FULL episode span (S01E01E02 → (1,2)), not the first
+        // episode: a double-episode file and a single E01 are different content,
+        // so neither may replace or discard the other — both are kept.
+        var targetPathByEpisode = new Dictionary<(int First, int Last), string>();
         if (Directory.Exists(targetFolder))
         {
             foreach (var f in Directory.EnumerateFiles(targetFolder))
@@ -51,7 +56,7 @@ public static class SeasonMerger
                 var fname = Path.GetFileName(f);
                 targetPathByName[fname] = f;
                 if (videoExts.Contains(Path.GetExtension(f)) &&
-                    NameParser.ParseEpisodeNumberInSeason(fname, season) is { } ep)
+                    NameParser.ParseEpisodeSetInSeason(fname, season) is { } ep)
                     targetPathByEpisode[ep] = f;
             }
         }
@@ -65,7 +70,7 @@ public static class SeasonMerger
             if (!isVideo && !subExts.Contains(ext)) continue;          // junk stays for shell cleanup
             if (isVideo && NameParser.IsSampleName(fname)) continue;   // samples never merge
 
-            var episode = isVideo ? NameParser.ParseEpisodeNumberInSeason(fname, season) : null;
+            var episode = isVideo ? NameParser.ParseEpisodeSetInSeason(fname, season) : null;
             var existingPath = targetPathByName.GetValueOrDefault(fname)
                 ?? (episode is { } e ? targetPathByEpisode.GetValueOrDefault(e) : null);
 

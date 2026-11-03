@@ -167,6 +167,27 @@ public class SeasonMergerMergeFilesTests
         });
     }
 
+    [TestCase("Show - S02E05.mkv", 500, "Show - S02E05E06.mkv", 2000)] // single existing, larger double incoming
+    [TestCase("Show - S02E05E06.mkv", 500, "Show - S02E05.mkv", 2000)] // double existing, larger single incoming
+    [TestCase("Show - S02E05E06.mkv", 2000, "Show - S02E05.mkv", 500)] // double existing, smaller single incoming
+    public void KeepLargest_never_treats_differing_episode_spans_as_duplicates(
+        string existingName, int existingBytes, string incomingName, int incomingBytes)
+    {
+        var existing = Path.Combine(target, existingName);
+        Write(existing, existingBytes);
+        Write(Path.Combine(source, incomingName), incomingBytes);
+
+        var result = SeasonMerger.MergeFiles(source, target, season: 2, settings, report);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result, Is.EqualTo(new SeasonMerger.MergeResult(Moved: 1, Conflicts: 0)));
+            Assert.That(new FileInfo(existing).Length, Is.EqualTo(existingBytes), "the existing file holds episodes and must be kept");
+            Assert.That(new FileInfo(Path.Combine(target, incomingName)).Length, Is.EqualTo(incomingBytes),
+                "the incoming file holds a different episode span and must be kept alongside");
+        });
+    }
+
     [TestCase(500, 500)] // equal size: incoming does not win ties
     [TestCase(500, 2000)] // incoming strictly smaller
     public void KeepLargest_incoming_equal_or_smaller_is_discarded_and_logs_duplicate_discard(int incomingBytes, int existingBytes)

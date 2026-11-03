@@ -409,11 +409,31 @@ public static class NameParser
     /// equal the season). Used to detect duplicate episodes when merging two
     /// dumps of the same season. Returns null when nothing matches.
     /// </summary>
-    public static int? ParseEpisodeNumberInSeason(string fileName, int season)
+    public static int? ParseEpisodeNumberInSeason(string fileName, int season) =>
+        ParseEpisodeSetInSeason(fileName, season)?.First;
+
+    /// <summary>
+    /// The full episode span a file in season <paramref name="season"/> holds:
+    /// <c>S01E01E02</c> / <c>S01E01-02</c> → (1, 2); a single episode → (n, n).
+    /// Duplicate detection compares this whole span, so a double-episode file is
+    /// never treated as a copy of (and replaced by, or deleted for) a file that
+    /// holds only one of its episodes. Returns null when nothing matches.
+    /// </summary>
+    public static (int First, int Last)? ParseEpisodeSetInSeason(string fileName, int season)
     {
         var parsed = ParseEpisode(fileName);
         if (parsed is not null)
-            return parsed.Season == season ? parsed.Episode : null;
+        {
+            if (parsed.Season != season) return null;
+            var last = parsed.EpisodeEnd is { } end && end > parsed.Episode ? end : parsed.Episode;
+            return (parsed.Episode, last);
+        }
+
+        return ParseSingleEpisodeInSeason(fileName, season) is { } ep ? (ep, ep) : null;
+    }
+
+    private static int? ParseSingleEpisodeInSeason(string fileName, int season)
+    {
 
         var n = Normalize(Path.GetFileNameWithoutExtension(fileName));
         var m = EpisodeWord.Match(n);

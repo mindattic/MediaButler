@@ -84,34 +84,42 @@ public sealed class PipelineRunner
             case PipelineAction.RunFull:
                 // Dry-run state is read from persisted settings (toggled from
                 // the header checkbox) — no separate dry-run action needed.
-                if (!ValidatePaths(s)) return;
-                new RenameStage(s, report).Run();
-                RunFileBotIfAvailable(s, report);
-                new MoveStage(s, report).Run();
+                ForEachSource(s, src =>
+                {
+                    if (!ValidatePaths(src)) return;
+                    new RenameStage(src, report).Run();
+                    RunFileBotIfAvailable(src, report);
+                    new MoveStage(src, report).Run();
+                });
                 break;
 
             case PipelineAction.Rename:
-                if (!ValidatePaths(s)) return;
-                new RenameStage(s, report).Run();
+                ForEachSource(s, src =>
+                {
+                    if (!ValidatePaths(src)) return;
+                    new RenameStage(src, report).Run();
+                });
                 break;
 
             case PipelineAction.FileBotTv:
                 // FileBot renames in-place; path guard only guards source→dest moves (not applicable here).
+                ForEachSource(s, src =>
                 {
-                    if (!Directory.Exists(s.SourcePath)) { Console.WriteLine("Source path not found: " + s.SourcePath); return; }
-                    var fb = FileBotClient.TryCreate(s);
-                    if (fb is null) { Console.WriteLine("FileBot not found at " + s.FileBotPath); return; }
-                    new FileBotStage(s, fb, report).RunTv();
-                }
+                    if (!Directory.Exists(src.SourcePath)) { Console.WriteLine("Source path not found: " + src.SourcePath); return; }
+                    var fb = FileBotClient.TryCreate(src);
+                    if (fb is null) { Console.WriteLine("FileBot not found at " + src.FileBotPath); return; }
+                    new FileBotStage(src, fb, report).RunTv();
+                });
                 break;
 
             case PipelineAction.FileBotMovies:
+                ForEachSource(s, src =>
                 {
-                    if (!Directory.Exists(s.SourcePath)) { Console.WriteLine("Source path not found: " + s.SourcePath); return; }
-                    var fb = FileBotClient.TryCreate(s);
-                    if (fb is null) { Console.WriteLine("FileBot not found at " + s.FileBotPath); return; }
-                    new FileBotStage(s, fb, report).RunMovies();
-                }
+                    if (!Directory.Exists(src.SourcePath)) { Console.WriteLine("Source path not found: " + src.SourcePath); return; }
+                    var fb = FileBotClient.TryCreate(src);
+                    if (fb is null) { Console.WriteLine("FileBot not found at " + src.FileBotPath); return; }
+                    new FileBotStage(src, fb, report).RunMovies();
+                });
                 break;
 
             case PipelineAction.FileBotSubtitles:
@@ -120,17 +128,21 @@ public sealed class PipelineRunner
                     Console.WriteLine("Subtitles are disabled in Settings. Enable EnableSubtitles to use this command.");
                     return;
                 }
-                if (!ValidatePaths(s)) return;
+                ForEachSource(s, src =>
                 {
-                    var fb = FileBotClient.TryCreate(s);
-                    if (fb is null) { Console.WriteLine("FileBot not found at " + s.FileBotPath); return; }
-                    new FileBotStage(s, fb, report).RunSubtitles();
-                }
+                    if (!ValidatePaths(src)) return;
+                    var fb = FileBotClient.TryCreate(src);
+                    if (fb is null) { Console.WriteLine("FileBot not found at " + src.FileBotPath); return; }
+                    new FileBotStage(src, fb, report).RunSubtitles();
+                });
                 break;
 
             case PipelineAction.Move:
-                if (!ValidatePaths(s)) return;
-                new MoveStage(s, report).Run();
+                ForEachSource(s, src =>
+                {
+                    if (!ValidatePaths(src)) return;
+                    new MoveStage(src, report).Run();
+                });
                 break;
 
             case PipelineAction.FixLibraryMovies:
@@ -170,8 +182,32 @@ public sealed class PipelineRunner
                 break;
 
             case PipelineAction.Scan:
-                PrintScan(s);
+                ForEachSource(s, PrintScan);
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Run <paramref name="body"/> once per inbox, exactly like the CLI: the
+    /// primary SourcePath, then ExtraSources, plus (with Recursive) container
+    /// subfolders as inboxes of their own. Each gets a cloned settings
+    /// instance scoped to that one source, so stages never see the others.
+    /// </summary>
+    private static void ForEachSource(MediaButlerSettings s, Action<MediaButlerSettings> body)
+    {
+        var sources = global::MediaButler.Pipeline.PipelineRunner.EffectiveSources(s);
+        if (sources.Count == 0) { Console.WriteLine("No source path configured."); return; }
+        foreach (var src in sources)
+        {
+            if (sources.Count > 1)
+            {
+                Console.WriteLine();
+                Console.WriteLine($"==== Source: {src} ====");
+            }
+            var perSource = global::MediaButler.Pipeline.PipelineRunner.Clone(s);
+            perSource.SourcePath   = src;
+            perSource.ExtraSources = Array.Empty<string>();
+            body(perSource);
         }
     }
 
@@ -195,6 +231,9 @@ public sealed class PipelineRunner
         Console.WriteLine("Settings file: " + settings.FilePath);
         Console.WriteLine("Mode         : " + (s.DryRun ? "DRY RUN" : "LIVE"));
         Console.WriteLine("Source       : " + s.SourcePath + (Directory.Exists(s.SourcePath) ? " [ok]" : " [MISSING]"));
+        foreach (var extra in s.ExtraSources)
+            Console.WriteLine("Extra source : " + extra + (Directory.Exists(extra) ? " [ok]" : " [MISSING]"));
+        Console.WriteLine("Recursive    : " + (s.Recursive ? "true (container subfolders become inboxes)" : "false"));
         Console.WriteLine("TV dest      : " + s.TvDestination);
         Console.WriteLine("Movies dest  : " + s.MoviesDestination);
         var fb = FileBotClient.TryLocate(s.FileBotPath);
