@@ -131,7 +131,8 @@ public sealed class MediaScanner
     {
         if (llmFallback is null) return null;
         var guess = await llmFallback.ClassifyFileAsync(item.OriginalName, ct).ConfigureAwait(false);
-        if (guess is null) return null;
+        if (guess is null || SafeLlmTitle(guess.Title) is not { } title) return null;
+        guess = guess with { Title = title };
 
         return guess.Kind switch
         {
@@ -150,6 +151,19 @@ public sealed class MediaScanner
             },
             _ => null,
         };
+    }
+
+    /// <summary>
+    /// LLM titles become folder names verbatim, unlike regex-parsed ones (which
+    /// come from names that already exist on disk). Strip characters illegal in
+    /// a file name ("Star Wars: A New Hope" would fail the rename; a "\\" or
+    /// "/" would escape the source root) and reject dot-only titles ("..").
+    /// Null means "unusable" — the item stays Unknown (MB-LAW-6).
+    /// </summary>
+    private static string? SafeLlmTitle(string title)
+    {
+        var clean = Pipeline.MoveStage.SanitizeForFs(title);
+        return clean.Trim('.').Length == 0 ? null : clean;
     }
 
     private IEnumerable<string> TopLevelDirs()
@@ -480,7 +494,8 @@ public sealed class MediaScanner
         catch (DirectoryNotFoundException)  { sampleFiles = new List<string>(); }
         catch (IOException)                 { sampleFiles = new List<string>(); }
         var guess = await llmFallback.ClassifyAsync(name, sampleFiles, ct).ConfigureAwait(false);
-        if (guess is null) return null;
+        if (guess is null || SafeLlmTitle(guess.Title) is not { } title) return null;
+        guess = guess with { Title = title };
 
         return guess.Kind switch
         {

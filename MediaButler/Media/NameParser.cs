@@ -420,7 +420,10 @@ public static class NameParser
         if (m.Success) return int.Parse(m.Groups[1].Value);
 
         // 3-digit (or 4-digit for seasons >= 10) scene code: {season}{ep:D2}.
-        m = Regex.Match(n, $@"(?<!\d){season}(\d{{2}})(?!\d)");
+        // Codec/resolution tags are NOT scene codes: "x264"/"H 265" in season 2
+        // and "720p" in season 7 would otherwise give every marker-less file the
+        // same "episode", and a KeepLargest merge would delete all but one.
+        m = Regex.Match(n, $@"(?<![\dxXhH])(?<![hH] ){season}(\d{{2}})(?![\dpP])");
         if (m.Success) return int.Parse(m.Groups[1].Value);
 
         return null;

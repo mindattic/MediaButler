@@ -142,7 +142,13 @@ public sealed class RenameStage
         }
 
         var target = Path.Combine(settings.SourcePath, newName);
-        if (Directory.Exists(target))
+        // A case-only difference ("Show - SEASON 04" -> "Show - Season 04")
+        // names the SAME folder on a case-insensitive file system. It must be a
+        // plain rename: merging a folder into itself sees every file as a
+        // duplicate of itself and KeepLargest would delete each one.
+        var caseOnlyRename = string.Equals(
+            Path.GetFullPath(item.FullPath), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase);
+        if (!caseOnlyRename && Directory.Exists(target))
         {
             // The same season already exists in canonical form — usually a
             // second dump of the same show (different rip group, complementary

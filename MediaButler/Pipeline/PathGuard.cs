@@ -28,9 +28,13 @@ public static class PathGuard
 
         var cmp = StringComparison.OrdinalIgnoreCase;
         if (string.Equals(a, b, cmp)) return true;
-        var sep = Path.DirectorySeparatorChar.ToString();
-        return a.StartsWith(b + sep, cmp) || b.StartsWith(a + sep, cmp);
+        // A drive root keeps its trailing separator ("M:\"), so don't double it —
+        // "M:\\" would never prefix "M:\Inbox" and the overlap would slip through.
+        return a.StartsWith(WithSeparator(b), cmp) || b.StartsWith(WithSeparator(a), cmp);
     }
+
+    private static string WithSeparator(string path) =>
+        Path.EndsInDirectorySeparator(path) ? path : path + Path.DirectorySeparatorChar;
 
     /// <summary>
     /// Validate that the source exists AND does not overlap a destination.

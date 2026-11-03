@@ -137,6 +137,16 @@ public sealed class RelocateStage
 
         Status.Item(item.OriginalName);
 
+        // A loose FILE would go through the folder mover: Directory.Move renames
+        // it to the extension-less folder name (same volume) and the cross-volume
+        // copy throws after leaving an empty marker folder. Surface it instead.
+        if (item.IsFile)
+        {
+            Status.Line("  [skip - loose file; wrap it into a folder first]", Theme.Dim);
+            report.RecordManual(item.FullPath, item.Kind, "loose file — relocate only moves folders; wrap it into a folder first");
+            return false;
+        }
+
         // Same-path no-op — happens when scanning the wrapper of the canonical
         // location ("Heat (1995)" inside M:\Movies is already at M:\Movies\Heat (1995)).
         if (string.Equals(
@@ -204,7 +214,8 @@ public sealed class RelocateStage
         catch { return false; }
         var cmp = StringComparison.OrdinalIgnoreCase;
         if (string.Equals(h, n, cmp)) return true;
-        var sep = Path.DirectorySeparatorChar.ToString();
-        return n.StartsWith(h + sep, cmp);
+        // A drive root keeps its trailing separator ("M:\") — don't double it.
+        var prefix = Path.EndsInDirectorySeparator(h) ? h : h + Path.DirectorySeparatorChar;
+        return n.StartsWith(prefix, cmp);
     }
 }

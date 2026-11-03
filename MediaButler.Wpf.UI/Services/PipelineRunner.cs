@@ -184,43 +184,11 @@ public sealed class PipelineRunner
             new FileBotStage(s, fb, report).Run();
     }
 
-    /// <summary>Same source/dest overlap guard the CLI menu uses; warns in dry-run, blocks live.</summary>
-    private static bool ValidatePaths(MediaButlerSettings s)
-    {
-        if (!Directory.Exists(s.SourcePath))
-        {
-            Console.WriteLine("Source path not found: " + s.SourcePath);
-            return false;
-        }
-
-        var overlap = PathOverlaps(s.SourcePath, s.TvDestination)
-                   || PathOverlaps(s.SourcePath, s.MoviesDestination);
-        if (!overlap) return true;
-
-        if (s.DryRun)
-        {
-            Console.WriteLine("WARNING: Source overlaps a destination. Dry-run only — no mutations.");
-            return true;
-        }
-        Console.WriteLine("REFUSING TO RUN: Source overlaps a destination. Enable DryRun to inspect.");
-        return false;
-    }
-
-    private static bool PathOverlaps(string a, string b)
-    {
-        if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return false;
-        string p, q;
-        try
-        {
-            p = Path.TrimEndingDirectorySeparator(Path.GetFullPath(a));
-            q = Path.TrimEndingDirectorySeparator(Path.GetFullPath(b));
-        }
-        catch { return false; }
-        var cmp = StringComparison.OrdinalIgnoreCase;
-        if (string.Equals(p, q, cmp)) return true;
-        var sep = Path.DirectorySeparatorChar.ToString();
-        return p.StartsWith(q + sep, cmp) || q.StartsWith(p + sep, cmp);
-    }
+    /// <summary>
+    /// The CLI's own source/dest overlap guard (MB-LAW-3): warns in dry-run, blocks live. A private
+    /// copy here had drifted — it skipped MusicDestination and missed drive-root destinations.
+    /// </summary>
+    private static bool ValidatePaths(MediaButlerSettings s) => PathGuard.ValidatePaths(s);
 
     private void PrintStatus(MediaButlerSettings s)
     {
