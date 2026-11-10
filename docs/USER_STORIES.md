@@ -253,3 +253,8 @@ updated: 2026-10-03
 | MB-T29 | 2026-10-31 | fix | closed | WpfAppSmokeTests launch the real WPF app against the real %APPDATA%: every UI test run forces dryRun=true into the user's settings.json | 21e2a7a WpfAppSmokeTests |
 | MB-T30 | 2026-10-31 | chore | wont-do | Delete MediaButler's WPF UI (MediaButler.Wpf) and its UI/accessibility test projects: the user only uses MediaButler from the CLI | User changed their mind: MediaButler's WPF UI and tests stay. Nothing was deleted or committed; the one test edit was reverted. |
 | MB-T31 | 2026-10-31 | docs | closed | Update USER_STORIES.md | — |
+| MB-T32 | 2026-11-02 | docs | open | Adopt MindAttic.Agency docs-site pipeline, publish README to GitHub Pages (HOUSE-LAW-14) | — |
+| MB-T33 | 2026-11-02 | fix | closed | Bughunt sweep, two passes: find and fix real bugs across tracked source (user request 2026-11-02) | — |
+| MB-T34 | 2026-11-02 | fix | closed | Command pointer in .agent/commands said a literal $source instead of its legacy path (install.ps1 escaping bug fixed in MAT-T84); point it at the real source, or the global command when the project copy is gone | — |
+| MB-T35 | 2026-11-02 | fix | closed | Fix the open items the 2026-11-02 bughunt left for decision (keep-largest episode sets, _JAVA_OPTIONS cert path quoting, Desktop ExtraSources/recursive) | — |
+| MB-T36 | 2026-11-10 | chore | closed | Crash recovery: commit the command-catalog sync (.agent/commands/*.md) and regenerated docs/USER_STORIES.md left uncommitted by the session crash | — |
