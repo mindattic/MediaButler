@@ -260,3 +260,13 @@ updated: 2026-10-03
 | MB-T36 | 2026-11-10 | chore | closed | Crash recovery: commit the command-catalog sync (.agent/commands/*.md) and regenerated docs/USER_STORIES.md left uncommitted by the session crash | — |
 | MB-T37 | 2026-11-10 | chore | closed | Adopt the shared docs-site pipeline: turn on GitHub Pages | — |
 | MB-T38 | 2026-11-17 | docs | closed | Update USER_STORIES.md | — |
+| MB-T39 | 2026-11-22 | chore | open | NUnit tests for Commands/BaseSettings.ApplyTo flag overlay (dry-run vs live, source/ExtraSources, recursive, limit, dest overrides, no-guard, subtitles, verbosity mapping) | — |
+| MB-T40 | 2026-11-22 | chore | open | NUnit tests for Ui/Status verbosity: Quiet suppression, Summary always prints, default Normal with AsyncLocal isolation, NO_COLOR/redirected plain output | — |
+| MB-T41 | 2026-11-22 | chore | open | NUnit tests for MediaButler.Wpf.UI/Services ConsoleCaptureWriter line splitting, CR/ANSI stripping, partial-line buffering and null/empty writes | — |
+| MB-T42 | 2026-11-22 | chore | open | NUnit tests for Wpf PipelineRunner: console restore on throw, ValidatePaths/PathOverlaps, FixLibrary and Relocate settings, FormatReport caps | — |
+| MB-T43 | 2026-11-22 | chore | open | NUnit tests for Services/DialogService: Confirm/Prompt/Choose results, default on type mismatch, Current cleared and OnChange raised | — |
+| MB-T44 | 2026-11-22 | chore | open | bUnit tests for Run.razor.cs: DryRun forced on start, LIVE confirmation, busy/dialog click ignoring, Fix Library aborts, 2000-line log cap | — |
+| MB-T45 | 2026-11-22 | chore | open | bUnit tests for Settings.razor.cs OnSave: path trimming, comma-list splitting, SubtitleLanguage and LlmProvider defaults | — |
+| MB-T46 | 2026-11-22 | chore | open | NUnit tests for VariationCatalog: Load seeding without dropping/reordering user additions or duplicating moved entries, ResolvePath precedence, JSON comments/trailing commas, Record mapping, Save no-op. | — |
+| MB-T47 | 2026-11-22 | chore | open | Data-driven NUnit test running every MasterVariations.Movie and Tv folder-style entry through NameParser asserting it classifies into its own category. | — |
+| MB-T48 | 2026-11-22 | docs | closed | 2026-11-22 morning | — |
