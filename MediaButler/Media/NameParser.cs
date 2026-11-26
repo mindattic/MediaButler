@@ -98,13 +98,17 @@ public static class NameParser
     // Normalize() converts dots→spaces before this runs, so multi-part tokens use [\s.]?
     // so they match both the raw ("H.265") and normalized ("H 265") forms.
     // Add entries when a new tag turns up before the year in a real-inbox folder name.
+    // The (?![A-Za-z]) after the group stops a tag matching the START of an ordinary title word
+    // (NFL, MAXIMUM, ENGLAND, PLAYER, Completely...). Digits/punctuation may follow (HDR10, TrueHD7.1,
+    // x265-GROUP), so a tag that real names glue to a longer word needs its own alternative (DVD, WEBDL).
+    // "Complete" is deliberately NOT a mixed-case tag ("A Complete Unknown"); COMPLETE stays.
     private static readonly Regex TrailingJunk = new(
         // Release flags
-        @"\s+(?:Complete|COMPLETE|EXTENDED|REMASTERED|PROPER|REPACK|READNFO|UNRATED|Upscale|MultiSubs|" +
+        @"\s+(?:COMPLETE|EXTENDED|REMASTERED|PROPER|REPACK|READNFO|UNRATED|Upscaled?|MultiSubs|" +
         // Source / quality tier
-        @"WEBSCREENER|TELESYNC|Telesync|DCPRip|DCPRiP|DVDRip|iMAX|IMAX|SDR|Hybrid|UHD|" +
+        @"WEBSCREENER|TELESYNC|Telesync|DCPRip|DCPRiP|DVDRip|DVD|HDRip|iMAX|IMAX|SDR|Hybrid|UHD|" +
         // Web / optical sources
-        @"WEBRip|WEB-DL|WEB|HDTV|BluRay|Bluray|BrRip|BRrip|BDRip|REMUX|BDREMUX|" +
+        @"WEBRip|WEB-DL|WEBDL|WEB|HDTV|BluRay|Bluray|BrRip|BRrip|BDRip|REMUX|BDREMUX|" +
         // Resolution
         @"2160p|1440p|1080p|720p|576p|480p|4K|" +
         // Video codec — [\s.]? handles both raw dots and post-Normalize spaces
@@ -112,7 +116,7 @@ public static class NameParser
         // Audio codec
         @"TrueHD|OPUS|AAC|AC3|DTS(?:[\s.-]?HDMA)?|DD\+?5[\s.]?1|DDP5[\s.]?1|DDPA|Atmos|" +
         // HDR / vision
-        @"DoVi|MULTi|HDR|DV|" +
+        @"DoVi|MULTiSUBS?|MULTi|HDR|DV|" +
         // Bit depth
         @"10bit|10BIT|10Bit|10bits|10-bit|" +
         // Streaming platform codes (iT = iTunes; others are ALLCAPS forms seen in scene names)
@@ -122,7 +126,7 @@ public static class NameParser
         // Language / subtitle codes (appear before quality tokens when scene packs pre-tag language)
         @"ITA|iTA|ENG|EnG|FRE|LAT|" +
         // Container
-        @"Mp4|MP4|mp4|AVI|MKV).*$",
+        @"Mp4|MP4|mp4|AVI|MKV)(?![A-Za-z]).*$",
         RegexOptions.Compiled);
 
     // Index/release-group prefix like "www.UIndex.org    -    " or "[YTS.MX] - ".
