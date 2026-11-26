@@ -43,6 +43,16 @@ public static class Menu
             // it so the menu still renders rather than crashing the whole app.
             try { Console.CursorVisible = false; } catch (IOException) { /* redirected */ }
             Render(title, rows, nameWidth, index);
+            // Rendering near the bottom of the buffer scrolls the console, so the top captured before
+            // it is stale: redrawing there would stack a second copy of the menu. Re-derive it from
+            // where the cursor ended up and how many lines were written (title + blank + rows +
+            // blank + hint).
+            try
+            {
+                var written = title.Split('\n').Length + rows.Count + 3;
+                startTop = Math.Max(0, Console.CursorTop - written);
+            }
+            catch (IOException) { /* redirected */ }
 
             while (true)
             {
