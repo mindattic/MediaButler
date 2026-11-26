@@ -99,7 +99,13 @@ public class BaseSettings : CommandSettings
         if (!string.IsNullOrWhiteSpace(TvDest))     s.TvDestination     = TvDest.Trim();
         if (!string.IsNullOrWhiteSpace(MoviesDest)) s.MoviesDestination = MoviesDest.Trim();
         if (!string.IsNullOrWhiteSpace(MusicDest))  s.MusicDestination  = MusicDest.Trim();
-        if (Limit.HasValue && Limit.Value > 0) s.Limit = Limit;
+        if (Limit.HasValue)
+        {
+            // Silently ignoring 0/negative would turn a "tiny smoke test" into a full-inbox run.
+            if (Limit.Value <= 0)
+                throw new InvalidOperationException($"Invalid --limit {Limit.Value}: use a positive number.");
+            s.Limit = Limit;
+        }
         if (NoGuard) s.NoGuard = true;
         if (!string.IsNullOrWhiteSpace(Duplicates))
         {
