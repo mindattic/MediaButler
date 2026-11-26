@@ -24,7 +24,7 @@ public partial class App : Application
 
         // Previously unhandled exceptions here had no record at all — not even a console (this
         // is a GUI app). CrashLog is shared with the CLI front door; both land in the same
-        // rolled MindAttic.Log files under %LOCALAPPDATA%\MindAttic\MediaButler.
+        // standalone MindAttic.Log.db under Vault's shared roaming root.
         DispatcherUnhandledException += (_, args) =>
         {
             CrashLog.Fatal("WPF dispatcher unhandled exception", args.Exception);
