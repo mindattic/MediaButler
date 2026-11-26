@@ -40,10 +40,11 @@ $ErrorActionPreference = 'Stop'
 
 # The override block: every key is optional; delete what you don't need. See deploy-lib.ps1's header for each key.
 $Override = @{
-    # The console app (its no-argument interactive menu) is what deploys and runs. The optional WPF shell
-    # isn't deployed: its self-contained Release publish collides with the console's apphost (NETSDK1152).
+    # The console app (its no-argument interactive menu) is what runs; the optional WPF shell, MediaButler.Wpf.exe,
+    # deploys beside it. The shell publishes first: it brings along the console's plain apphost, which the console's
+    # own publish then replaces with its single-file mediabutler.exe.
     Exe  = 'mediabutler.exe'
-    Plan = @{ Kind = 'dotnet'; Projects = @("$PSScriptRoot\MediaButler\MediaButler.csproj") }
+    Plan = @{ Kind = 'dotnet'; Projects = @("$PSScriptRoot\MediaButler.Wpf\MediaButler.Wpf.csproj", "$PSScriptRoot\MediaButler\MediaButler.csproj") }
 }
 
 function Find-DeployLib {

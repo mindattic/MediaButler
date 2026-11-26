@@ -17,6 +17,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+    <!--
+      MediaButler.Wpf.UI references the console app too, so a self-contained publish gets the console's
+      mediabutler.exe/.deps.json/.runtimeconfig.json twice (identical copies) and fails with NETSDK1152.
+    -->
+    <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
   </PropertyGroup>
 
   <ItemGroup>
