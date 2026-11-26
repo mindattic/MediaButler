@@ -70,6 +70,8 @@ dotnet build MediaButler.slnx
 
 You should see a per-item log, then a final report with counts for renamed, hoisted, consolidated, split, moved, FileBot matches, artwork and subtitles, errors, and a `Needs manual fix` list. Run `.\mb.cmd` with no arguments for the interactive menu, where Settings are edited and saved to `%APPDATA%\MindAttic\MediaButler\settings.json`.
 
+To install it, use `run.ps1` (or a double-click on `run.bat`), the MindAttic standard run menu: **1) Redeploy** builds the console app, Debug and Release, into `R:\MindAttic\Apps\MediaButler\Debug` and `\Release`; **2) Run Debug** runs `mediabutler.exe` from the Debug copy (extra arguments pass through, e.g. `.\run.ps1 -RunDebug status`); **3) Run Release** starts the installed Release copy without building. Picks combine: `13` (or `-Redeploy -RunRelease`) is Deploy & Run. The optional WPF shell isn't deployed this way yet; build it with `dotnet build MediaButler.Wpf/MediaButler.Wpf.csproj`.
+
 ## How it works
 
 ```text
