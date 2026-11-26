@@ -135,14 +135,17 @@ public class CliEndToEndTests
             Path.Combine(Path.GetTempPath(), "mediabutler-test-variations-" + Guid.NewGuid().ToString("N") + ".json");
 
         using var proc = Process.Start(psi)!;
-        var stdout = proc.StandardOutput.ReadToEnd();
-        var stderr = proc.StandardError.ReadToEnd();
+        // Both pipes drain in the background so the timeout below can actually fire: a synchronous
+        // ReadToEnd blocks until the child exits (never, for a hung CLI) and, read one after the
+        // other, deadlocks once the unread pipe's buffer fills.
+        var stdoutTask = proc.StandardOutput.ReadToEndAsync();
+        var stderrTask = proc.StandardError.ReadToEndAsync();
         if (!proc.WaitForExit(TimeSpan.FromSeconds(60)))
         {
             try { proc.Kill(entireProcessTree: true); } catch { }
             Assert.Fail("CLI invocation timed out after 60s: " + string.Join(' ', args));
         }
-        return new CliResult(proc.ExitCode, stdout, stderr);
+        return new CliResult(proc.ExitCode, stdoutTask.GetAwaiter().GetResult(), stderrTask.GetAwaiter().GetResult());
     }
 
     private sealed record CliResult(int ExitCode, string StdOut, string StdErr);
