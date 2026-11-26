@@ -45,8 +45,13 @@ public sealed class McpServer
         try { msg = JsonNode.Parse(json); }
         catch (JsonException) { return Error(null, -32700, "Parse error"); }
 
-        var id = msg?["id"];
-        var method = msg?["method"]?.GetValue<string>();
+        // A valid-JSON frame that isn't an object (a batch array, a bare number)
+        // or whose "method" isn't a string would make the indexer / GetValue
+        // throw outside the try below and kill the whole stdio loop.
+        if (msg is not JsonObject obj) return Error(null, -32600, "Invalid Request");
+        var id = obj["id"];
+        string? method = null;
+        if (obj["method"] is JsonValue mv) mv.TryGetValue(out method);
         if (method is null) return null; // a response or malformed frame — nothing to do
         if (method.StartsWith("notifications/", StringComparison.Ordinal)) return null;
 
