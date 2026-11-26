@@ -371,7 +371,12 @@ public sealed class RenameStage
         }
 
         var target = Path.Combine(settings.SourcePath, newName);
-        if (Directory.Exists(target))
+        // A case-only difference ("heat (1995)" -> "Heat (1995)") names the SAME
+        // folder on a case-insensitive file system; it is a plain rename, not a
+        // collision with another folder.
+        var caseOnlyRename = string.Equals(
+            Path.GetFullPath(item.FullPath), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase);
+        if (!caseOnlyRename && Directory.Exists(target))
         {
             Status.Line($"  [skip - target exists: {newName}]", Theme.Dim);
             report.RecordManual(item.FullPath, item.Kind, $"target {newName} already exists");
