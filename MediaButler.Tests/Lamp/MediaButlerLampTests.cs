@@ -118,8 +118,12 @@ public class MediaButlerLampTests : LampTestBase
     [Test]
     public void Write_settings_manifest_switch_seeds_and_exits_without_running_the_app()
     {
-        var exe = Path.Combine(new DirectoryInfo(Path.GetDirectoryName(typeof(MediaButlerLampTests).Assembly.Location)!)
-            .Parent!.Parent!.Parent!.Parent!.FullName, "MediaButler", "bin", "Debug", "net10.0-windows", "mediabutler.exe");
+        // …\MediaButler.Tests\bin\<Config>\<tfm> -> …\MediaButler\bin\<Config>\<tfm>: take the
+        // configuration and framework folders from the test's own output path, not a fixed Debug.
+        var tfmDir = new DirectoryInfo(Path.GetDirectoryName(typeof(MediaButlerLampTests).Assembly.Location)!);
+        var configDir = tfmDir.Parent!;
+        var exe = Path.Combine(configDir.Parent!.Parent!.Parent!.FullName, "MediaButler", "bin",
+            configDir.Name, tfmDir.Name, "mediabutler.exe");
         Assert.That(File.Exists(exe), Is.True, "build the solution first");
         var psi = new ProcessStartInfo(exe) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
         psi.ArgumentList.Add(SettingsManifestCommand.Switch);
