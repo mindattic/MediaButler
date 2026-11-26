@@ -113,8 +113,12 @@ public class CliEndToEndTests
         var assembly = typeof(CliEndToEndTests).Assembly.Location;
         var dir      = Path.GetDirectoryName(assembly)!;
         // …\MediaButler.Tests\bin\Debug\net10.0-windows  →  …\MediaButler\bin\Debug\net10.0-windows\mediabutler.exe
-        var solutionRoot = new DirectoryInfo(dir).Parent!.Parent!.Parent!.Parent!.FullName;
-        return Path.Combine(solutionRoot, "MediaButler", "bin", "Debug", "net10.0-windows", "mediabutler.exe");
+        // The configuration and framework folder names come from the test's own output path, so a
+        // Release test run finds the Release CLI rather than a stale (or missing) Debug one.
+        var tfmDir       = new DirectoryInfo(dir);
+        var configDir    = tfmDir.Parent!;
+        var solutionRoot = configDir.Parent!.Parent!.Parent!.FullName;
+        return Path.Combine(solutionRoot, "MediaButler", "bin", configDir.Name, tfmDir.Name, "mediabutler.exe");
     }
 
     private CliResult RunCli(params string[] args)
