@@ -30,7 +30,21 @@ public sealed class SettingsService
     public string Directory => store.Directory;
 
     /// <summary>Load current settings, seeding today's defaults (and the manifest) on first run.</summary>
-    public MediaButlerSettings Load() => store.LoadOrSeed();
+    public MediaButlerSettings Load()
+    {
+        var s = store.LoadOrSeed();
+        // A hand-edited settings.json can carry an explicit null for a collection; the properties are
+        // non-nullable, so every consumer would otherwise throw on it. Fall back to the defaults.
+        var d = new MediaButlerSettings();
+        s.ExtraSources ??= d.ExtraSources;
+        s.ExcludedFolders ??= d.ExcludedFolders;
+        s.AudioExtensions ??= d.AudioExtensions;
+        s.SubtitleExtensions ??= d.SubtitleExtensions;
+        s.TitleYearOverrides ??= d.TitleYearOverrides;
+        s.TvdbIdOverrides ??= d.TvdbIdOverrides;
+        s.TmdbIdOverrides ??= d.TmdbIdOverrides;
+        return s;
+    }
 
     /// <summary>
     /// The one value MediaButler writes itself: the WPF Run page's dry-run safety toggle (forced on at
